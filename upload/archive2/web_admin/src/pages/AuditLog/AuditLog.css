@@ -1,0 +1,16 @@
+.audit-page { display: flex; flex-direction: column; gap: var(--sp-4); }
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text-muted);
+}
+.search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0;
+}

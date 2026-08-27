@@ -1,0 +1,236 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+/* ===== Modern Design System — Emerald/Teal, Harmonious & Balanced ===== */
+:root {
+  --radius: 0.75rem;
+
+  /* Light theme — clean, airy, soft slate with emerald accents */
+  --background: oklch(0.985 0.004 180);
+  --foreground: oklch(0.18 0.02 200);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 200);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 200);
+  --primary: oklch(0.62 0.14 168);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.008 180);
+  --secondary-foreground: oklch(0.25 0.02 200);
+  --muted: oklch(0.96 0.008 180);
+  --muted-foreground: oklch(0.52 0.015 200);
+  --accent: oklch(0.93 0.04 168);
+  --accent-foreground: oklch(0.3 0.06 168);
+  --destructive: oklch(0.6 0.22 25);
+  --success: oklch(0.65 0.16 152);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.75 0.15 70);
+  --warning-foreground: oklch(0.2 0.03 70);
+  --border: oklch(0.9 0.01 180);
+  --input: oklch(0.9 0.01 180);
+  --ring: oklch(0.62 0.14 168);
+  --chart-1: oklch(0.62 0.14 168);
+  --chart-2: oklch(0.68 0.13 195);
+  --chart-3: oklch(0.7 0.15 80);
+  --chart-4: oklch(0.62 0.2 25);
+  --chart-5: oklch(0.58 0.16 300);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.18 0.02 200);
+  --sidebar-primary: oklch(0.62 0.14 168);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.96 0.012 168);
+  --sidebar-accent-foreground: oklch(0.3 0.06 168);
+  --sidebar-border: oklch(0.9 0.01 180);
+  --sidebar-ring: oklch(0.62 0.14 168);
+}
+
+.dark {
+  /* Dark theme — deep slate-teal, premium glassmorphism */
+  --background: oklch(0.16 0.015 210);
+  --foreground: oklch(0.96 0.005 180);
+  --card: oklch(0.2 0.018 210);
+  --card-foreground: oklch(0.96 0.005 180);
+  --popover: oklch(0.22 0.02 210);
+  --popover-foreground: oklch(0.96 0.005 180);
+  --primary: oklch(0.7 0.14 168);
+  --primary-foreground: oklch(0.14 0.02 168);
+  --secondary: oklch(0.25 0.02 210);
+  --secondary-foreground: oklch(0.96 0.005 180);
+  --muted: oklch(0.24 0.018 210);
+  --muted-foreground: oklch(0.68 0.015 200);
+  --accent: oklch(0.3 0.05 168);
+  --accent-foreground: oklch(0.85 0.1 168);
+  --destructive: oklch(0.66 0.2 22);
+  --success: oklch(0.7 0.15 152);
+  --success-foreground: oklch(0.14 0.02 152);
+  --warning: oklch(0.78 0.14 75);
+  --warning-foreground: oklch(0.18 0.03 75);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.7 0.14 168);
+  --chart-1: oklch(0.7 0.14 168);
+  --chart-2: oklch(0.72 0.12 195);
+  --chart-3: oklch(0.78 0.14 80);
+  --chart-4: oklch(0.68 0.2 25);
+  --chart-5: oklch(0.64 0.16 300);
+  --sidebar: oklch(0.19 0.018 210);
+  --sidebar-foreground: oklch(0.96 0.005 180);
+  --sidebar-primary: oklch(0.7 0.14 168);
+  --sidebar-primary-foreground: oklch(0.14 0.02 168);
+  --sidebar-accent: oklch(0.26 0.025 168);
+  --sidebar-accent-foreground: oklch(0.85 0.1 168);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.7 0.14 168);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Custom scrollbar — slim & themed */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+    background-clip: padding-box;
+  }
+  * { scrollbar-width: thin; scrollbar-color: color-mix(in oklch, var(--muted-foreground) 35%, transparent) transparent; }
+}
+
+/* ===== Reusable utility classes ===== */
+@layer components {
+  /* Glassmorphism card */
+  .glass-card {
+    background: color-mix(in oklch, var(--card) 75%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+  }
+
+  /* Subtle gradient ring used on hover for premium feel */
+  .ring-glow {
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 30%, transparent),
+      0 8px 30px -8px color-mix(in oklch, var(--primary) 45%, transparent);
+  }
+
+  /* Animated gradient text */
+  .text-gradient {
+    background: linear-gradient(110deg, var(--primary), color-mix(in oklch, var(--chart-2) 80%, var(--primary)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Live pulse dot */
+  .live-dot {
+    position: relative;
+  }
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.5;
+    animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+/* ===== Keyframe animations ===== */
+@keyframes live-ping {
+  0% { transform: scale(1); opacity: 0.5; }
+  70%, 100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--muted-foreground) 12%, transparent), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+}
+
+/* Slow float for ambient background orbs */
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -20px) scale(1.05); }
+}
+.animate-float-slow { animation: float-slow 14s ease-in-out infinite; }
+
+/* Smooth marquee for tickers */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee 30s linear infinite; }
+.animate-marquee:hover { animation-play-state: paused; }
+
+/* Gradient shift for hero backgrounds */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}

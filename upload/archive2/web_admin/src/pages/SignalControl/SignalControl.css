@@ -1,0 +1,447 @@
+.signal-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.signal-content {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: var(--sp-4);
+  align-items: stretch;
+}
+
+.signal-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  background: var(--bg-tertiary);
+  padding: 4px;
+  border-radius: 6px;
+}
+.mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.mode-btn.active.auto {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.mode-btn.active.manual {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Phase List */
+.phase-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.phase-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 30px;
+  align-items: center;
+  gap: var(--sp-3);
+  opacity: 0.5;
+  transition: 0.2s;
+}
+.phase-row.active {
+  opacity: 1;
+}
+.phase-name {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.phase-bar-bg {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.phase-bar {
+  height: 100%;
+  background: var(--accent);
+}
+.phase-row.active .phase-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+.phase-duration {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------- */
+/* REALISTIC HANG XANH DIAGRAM      */
+/* -------------------------------- */
+
+.signal-diagram-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.diagram-header {
+  text-align: center;
+  padding: var(--sp-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.diagram-header h3 {
+  color: var(--accent);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+
+.intersection-container {
+  flex: 1;
+  position: relative;
+  background: #0f172a; /* Base terrain (buildings/blocks) */
+  min-height: 600px;
+  overflow: hidden;
+}
+
+/* Roads */
+.road {
+  position: absolute;
+  background: #334155; /* Asphalt color */
+}
+
+/* XVNT (Center Vertical) */
+.road-xvnt {
+  top: 0; bottom: 0; left: 50%;
+  width: 120px;
+  transform: translateX(-50%);
+}
+
+/* DBP (Center Horizontal) */
+.road-dbp {
+  top: 50%; left: 0; right: 0;
+  height: 140px;
+  transform: translateY(-50%);
+}
+
+/* Bach Dang (Branching Top-Left) */
+.road-bachdang {
+  top: 15%; left: 0; 
+  width: calc(50% - 60px);
+  height: 100px;
+  transform: translateY(-50%);
+}
+
+/* Road lines */
+.road-line {
+  position: absolute;
+}
+.xvnt-line {
+  top: 0; bottom: 0; left: 50%; width: 2px;
+  background: repeating-linear-gradient(to bottom, #94a3b8 0, #94a3b8 15px, transparent 15px, transparent 30px);
+  transform: translateX(-50%);
+}
+.bch-line {
+  top: 50%; left: 0; right: 0; height: 2px;
+  background: repeating-linear-gradient(to right, #94a3b8 0, #94a3b8 15px, transparent 15px, transparent 30px);
+  transform: translateY(-50%);
+}
+.dbp-line {
+  top: 50%; left: 0; right: 0; height: 2px;
+  background: repeating-linear-gradient(to right, #fbbf24 0, #fbbf24 20px, transparent 20px, transparent 40px);
+  transform: translateY(-50%);
+}
+
+/* Roundabout */
+.roundabout {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 260px;
+  height: 260px;
+  transform: translate(-50%, -50%);
+  background: #334155;
+  border-radius: 50%;
+}
+.roundabout-island {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 140px;
+  height: 140px;
+  transform: translate(-50%, -50%);
+  background: #064e3b;
+  border-radius: 50%;
+  border: 6px solid #64748b;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+/* Overpass Bridge (Cầu vượt) */
+.overpass {
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 60px;
+  transform: translateY(-50%);
+  background: #475569;
+  z-index: 10;
+  box-shadow: 0 20px 30px rgba(0,0,0,0.7);
+  border-top: 3px solid #94a3b8;
+  border-bottom: 3px solid #94a3b8;
+}
+.overpass-divider {
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 2px;
+  background: #fbbf24;
+  transform: translateY(-50%);
+  box-shadow: 0 4px 0 #fbbf24;
+}
+
+/* Floating Countdown */
+.countdown-overlay {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.9);
+  padding: 10px 40px;
+  border-radius: 12px;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(59, 130, 246, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.big-countdown {
+  font-size: 4.5rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lights */
+.diagram-light {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  z-index: 20;
+}
+.diagram-light.col { flex-direction: column; }
+.diagram-light.row { flex-direction: row; }
+
+.road-label {
+  background: rgba(15, 23, 42, 0.9);
+  padding: 6px 12px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  border-radius: 4px;
+}
+
+.traffic-light-mini {
+  background: #000;
+  padding: 6px;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+}
+.traffic-light-mini.horizontal {
+  flex-direction: row;
+}
+
+.light-bulb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1e293b;
+  transition: all 0.3s ease;
+}
+
+.light-countdown {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Light States */
+.is-green .traffic-light-mini .green {
+  background: #22c55e;
+  box-shadow: 0 0 15px #22c55e, inset 0 0 5px rgba(255,255,255,0.5);
+}
+.is-green .light-countdown { color: #22c55e; }
+
+.is-yellow .traffic-light-mini .yellow {
+  background: #eab308;
+  box-shadow: 0 0 15px #eab308, inset 0 0 5px rgba(255,255,255,0.5);
+}
+.is-yellow .light-countdown { color: #eab308; }
+
+.is-red .traffic-light-mini .red {
+  background: #ef4444;
+  box-shadow: 0 0 15px #ef4444, inset 0 0 5px rgba(255,255,255,0.5);
+}
+.is-red .light-countdown { color: #ef4444; }
+
+.is-green .road-label {
+  color: #22c55e;
+  border-color: #22c55e;
+}
+.is-yellow .road-label {
+  color: #eab308;
+  border-color: #eab308;
+}
+.is-red .road-label {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Positioning */
+
+/* Bach Dang (Top Left horizontal) */
+.light-bachdang {
+  top: 15%; left: 20%;
+  transform: translateY(-50%);
+}
+
+/* Dien Bien Phu (Center Left horizontal) */
+.light-dbp {
+  top: 50%; left: 10%;
+  transform: translateY(-50%);
+}
+
+/* Xo Viet Nghe Tinh (Put at BOTTOM as requested) */
+.light-xvnt {
+  bottom: 5%; left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Hang Xanh (Center Right horizontal) */
+.light-hangxanh {
+  top: 50%; right: 10%;
+  transform: translateY(-50%);
+}
+
+/* ═══════ Traffic Volume Panel ═══════ */
+.traffic-volume-card .card-header {
+  display: flex;
+  align-items: center;
+}
+
+.volume-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.volume-row {
+  padding: var(--sp-3);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid transparent;
+  transition: all 0.3s;
+}
+.volume-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Left border matches light state */
+.volume-row.is-green { border-left-color: #22c55e; }
+.volume-row.is-yellow { border-left-color: #eab308; }
+.volume-row.is-red { border-left-color: #ef4444; }
+
+.vol-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.vol-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.vol-status {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+}
+.vol-green {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+.vol-amber {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+.vol-red {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.vol-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.vol-bar-wrap {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.vol-bar {
+  height: 100%;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.vol-count {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  min-width: 35px;
+  text-align: right;
+}
+

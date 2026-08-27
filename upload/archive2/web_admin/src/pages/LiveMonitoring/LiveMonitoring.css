@@ -1,0 +1,128 @@
+.live-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.page-header h2 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.cam-count {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.camera-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-4);
+}
+.camera-cell {
+  position: relative;
+  aspect-ratio: 16/9;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Camera cell action buttons (top-right corner) */
+.camera-cell-actions {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 5;
+}
+.camera-cell:hover .camera-cell-actions { opacity: 1; }
+
+.expand-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border-radius: 6px;
+  transition: background 0.2s;
+  cursor: pointer;
+  border: none;
+}
+.expand-btn:hover {
+  background: rgba(0,0,0,0.85);
+}
+
+/* Stream / Snapshot toggle button */
+.mode-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.mode-toggle-btn:hover {
+  background: rgba(0,0,0,0.85);
+  border-color: rgba(255,255,255,0.3);
+}
+.mode-toggle-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+}
+.mode-toggle-btn.mini {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+}
+.mode-toggle-btn.mini.active {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* Full view */
+.full-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.full-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+.full-view-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.full-view-video {
+  aspect-ratio: 16/9;
+  max-height: 70vh;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}

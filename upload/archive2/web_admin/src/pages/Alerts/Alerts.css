@@ -1,0 +1,22 @@
+.alerts-page { display: flex; flex-direction: column; gap: var(--sp-4); }
+.alert-summary { font-size: var(--fs-sm); color: var(--red); font-weight: 600; }
+.filter-bar { display: flex; gap: 1px; flex-wrap: wrap; }
+
+.threshold-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+}
+.threshold-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.threshold-item label {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.threshold-item input,
+.threshold-item select {
+  padding: var(--sp-2) var(--sp-3);
+}

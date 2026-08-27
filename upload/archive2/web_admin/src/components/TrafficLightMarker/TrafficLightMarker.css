@@ -1,0 +1,53 @@
+/* ══════════════════════════════════════════════════════════ */
+/* Map Traffic Light Markers                                 */
+/* ══════════════════════════════════════════════════════════ */
+
+.map-traffic-light-icon {
+  background: none !important;
+  border: none !important;
+}
+
+.map-traffic-light-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+}
+
+.map-traffic-light-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 5px;
+  background: linear-gradient(135deg, #1a1a2e, #0a0a15);
+  border: 2px solid #475569;
+  border-radius: 6px;
+  box-shadow:
+    0 0 4px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.map-tl-bulb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+}
+
+.map-tl-countdown {
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  text-shadow: 0 0 6px currentColor;
+  line-height: 1;
+  min-width: 18px;
+}
+
+/* Tooltip styling */
+.tl-tooltip .leaflet-tooltip-content {
+  font-size: 12px;
+  line-height: 1.3;
+}
