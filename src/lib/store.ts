@@ -197,9 +197,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       }
     }).catch(console.error);
 
-        firebaseGet("chart_data/latest/predictions").then(predData => {
+                    firebaseGet("chart_data/latest/predictions").then(predData => {
       if (predData && predData.actual && predData.forecast) {
-        set({ aiForecast: predData });
+        const actualArr = (Array.isArray(predData.actual) ? predData.actual : Object.values(predData.actual)).filter(Boolean);
+        const forecastArr = (Array.isArray(predData.forecast) ? predData.forecast : Object.values(predData.forecast)).filter(Boolean);
+        const directionsArr = (Array.isArray(predData.directions) ? predData.directions : (predData.directions ? Object.values(predData.directions) : ["H1", "H2", "H3", "H4"])).filter(Boolean);
+        set({ aiForecast: { ...predData, actual: actualArr, forecast: forecastArr, directions: directionsArr } });
       }
     }).catch(console.error);
 
@@ -311,15 +314,15 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     
     firebaseListen("system/hardware", (data) => {
       if (data) {
-        set({
+                set({
           healthMetrics: {
-            cpu: data.cpu_usage || 0,
-            ram: data.ram_percent || 0,
-            temperature: data.cpu_temp || 0,
-            networkLatency: Math.floor(Math.random() * 20) + 15,
-            diskUsage: data.disk_usage || 45,
-            uptime: data.uptime_percent || 99.9,
-            fps: data.camera_fps || 24
+            cpu: Number(data.cpu_usage) || 0,
+            ram: Number(data.ram_percent) || 0,
+            temperature: Number(data.cpu_temp) || 0,
+            networkLatency: Number(data.latency) || Math.floor(Math.random() * 20) + 15,
+            diskUsage: Number(data.disk_usage) || 45,
+            uptime: Number(data.uptime_percent) || 99.9,
+            fps: Number(data.camera_fps) || 24
           }
         });
       }

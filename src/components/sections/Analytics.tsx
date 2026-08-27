@@ -391,7 +391,8 @@ export function Analytics() {
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {aiForecast.directions.map((dir, i) => {
                 const forecastVal = aiForecast.forecast[0]?.perRoute?.[i] || 0;
-                const actualVal = aiForecast.actual[aiForecast.actual.length - 1]?.perRoute?.[i] || 0;
+                                const actualLast = aiForecast.actual.length > 0 ? aiForecast.actual[aiForecast.actual.length - 1] : null;
+                const actualVal = actualLast?.perRoute?.[i] || 0;
                 const delta = actualVal ? Math.round(((forecastVal - actualVal) / actualVal) * 100) : 0;
                 return (
                   <motion.div
