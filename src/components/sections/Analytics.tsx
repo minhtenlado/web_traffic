@@ -376,10 +376,11 @@ export function Analytics() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
                   <XAxis
                     dataKey="hour"
-                    tickFormatter={(h) => `${h}h`}
+                    tickFormatter={(h) => String(h).includes(':') ? h : `${h}h`}
                     tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                     axisLine={{ stroke: "var(--border)" }}
                     tickLine={false}
+                    minTickGap={40}
                   />
                   <YAxis
                     tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
@@ -396,7 +397,7 @@ export function Analytics() {
                     name="Thực tế"
                     stroke="var(--chart-2)"
                     strokeWidth={2.5}
-                    dot={{ r: 3, fill: "var(--chart-2)" }}
+                    dot={false}
                     activeDot={{ r: 5 }}
                     connectNulls
                   />
@@ -407,7 +408,7 @@ export function Analytics() {
                     stroke="var(--chart-5)"
                     strokeWidth={2.5}
                     strokeDasharray="5 4"
-                    dot={{ r: 3, fill: "var(--chart-5)" }}
+                    dot={false}
                     activeDot={{ r: 5 }}
                     connectNulls
                   />
@@ -444,13 +445,27 @@ export function Analytics() {
             {/* Confidence indicators */}
             <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
               <span className="text-[11px] font-semibold text-muted-foreground">Độ tin cậy dự báo:</span>
-              {aiForecast.forecast.map((f, i) => (
-                <span key={i} className="flex items-center gap-1.5 text-[11px]">
-                  <span className="font-semibold tabular-nums text-foreground">+{i + 1}h</span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <span className="font-mono font-semibold tabular-nums text-primary">{f.confidence}%</span>
-                </span>
-              ))}
+              {aiForecast.forecast.length > 10 
+                ? [
+                    { label: "+30p", f: aiForecast.forecast[29] },
+                    { label: "+1h", f: aiForecast.forecast[59] },
+                    { label: "+2h", f: aiForecast.forecast[119] },
+                    { label: "+3h", f: aiForecast.forecast[179] }
+                  ].filter(x => x.f).map((x, i) => (
+                    <span key={i} className="flex items-center gap-1.5 text-[11px]">
+                      <span className="font-semibold tabular-nums text-foreground">{x.label}</span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      <span className="font-mono font-semibold tabular-nums text-primary">{Math.round(x.f.confidence)}%</span>
+                    </span>
+                  ))
+                : aiForecast.forecast.slice(0, 4).map((f, i) => (
+                  <span key={i} className="flex items-center gap-1.5 text-[11px]">
+                    <span className="font-semibold tabular-nums text-foreground">+{i + 1}h</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="font-mono font-semibold tabular-nums text-primary">{Math.round(f.confidence)}%</span>
+                  </span>
+                ))
+              }
             </div>
           </SectionCard>
         </div>

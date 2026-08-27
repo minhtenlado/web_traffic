@@ -192,7 +192,16 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     firebaseListen("chart_data/latest", (data) => {
       if (data) {
         let history = Array.isArray(data.history) ? data.history : Object.values(data.history || {});
-        let predictions = Array.isArray(data.predictions) ? data.predictions : Object.values(data.predictions || {});
+        let predictionsRaw = data.predictions || {};
+        let predictions: any[] = [];
+        if (Array.isArray(predictionsRaw)) {
+             predictions = predictionsRaw;
+        } else {
+             predictions = Object.keys(predictionsRaw)
+                 .filter(k => k !== 'latest')
+                 .sort((a, b) => Number(a) - Number(b))
+                 .map(k => predictionsRaw[k]);
+        }
         
         history = history.filter(Boolean);
         predictions = predictions.filter(Boolean);
@@ -210,7 +219,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
                sum += val * 100;
                perRoute.push(val * 100);
            });
-           return { hour: point.time.substring(0, 5), total: sum, perRoute };
+           return { hour: point.time ? String(point.time).substring(0, 5) : '00:00', total: sum, perRoute };
         };
 
         const actualArr = history.slice(-30).map(mapToTotal);
