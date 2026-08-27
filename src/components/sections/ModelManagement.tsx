@@ -39,6 +39,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { AICameraCharts } from "./AICameraCharts";
 
 export function ModelManagement() {
   const modelInfo = useTrafficStore((s) => s.modelInfo);
@@ -279,6 +280,16 @@ export function ModelManagement() {
             </TableBody>
           </Table>
         </div>
+      </SectionCard>
+
+      {/* 4-Camera Predictions Chart */}
+      <SectionCard
+        title="Dự báo trạng thái 4 luồng Camera (TCN-Seq2Seq)"
+        subtitle="Biểu đồ quá khứ 60 phút và dự báo tương lai 30 phút"
+        icon={TrendingUp}
+        noPadding={false}
+      >
+        <AICameraCharts />
       </SectionCard>
     </div>
   );

@@ -221,13 +221,15 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
         const directionsArr = ["Hàng Xanh 3", "Hàng Xanh 6", "Đinh Bộ Lĩnh", "Điện Biên Phủ"];
 
-        set((state) => ({
+                set((state) => ({
            aiForecast: {
              ...state.aiForecast,
              actual: actualArr,
              forecast: forecastArr,
              directions: directionsArr,
-             daysLearned: 14
+             daysLearned: 14,
+             rawHistory: history,
+             rawPredictions: predictions
            }
         }));
       }
