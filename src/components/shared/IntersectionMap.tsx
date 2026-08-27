@@ -1,21 +1,48 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Video } from "lucide-react";
+import { Camera, Video, ArrowUpLeft } from "lucide-react";
 import { CAMERAS, SIGNAL_PHASES, DIRECTIONS } from "@/lib/constants";
 import { useTrafficStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 function getLightState(dirId: string, signalState: any) {
   const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase);
-  const isActive = currentPhase?.directions?.includes(dirId);
-  if (isActive) {
+  const isStraightActive = currentPhase?.directions?.includes(dirId);
+  const isLeftTurnActive = (currentPhase as any)?.leftTurnDirections?.includes(dirId);
+
+  let straightColor: "green" | "yellow" | "red" = "red";
+  let straightCountdown = signalState.countdown;
+  if (isStraightActive) {
     if (signalState.countdown > 3) {
-      return { color: "green" as const, countdown: signalState.countdown - 3 };
+      straightColor = "green";
+      straightCountdown = signalState.countdown - 3;
+    } else {
+      straightColor = "yellow";
+      straightCountdown = signalState.countdown;
     }
-    return { color: "yellow" as const, countdown: signalState.countdown };
   }
-  return { color: "red" as const, countdown: signalState.countdown };
+
+  let leftTurnColor: "green" | "yellow" | "red" = "red";
+  let leftTurnCountdown = signalState.countdown;
+  if (isLeftTurnActive) {
+    if (signalState.countdown > 3) {
+      leftTurnColor = "green";
+      leftTurnCountdown = signalState.countdown - 3;
+    } else {
+      leftTurnColor = "yellow";
+      leftTurnCountdown = signalState.countdown;
+    }
+  }
+
+  return {
+    color: straightColor,
+    countdown: straightCountdown,
+    leftTurn: {
+      color: leftTurnColor,
+      countdown: leftTurnCountdown,
+    }
+  };
 }
 
 const LIGHT_COLORS: Record<string, string> = {
@@ -83,7 +110,7 @@ export function IntersectionMap() {
 
         {/* Direction labels */}
         {DIRECTIONS.map((dir) => {
-          let x = 200, y = 200, dy = 0;
+          let x = 200, y = 200;
           if (dir.id === "bach_dang") { y = 24; }       // top
           if (dir.id === "xo_viet_nghe_tinh") { y = 384; } // bottom
           if (dir.id === "dien_bien_phu") { x = 376; y = 130; } // right (upper)
@@ -102,7 +129,7 @@ export function IntersectionMap() {
         })}
       </svg>
 
-      {/* Traffic lights at each direction (positioned around center) */}
+      {/* Traffic lights at each direction: Straight + Left-turn pod */}
       {DIRECTIONS.map((dir) => {
         const light = getLightState(dir.id, signalState);
         // Position lights just outside the roundabout
@@ -116,16 +143,30 @@ export function IntersectionMap() {
         return (
           <div
             key={dir.id}
-            className="absolute z-10 flex flex-col items-center gap-1"
+            className="absolute z-10 flex items-center gap-1.5"
             style={{ left: p.x, top: p.y, transform: "translate(-50%, -50%)" }}
           >
-            {/* Light housing */}
+            {/* Straight Light pod */}
             <div className="flex flex-col items-center gap-0.5 rounded-md border border-border bg-card/95 p-1 shadow-lg backdrop-blur">
-              <div className={cn("h-2 w-2 rounded-full transition-colors duration-300", light.color === "red" ? LIGHT_COLORS.red : "bg-muted opacity-40")} />
-              <div className={cn("h-2 w-2 rounded-full transition-colors duration-300", light.color === "yellow" ? LIGHT_COLORS.yellow : "bg-muted opacity-40")} />
-              <div className={cn("h-2 w-2 rounded-full transition-colors duration-300", light.color === "green" ? LIGHT_COLORS.green : "bg-muted opacity-40")} />
+              <div className={cn("h-2 w-2 rounded-full transition-colors duration-300", light.color === "red" ? LIGHT_COLORS.red : "bg-muted opacity-30")} />
+              <div className={cn("h-2 w-2 rounded-full transition-colors duration-300", light.color === "yellow" ? LIGHT_COLORS.yellow : "bg-muted opacity-30")} />
+              <div className={cn("h-2 w-2 rounded-full transition-colors duration-300", light.color === "green" ? LIGHT_COLORS.green : "bg-muted opacity-30")} />
             </div>
-            {/* Countdown */}
+
+            {/* Left turn Arrow Light pod */}
+            <div className="flex flex-col items-center gap-0.5 rounded-md border border-border bg-card/95 p-1 shadow-lg backdrop-blur">
+              <div className={cn("flex h-2 w-2 items-center justify-center rounded-full transition-colors duration-300", light.leftTurn.color === "red" ? LIGHT_COLORS.red : "bg-muted opacity-30")}>
+                <ArrowUpLeft className="h-1.5 w-1.5 text-background stroke-[3]" />
+              </div>
+              <div className={cn("flex h-2 w-2 items-center justify-center rounded-full transition-colors duration-300", light.leftTurn.color === "yellow" ? LIGHT_COLORS.yellow : "bg-muted opacity-30")}>
+                <ArrowUpLeft className="h-1.5 w-1.5 text-background stroke-[3]" />
+              </div>
+              <div className={cn("flex h-2 w-2 items-center justify-center rounded-full transition-colors duration-300", light.leftTurn.color === "green" ? LIGHT_COLORS.green : "bg-muted opacity-30")}>
+                <ArrowUpLeft className="h-1.5 w-1.5 text-background stroke-[3]" />
+              </div>
+            </div>
+
+            {/* Countdown badge */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={light.countdown}
@@ -134,10 +175,10 @@ export function IntersectionMap() {
                 exit={{ scale: 0.6, opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className={cn(
-                  "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums shadow-md",
-                  light.color === "green" && "bg-success/20 text-success",
-                  light.color === "yellow" && "bg-warning/20 text-warning",
-                  light.color === "red" && "bg-destructive/20 text-destructive",
+                  "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums shadow-md",
+                  (light.color === "green" || light.leftTurn.color === "green") && "bg-success/20 text-success",
+                  (light.color === "yellow" || light.leftTurn.color === "yellow") && "bg-warning/20 text-warning",
+                  light.color === "red" && light.leftTurn.color === "red" && "bg-destructive/20 text-destructive",
                 )}
               >
                 {light.countdown}
@@ -184,7 +225,7 @@ export function IntersectionMap() {
         <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-success" /> Thông thoáng</span>
         <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-warning" /> Đông xe</span>
         <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-destructive" /> Kẹt/Lỗi</span>
-        <span className="flex items-center gap-1 text-muted-foreground"><Camera className="h-3 w-3" /> Camera</span>
+        <span className="flex items-center gap-1 text-muted-foreground"><ArrowUpLeft className="h-2.5 w-2.5" /> Đèn rẽ trái</span>
       </div>
     </div>
   );

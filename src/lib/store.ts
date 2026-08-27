@@ -133,7 +133,9 @@ interface TrafficState {
   logout: () => void;
   tick: () => void;
   setSignalMode: (mode: "auto" | "manual") => void;
-  setSignalDuration: (phase: "phase_1" | "phase_2", duration: number) => void;
+  setSignalDuration: (phase: string, duration: number) => void;
+  setSignalPhase: (phase: string) => void;
+  adjustSignalCountdown: (delta: number) => void;
   acknowledgeAlert: (id: string) => void;
   acknowledgeAllAlerts: () => void;
   refreshRealtime: () => void;
@@ -501,12 +503,22 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     const newCountdown = signal.countdown - 1;
     if (newCountdown <= 0) {
       if (signal.mode === "auto") {
-        const nextPhase = signal.currentPhase === "phase_1" ? "phase_2" : "phase_1";
-        const gen = generateSignalState(nextPhase);
-        newSignal = { ...gen, mode: "auto", phaseDurations: signal.phaseDurations };
-        fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(console.error);
+        const phases = ["phase_1", "phase_2", "phase_3"];
+        const currIdx = phases.indexOf(signal.currentPhase);
+        const nextPhase = phases[(currIdx + 1) % phases.length];
+        const defaultDurations = { phase_1: 35, phase_2: 35, phase_3: 20, ...(signal.phaseDurations || {}) };
+        newSignal = {
+          ...signal,
+          currentPhase: nextPhase,
+          countdown: defaultDurations[nextPhase as keyof typeof defaultDurations] || 35,
+          phaseDurations: defaultDurations,
+          cycleNumber: nextPhase === "phase_1" ? (signal.cycleNumber || 100) + 1 : (signal.cycleNumber || 100),
+        };
+        firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+        fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
       } else {
-        newSignal.countdown = signal.phaseDurations[signal.currentPhase as "phase_1" | "phase_2"];
+        const currentDur = signal.phaseDurations?.[signal.currentPhase as keyof typeof signal.phaseDurations] || 35;
+        newSignal.countdown = currentDur;
       }
     } else {
       newSignal.countdown = newCountdown;
@@ -524,15 +536,42 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
   setSignalMode: (mode) => {
     const newSignal = { ...get().signalState, mode };
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(console.error);
+    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({ signalState: newSignal });
   },
+
   setSignalDuration: (phase, duration) => {
     const newSignal = {
       ...get().signalState,
       phaseDurations: { ...get().signalState.phaseDurations, [phase]: duration },
     };
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(console.error);
+    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
+    set({ signalState: newSignal });
+  },
+
+  setSignalPhase: (phaseId) => {
+    const current = get().signalState;
+    const defaultDurations = { phase_1: 35, phase_2: 35, phase_3: 20, ...(current.phaseDurations || {}) };
+    const dur = defaultDurations[phaseId as keyof typeof defaultDurations] || 35;
+    const newSignal = {
+      ...current,
+      currentPhase: phaseId,
+      countdown: dur,
+      phaseDurations: defaultDurations,
+    };
+    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
+    set({ signalState: newSignal });
+  },
+
+  adjustSignalCountdown: (delta) => {
+    const current = get().signalState;
+    const newCountdown = Math.max(5, current.countdown + delta);
+    const newSignal = { ...current, countdown: newCountdown };
+    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({ signalState: newSignal });
   },
   acknowledgeAlert: (id) =>

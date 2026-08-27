@@ -81,14 +81,26 @@ export const SIGNAL_PHASES = [
   {
     id: "phase_1",
     name: "Pha 1 — Trục Bạch Đằng & XVNT",
+    shortName: "Pha 1 (Bạch Đằng - XVNT)",
     directions: ["bach_dang", "xo_viet_nghe_tinh"],
+    leftTurnDirections: ["bach_dang"], // Đèn rẽ trái Bạch Đằng xanh
     color: "var(--primary)",
   },
   {
     id: "phase_2",
     name: "Pha 2 — Trục Điện Biên Phủ & Hàng Xanh",
+    shortName: "Pha 2 (ĐBP - Hàng Xanh)",
     directions: ["dien_bien_phu", "hang_xanh"],
+    leftTurnDirections: ["dien_bien_phu"], // Đèn rẽ trái ĐBP xanh
     color: "var(--chart-2)",
+  },
+  {
+    id: "phase_3",
+    name: "Pha 3 — Đèn rẽ trái ưu tiên (Left Turn)",
+    shortName: "Pha 3 (Rẽ trái toàn nút)",
+    directions: [],
+    leftTurnDirections: ["bach_dang", "dien_bien_phu", "hang_xanh", "xo_viet_nghe_tinh"], // Tất cả các hướng được rẽ trái
+    color: "var(--chart-4)",
   },
 ];
 

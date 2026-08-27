@@ -6,13 +6,16 @@ import {
   Timer,
   Settings2,
   Bot,
-  History,
-  ArrowRight,
   Zap,
   Hand,
   Gauge,
-  RotateCw,
   CircleDot,
+  ArrowUp,
+  ArrowUpLeft,
+  Plus,
+  Minus,
+  Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { DIRECTIONS, SIGNAL_PHASES } from "@/lib/constants";
@@ -20,19 +23,47 @@ import { formatClockTime, timeAgo } from "@/lib/formatters";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 function getLightState(dirId: string, signalState: any) {
   const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase);
-  const isActive = currentPhase?.directions?.includes(dirId);
-  if (isActive) {
+  const isStraightActive = currentPhase?.directions?.includes(dirId);
+  const isLeftTurnActive = (currentPhase as any)?.leftTurnDirections?.includes(dirId);
+
+  // Main straight light
+  let straightColor: "green" | "yellow" | "red" = "red";
+  let straightCountdown = signalState.countdown;
+  if (isStraightActive) {
     if (signalState.countdown > 3) {
-      return { color: "green" as const, countdown: signalState.countdown - 3 };
+      straightColor = "green";
+      straightCountdown = signalState.countdown - 3;
+    } else {
+      straightColor = "yellow";
+      straightCountdown = signalState.countdown;
     }
-    return { color: "yellow" as const, countdown: signalState.countdown };
   }
-  return { color: "red" as const, countdown: signalState.countdown };
+
+  // Left turn light (arrow)
+  let leftTurnColor: "green" | "yellow" | "red" = "red";
+  let leftTurnCountdown = signalState.countdown;
+  if (isLeftTurnActive) {
+    if (signalState.countdown > 3) {
+      leftTurnColor = "green";
+      leftTurnCountdown = signalState.countdown - 3;
+    } else {
+      leftTurnColor = "yellow";
+      leftTurnCountdown = signalState.countdown;
+    }
+  }
+
+  return {
+    color: straightColor,
+    countdown: straightCountdown,
+    leftTurn: {
+      color: leftTurnColor,
+      countdown: leftTurnCountdown,
+    }
+  };
 }
 
 const LIGHT_RING: Record<string, string> = {
@@ -63,33 +94,16 @@ export function SignalControl() {
   const signalState = useTrafficStore((s) => s.signalState);
   const setSignalMode = useTrafficStore((s) => s.setSignalMode);
   const setSignalDuration = useTrafficStore((s) => s.setSignalDuration);
+  const setSignalPhase = useTrafficStore((s) => s.setSignalPhase);
+  const adjustSignalCountdown = useTrafficStore((s) => s.adjustSignalCountdown);
   const signalRec = useTrafficStore((s) => s.signalRec);
-  const chartHistory = useTrafficStore((s) => s.chartHistory);
 
-  const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase);
+  const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase) || SIGNAL_PHASES[0];
   const isManual = signalState.mode === "manual";
 
   // Ring progress: countdown / phase duration
-  const phaseDuration = signalState.phaseDurations[signalState.currentPhase as "phase_1" | "phase_2"] || 35;
+  const phaseDuration = signalState.phaseDurations?.[signalState.currentPhase as keyof typeof signalState.phaseDurations] || 35;
   const ringPct = Math.max(0, Math.min(100, (signalState.countdown / phaseDuration) * 100));
-
-  // Build phase history timeline (mock from chartHistory)
-  const phaseHistory = useMemo(() => {
-    const items: { time: string; phase: "phase_1" | "phase_2"; cycle: number }[] = [];
-    const baseCycle = signalState.cycleNumber || 100;
-    const altPhase = signalState.currentPhase === "phase_1" ? "phase_2" : "phase_1";
-    for (let i = 6; i >= 1; i--) {
-      const t = new Date(Date.now() - i * phaseDuration * 1000);
-      const phase = i % 2 === 0 ? signalState.currentPhase : altPhase;
-      items.push({ time: formatClockTime(t), phase: phase as "phase_1" | "phase_2", cycle: baseCycle - i + 1 });
-    }
-    items.push({
-      time: formatClockTime(new Date()),
-      phase: signalState.currentPhase as "phase_1" | "phase_2",
-      cycle: baseCycle,
-    });
-    return items.reverse();
-  }, [signalState.currentPhase, signalState.cycleNumber, phaseDuration]);
 
   return (
     <div className="space-y-5">
@@ -99,11 +113,11 @@ export function SignalControl() {
         <div className="lg:col-span-2">
           <SectionCard
             title="Trạng thái đèn hiện tại"
-            subtitle={`Chu kỳ #${signalState.cycleNumber}`}
+            subtitle={`Chu kỳ #${signalState.cycleNumber || 100}`}
             icon={Timer}
             action={
               <StatusBadge color={isManual ? "amber" : "green"} pulse={!isManual}>
-                {isManual ? "Thủ công" : "Tự động"}
+                {isManual ? "Thủ công" : "Tự động (AI)"}
               </StatusBadge>
             }
             bodyClassName="p-0"
@@ -160,29 +174,78 @@ export function SignalControl() {
                   </div>
                 </div>
 
+                {/* Active directions badges */}
                 <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                  {currentPhase?.directions?.map((dirId) => {
+                  {currentPhase?.directions?.length > 0 && currentPhase.directions.map((dirId) => {
                     const dir = DIRECTIONS.find((d) => d.id === dirId);
                     return (
                       <span
                         key={dirId}
                         className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success ring-1 ring-inset ring-success/20"
                       >
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
-                        {dir?.name}
+                        <ArrowUp className="h-3 w-3" />
+                        Đi thẳng: {dir?.name}
+                      </span>
+                    );
+                  })}
+                  {(currentPhase as any)?.leftTurnDirections?.length > 0 && (currentPhase as any).leftTurnDirections.map((dirId: string) => {
+                    const dir = DIRECTIONS.find((d) => d.id === dirId);
+                    return (
+                      <span
+                        key={`left-${dirId}`}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-chart-4/15 px-2.5 py-1 text-xs font-semibold text-chart-4 ring-1 ring-inset ring-chart-4/30"
+                      >
+                        <ArrowUpLeft className="h-3 w-3" />
+                        Rẽ trái: {dir?.name}
                       </span>
                     );
                   })}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-border bg-muted/30 p-2.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">Thời lượng pha</div>
-                    <div className="font-bold tabular-nums text-foreground">{phaseDuration}s</div>
+                {/* Direct Phase Switch Buttons (Thủ công / Can thiệp nhanh) */}
+                <div className="space-y-2 pt-1">
+                  <div className="text-[10px] font-semibold uppercase text-muted-foreground">
+                    Can thiệp / Chuyển pha trực tiếp:
                   </div>
-                  <div className="rounded-xl border border-border bg-muted/30 p-2.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">Tiến trình</div>
-                    <div className="font-bold tabular-nums text-foreground">{Math.round(ringPct)}%</div>
+                  <div className="flex flex-wrap gap-2">
+                    {SIGNAL_PHASES.map((p) => {
+                      const isActive = p.id === signalState.currentPhase;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            if (!isManual) setSignalMode("manual");
+                            setSignalPhase(p.id);
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95",
+                            isActive
+                              ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                              : "border-border bg-card hover:border-primary/50 hover:bg-muted/50 text-foreground"
+                          )}
+                        >
+                          {p.id === "phase_3" ? <ArrowUpLeft className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
+                          {(p as any).shortName || p.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add / Subtract seconds */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[11px] text-muted-foreground">Thời gian:</span>
+                    <button
+                      onClick={() => adjustSignalCountdown(10)}
+                      className="flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted active:scale-95"
+                    >
+                      <Plus className="h-3 w-3 text-success" /> +10s
+                    </button>
+                    <button
+                      onClick={() => adjustSignalCountdown(-10)}
+                      className="flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted active:scale-95"
+                    >
+                      <Minus className="h-3 w-3 text-destructive" /> -10s
+                    </button>
                   </div>
                 </div>
               </div>
@@ -213,7 +276,7 @@ export function SignalControl() {
                     {isManual ? "Chế độ thủ công" : "Chế độ tự động"}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
-                    {isManual ? "Vận hành viên điều khiển" : "AI tối ưu pha đèn"}
+                    {isManual ? "Vận hành viên điều khiển" : "AI tự động luân phiên"}
                   </div>
                 </div>
               </div>
@@ -224,56 +287,61 @@ export function SignalControl() {
               />
             </div>
 
-            {/* Phase duration controls — visible always, but styled disabled in auto */}
-            <div className={cn("space-y-4 transition-opacity", !isManual && "pointer-events-none opacity-50")}>
+            {/* Phase duration controls */}
+            <div className="space-y-4">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                <Gauge className="h-3.5 w-3.5" /> Thời lượng pha (giây)
+                <Gauge className="h-3.5 w-3.5 text-primary" /> Cài đặt thời lượng pha (giây)
               </div>
               {SIGNAL_PHASES.map((phase) => {
-                const value = signalState.phaseDurations[phase.id as "phase_1" | "phase_2"] || 35;
+                const value = signalState.phaseDurations?.[phase.id as keyof typeof signalState.phaseDurations] || (phase.id === "phase_3" ? 20 : 35);
                 return (
                   <div key={phase.id} className="space-y-1.5">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-muted-foreground">{phase.name}</span>
+                      <span className="text-muted-foreground">{(phase as any).shortName || phase.name}</span>
                       <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-mono font-bold tabular-nums text-primary">
                         {value}s
                       </span>
                     </div>
                     <Slider
                       value={[value]}
-                      min={15}
+                      min={10}
                       max={90}
                       step={5}
-                      onValueChange={(v) => setSignalDuration(phase.id as "phase_1" | "phase_2", v[0])}
+                      onValueChange={(v) => setSignalDuration(phase.id, v[0])}
                       aria-label={`Thời lượng ${phase.name}`}
                     />
                     <div className="flex justify-between text-[9px] text-muted-foreground">
-                      <span>15s</span>
+                      <span>10s</span>
                       <span>90s</span>
                     </div>
                   </div>
                 );
               })}
-              <div className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning/5 p-2.5 text-[11px] text-warning">
-                <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>Chế độ thủ công — AI vẫn đề xuất nhưng không tự áp dụng.</span>
-              </div>
+              
+              {isManual && (
+                <div className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning/5 p-2.5 text-[11px] text-warning">
+                  <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>Chế độ thủ công đang bật. Bạn có thể bấm chuyển pha đèn tức thì bên trái.</span>
+                </div>
+              )}
             </div>
           </div>
         </SectionCard>
       </div>
 
-      {/* 4-direction traffic light grid */}
+      {/* 4-direction traffic light grid with Left Turn Indicators */}
       <SectionCard
-        title="Trạng thái đèn 4 hướng"
-        subtitle="Cập nhật thời gian thực theo pha hiện tại"
+        title="Trạng thái đèn 4 hướng (Đi thẳng & Rẽ trái)"
+        subtitle="Cập nhật theo thời gian thực — hiển thị cụm đèn đi thẳng và đèn rẽ trái"
         icon={CircleDot}
         bodyClassName="p-4"
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {DIRECTIONS.map((dir, i) => {
             const light = getLightState(dir.id, signalState);
-            const phase = SIGNAL_PHASES.find((p) => p.directions?.includes(dir.id));
+            const isStraightGreen = light.color === "green";
+            const isLeftGreen = light.leftTurn.color === "green";
+
             return (
               <motion.div
                 key={dir.id}
@@ -282,60 +350,82 @@ export function SignalControl() {
                 transition={{ delay: i * 0.05 }}
                 whileHover={{ y: -2 }}
                 className={cn(
-                  "relative overflow-hidden rounded-xl border p-3.5 transition-colors",
-                  light.color === "green" && "border-success/30 bg-success/5",
-                  light.color === "yellow" && "border-warning/30 bg-warning/5",
-                  light.color === "red" && "border-destructive/20 bg-destructive/5",
+                  "relative overflow-hidden rounded-2xl border bg-card p-4 shadow-sm transition-all",
+                  (isStraightGreen || isLeftGreen) ? "border-success/40 bg-success/5 shadow-success/5" : "border-border"
                 )}
               >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-foreground">{dir.name}</div>
-                    <div className="truncate text-[10px] text-muted-foreground">
-                      {phase?.id === "phase_1" ? "Pha 1" : "Pha 2"} · {dir.short}
-                    </div>
+                {/* Direction Header */}
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div>
+                    <div className="text-sm font-bold text-foreground">{dir.name}</div>
+                    <div className="text-[10px] text-muted-foreground">Mã hướng: {dir.short}</div>
                   </div>
-                  {/* Light indicator (3-dot vertical) */}
-                  <div className="flex flex-col items-center gap-0.5 rounded-md border border-border bg-card/95 p-1.5 shadow-sm">
-                    {(["red", "yellow", "green"] as const).map((c) => (
-                      <span
-                        key={c}
-                        className={cn(
-                          "h-2.5 w-2.5 rounded-full transition-all duration-300",
-                          light.color === c ? cn(LIGHT_DOT_BG[c], "scale-110 shadow-[0_0_8px_2px]") : "bg-muted opacity-30",
-                          light.color === c && c === "green" && "shadow-success/60",
-                          light.color === c && c === "yellow" && "shadow-warning/60",
-                          light.color === c && c === "red" && "shadow-destructive/60",
-                        )}
-                      />
-                    ))}
-                  </div>
+                  <span className={cn(
+                    "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase",
+                    isStraightGreen ? "bg-success/15 text-success" : isLeftGreen ? "bg-chart-4/15 text-chart-4" : "bg-destructive/15 text-destructive"
+                  )}>
+                    {isStraightGreen ? "Đang xả luồng" : isLeftGreen ? "Rẽ trái xanh" : "Dừng chờ"}
+                  </span>
                 </div>
 
-                <div className="mt-3 flex items-end justify-between">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Trạng thái</div>
-                    <div className={cn("text-base font-bold", LIGHT_TEXT[light.color])}>
-                      {LIGHT_LABEL_VN[light.color]}
+                {/* 2 Traffic Light Pods: Straight + Left Turn */}
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {/* Pod 1: Đi thẳng (Straight) */}
+                  <div className="flex flex-col items-center rounded-xl border border-border/80 bg-muted/30 p-2.5 text-center">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                      <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                      <span>Đi thẳng</span>
+                    </div>
+
+                    {/* Vertical 3 dots */}
+                    <div className="my-2 flex flex-col items-center gap-1 rounded-full border border-border bg-background/90 p-1.5 shadow-inner">
+                      {(["red", "yellow", "green"] as const).map((c) => (
+                        <span
+                          key={`str-${c}`}
+                          className={cn(
+                            "h-3 w-3 rounded-full transition-all duration-300",
+                            light.color === c ? cn(LIGHT_DOT_BG[c], "scale-110 shadow-[0_0_10px_2px]") : "bg-muted opacity-25",
+                            light.color === c && c === "green" && "shadow-success/70",
+                            light.color === c && c === "yellow" && "shadow-warning/70",
+                            light.color === c && c === "red" && "shadow-destructive/70",
+                          )}
+                        />
+                      ))}
+                    </div>
+
+                    <div className={cn("text-xs font-bold", LIGHT_TEXT[light.color])}>
+                      {LIGHT_LABEL_VN[light.color]} ({light.countdown}s)
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Còn lại</div>
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={light.countdown}
-                        initial={{ scale: 0.6, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.6, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className={cn(
-                          "flex h-9 min-w-9 items-center justify-center rounded-lg px-2 text-base font-bold tabular-nums",
-                          LIGHT_RING[light.color],
-                        )}
-                      >
-                        {light.countdown}
-                      </motion.div>
-                    </AnimatePresence>
+
+                  {/* Pod 2: Rẽ trái (Left Turn Arrow) */}
+                  <div className="flex flex-col items-center rounded-xl border border-border/80 bg-muted/30 p-2.5 text-center">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                      <ArrowUpLeft className="h-3.5 w-3.5 text-chart-4" />
+                      <span>Rẽ trái</span>
+                    </div>
+
+                    {/* Left turn arrow indicator with glowing colors */}
+                    <div className="my-2 flex flex-col items-center gap-1 rounded-full border border-border bg-background/90 p-1.5 shadow-inner">
+                      {(["red", "yellow", "green"] as const).map((c) => (
+                        <div
+                          key={`left-${c}`}
+                          className={cn(
+                            "flex h-3 w-3 items-center justify-center rounded-full transition-all duration-300",
+                            light.leftTurn.color === c ? cn(LIGHT_DOT_BG[c], "scale-110 shadow-[0_0_10px_2px]") : "bg-muted opacity-25",
+                            light.leftTurn.color === c && c === "green" && "shadow-success/70",
+                            light.leftTurn.color === c && c === "yellow" && "shadow-warning/70",
+                            light.leftTurn.color === c && c === "red" && "shadow-destructive/70",
+                          )}
+                        >
+                          <ArrowUpLeft className="h-2 w-2 text-background stroke-[3]" />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className={cn("text-xs font-bold", LIGHT_TEXT[light.leftTurn.color])}>
+                      {LIGHT_LABEL_VN[light.leftTurn.color]} ({light.leftTurn.countdown}s)
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -344,143 +434,38 @@ export function SignalControl() {
         </div>
       </SectionCard>
 
-      {/* AI Signal Recommendations + Phase history */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* AI Recommendations */}
-        <div className="lg:col-span-2">
-          <SectionCard
-            title="Đề xuất điều chỉnh từ AI"
-            subtitle={signalRec.policy}
-            icon={Bot}
-            action={
-              <div className="hidden flex-col items-end text-[10px] sm:flex">
-                <span className="font-semibold text-foreground">Lần cuối: {timeAgo(signalRec.lastAdjusted)}</span>
-                <span className="text-muted-foreground">Xem xét lại: {timeAgo(signalRec.nextReview).replace("trước", "nữa")}</span>
+      {/* AI Recommendations */}
+      <SectionCard
+        title="Đề xuất điều chỉnh từ AI"
+        subtitle={signalRec.policy}
+        icon={Bot}
+        action={
+          <div className="hidden flex-col items-end text-[10px] sm:flex">
+            <span className="font-semibold text-foreground">Lần cuối: {timeAgo(signalRec.lastAdjusted)}</span>
+            <span className="text-muted-foreground">Xem xét lại: {timeAgo(signalRec.nextReview).replace("trước", "nữa")}</span>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {signalRec.recommendations?.map((rec, i) => (
+            <div key={i} className="flex flex-col justify-between rounded-xl border border-border bg-muted/20 p-4">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-foreground">{rec.phase}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                    Độ tin cậy: {rec.confidence}%
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{rec.reason}</p>
               </div>
-            }
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {signalRec.recommendations.map((rec, i) => {
-                const delta = rec.suggestedGreen - rec.currentGreen;
-                const isIncrease = delta > 0;
-                return (
-                  <motion.div
-                    key={rec.phase}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-xs font-semibold text-foreground">{rec.phase}</div>
-                        <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-                          <span className="rounded bg-muted px-1.5 py-0.5 font-mono tabular-nums text-muted-foreground">
-                            {rec.currentGreen}s
-                          </span>
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                          <span
-                            className={cn(
-                              "rounded px-1.5 py-0.5 font-mono font-bold tabular-nums",
-                              isIncrease ? "bg-success/15 text-success" : delta < 0 ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground",
-                            )}
-                          >
-                            {rec.suggestedGreen}s
-                          </span>
-                        </div>
-                      </div>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                          isIncrease ? "bg-success/15 text-success" : delta < 0 ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {isIncrease ? "▲" : delta < 0 ? "▼" : "="} {Math.abs(delta)}s
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">{rec.reason}</p>
-
-                    <div>
-                      <div className="mb-1 flex items-center justify-between text-[10px]">
-                        <span className="font-medium text-muted-foreground">Độ tin cậy</span>
-                        <span className="font-mono font-bold tabular-nums text-primary">{rec.confidence}%</span>
-                      </div>
-                      <Progress value={rec.confidence} className="h-1.5" />
-                    </div>
-                  </motion.div>
-                );
-              })}
+              <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs">
+                <span className="text-muted-foreground">Hiện tại: <b className="text-foreground">{rec.currentGreen}s</b></span>
+                <span className="text-primary font-bold">Đề xuất: {rec.suggestedGreen}s</span>
+              </div>
             </div>
-            <div className="mt-3 flex items-center justify-between rounded-xl border border-chart-5/20 bg-chart-5/5 p-3 text-[11px]">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <RotateCw className="h-3.5 w-3.5 text-chart-5" />
-                Lịch sử xem xét lại: {formatClockTime(signalRec.nextReview)}
-              </span>
-              <span className="font-medium text-chart-5">{signalRec.policy}</span>
-            </div>
-          </SectionCard>
+          ))}
         </div>
-
-        {/* Phase history timeline */}
-        <SectionCard
-          title="Lịch sử chuyển pha"
-          subtitle="7 lần gần nhất"
-          icon={History}
-          bodyClassName="p-4"
-        >
-          <div className="relative space-y-3 pl-4">
-            <div className="absolute bottom-2 left-[5px] top-2 w-px bg-border" />
-            {phaseHistory.map((item, i) => {
-              const isCurrent = i === phaseHistory.length - 1;
-              const phase = SIGNAL_PHASES.find((p) => p.id === item.phase);
-              const color =
-                phase?.color === "var(--chart-2)" ? "bg-chart-2" : "bg-primary";
-              return (
-                <motion.div
-                  key={`${item.cycle}-${i}`}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="relative"
-                >
-                  <span
-                    className={cn(
-                      "absolute -left-[11px] top-1 h-2.5 w-2.5 rounded-full ring-2 ring-card",
-                      color,
-                      isCurrent && "animate-pulse ring-2 ring-primary/40",
-                    )}
-                  />
-                  <div
-                    className={cn(
-                      "rounded-lg border px-2.5 py-2 text-xs transition-colors",
-                      isCurrent ? "border-primary/30 bg-primary/5" : "border-border bg-muted/30",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-semibold text-foreground">
-                        {phase?.name.replace(/^Pha \d+ — /, "")}
-                      </span>
-                      <span className="font-mono text-[10px] tabular-nums text-muted-foreground">#{item.cycle}</span>
-                    </div>
-                    <div className="mt-0.5 flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground">
-                        {phase?.id === "phase_1" ? "Pha 1" : "Pha 2"}
-                      </span>
-                      <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{item.time}</span>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-          {/* Footer */}
-          <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[10px] text-muted-foreground">
-            <span>Tổng điểm lịch sử: {chartHistory.length}</span>
-            <span className="font-semibold text-primary">Hoạt động bình thường</span>
-          </div>
-        </SectionCard>
-      </div>
+      </SectionCard>
     </div>
   );
 }
