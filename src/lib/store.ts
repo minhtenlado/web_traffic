@@ -197,17 +197,13 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       }
     }).catch(console.error);
 
-    firebaseGet("chart_data/latest/predictions").then(predData => {
-      if (predData) {
-        let sortedPreds = [];
-        if (Array.isArray(predData)) {
-           sortedPreds = predData.filter(d => d && d.time).sort((a, b) => a.time.localeCompare(b.time));
-        } else {
-           sortedPreds = Object.values(predData).filter(d => d && d.time).sort((a, b) => (a as any).time.localeCompare((b as any).time));
-        }
-        set({ aiForecast: sortedPreds as any });
+        firebaseGet("chart_data/latest/predictions").then(predData => {
+      if (predData && predData.actual && predData.forecast) {
+        set({ aiForecast: predData });
       }
     }).catch(console.error);
+
+
 
     
     firebaseListen("realtime", (data) => {
@@ -320,8 +316,11 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
             cpu: data.cpu_usage || 0,
             ram: data.ram_percent || 0,
             temperature: data.cpu_temp || 0,
-            networkLatency: Math.floor(Math.random() * 20) + 15
-          } as any
+            networkLatency: Math.floor(Math.random() * 20) + 15,
+            diskUsage: data.disk_usage || 45,
+            uptime: data.uptime_percent || 99.9,
+            fps: data.camera_fps || 24
+          }
         });
       }
     });
