@@ -1,7 +1,7 @@
 export const DB_URL = "https://trafic-42620-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 export async function firebaseGet(path: string) {
-  const res = await fetch(`${DB_URL}/${path}.json`);
+  const res = await fetch(`${DB_URL}/${path}.json`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Firebase GET failed: ${res.status}`);
   return res.json();
 }

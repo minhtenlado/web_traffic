@@ -277,7 +277,8 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       for (const [camId, camData] of Object.entries(data)) {
         if (camId === 'weather' || camId === 'timestamp') continue;
         const cd = camData as any;
-        if (cd.status === "ERROR" || cd.error_message) {
+        if (!cd) continue;
+        if (cd.status === "ERROR" || (cd.error_message && cd.error_message !== "OK" && cd.error_message !== "None")) {
           autoAlerts.push({
             id: `alert-${camId}-err-${Date.now()}`,
             type: "camera_error",
@@ -463,7 +464,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     }
 
     const tickCount = state._tickCount + 1;
-    const isOffline = Date.now() - state.lastRealtimeUpdate > 30000;
+    const isOffline = Date.now() - state.lastRealtimeUpdate > 90000;
 
     set({
       signalState: newSignal,
