@@ -402,7 +402,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.chart_data?.latest) processChartData(data.chart_data.latest);
         if (data.system?.hardware) processHardwareData(data.system.hardware);
         if (data.system?.status) processStatusData(data.system.status);
-        if (data.traffic?.signalState) set({ signalState: data.traffic.signalState });
+        if (data.traffic?.signalState) {
+          const cur = get().signalState;
+          if (cur.mode !== "manual" || data.traffic.signalState.mode === "manual") {
+            set({ signalState: { ...cur, ...data.traffic.signalState } });
+          }
+        }
         if (data.realtime?.weather) {
           set((s) => ({
             weather: {
@@ -435,7 +440,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (path.includes('hardware')) processHardwareData(data);
         if (path.includes('status')) processStatusData(data);
       } else if (path.startsWith('/traffic/signalState')) {
-        set({ signalState: data });
+        const cur = get().signalState;
+        if (cur.mode !== "manual" || data.mode === "manual") {
+          set({ signalState: { ...cur, ...data } });
+        }
       }
     });
   },
@@ -502,24 +510,22 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     let newSignal = { ...signal };
     const newCountdown = signal.countdown - 1;
     if (newCountdown <= 0) {
-      if (signal.mode === "auto") {
-        const phases = ["phase_1", "phase_2", "phase_3"];
-        const currIdx = phases.indexOf(signal.currentPhase);
-        const nextPhase = phases[(currIdx + 1) % phases.length];
-        const defaultDurations = { phase_1: 35, phase_2: 35, phase_3: 20, ...(signal.phaseDurations || {}) };
-        newSignal = {
-          ...signal,
-          currentPhase: nextPhase,
-          countdown: defaultDurations[nextPhase as keyof typeof defaultDurations] || 35,
-          phaseDurations: defaultDurations,
-          cycleNumber: nextPhase === "phase_1" ? (signal.cycleNumber || 100) + 1 : (signal.cycleNumber || 100),
-        };
-        firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-        fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-      } else {
-        const currentDur = signal.phaseDurations?.[signal.currentPhase as keyof typeof signal.phaseDurations] || 35;
-        newSignal.countdown = currentDur;
-      }
+      const phases = ["phase_1", "phase_2", "phase_3"];
+      const currIdx = phases.indexOf(signal.currentPhase);
+      const nextPhase = phases[(currIdx + 1) % phases.length];
+      const defaultDurations = { phase_1: 35, phase_2: 35, phase_3: 20, ...(signal.phaseDurations || {}) };
+      const nextDuration = defaultDurations[nextPhase as keyof typeof defaultDurations] || 35;
+      
+      newSignal = {
+        ...signal,
+        currentPhase: nextPhase,
+        countdown: nextDuration,
+        phaseDurations: defaultDurations,
+        cycleNumber: nextPhase === "phase_1" ? (signal.cycleNumber || 100) + 1 : (signal.cycleNumber || 100),
+      };
+      
+      firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+      fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     } else {
       newSignal.countdown = newCountdown;
     }
@@ -542,9 +548,13 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   },
 
   setSignalDuration: (phase, duration) => {
+    const current = get().signalState;
+    const isCurrentPhase = current.currentPhase === phase;
+    const newDurations = { ...current.phaseDurations, [phase]: duration };
     const newSignal = {
-      ...get().signalState,
-      phaseDurations: { ...get().signalState.phaseDurations, [phase]: duration },
+      ...current,
+      phaseDurations: newDurations,
+      countdown: isCurrentPhase ? duration : current.countdown,
     };
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
