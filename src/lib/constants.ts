@@ -64,7 +64,7 @@ export const CAMERAS = [
     direction: "bach_dang",
     position: { x: 56, y: 22 },
     isReference: true,
-    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddec9766c880017188c9c",
+    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddf49766c880017188ca0&camLocation=N%C3%BAt%20giao%20H%C3%A0ng%20Xanh%207%20(H%C3%A0ng%20Xanh%20-%20C%E1%BA%A7u%20V%C4%83n%20Th%C3%A1nh)&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
   {
     id: "cam_07",
@@ -73,7 +73,7 @@ export const CAMERAS = [
     direction: "hang_xanh",
     position: { x: 50, y: 82 },
     isReference: true,
-    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddf49766c880017188ca0",
+    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddec9766c880017188c9c&camLocation=N%C3%BAt%20giao%20H%C3%A0ng%20Xanh%205%20(H%C3%A0ng%20Xanh%20-%20B%E1%BA%A1ch%20%C4%90%E1%BA%B1ng)&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
 ];
 
