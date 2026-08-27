@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   keywords: ["giao thông AI", "giám sát giao thông", "Hàng Xanh", "đèn giao thông", "AI"],
   authors: [{ name: "Giao Thông AI" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.svg",
   },
 };
 
