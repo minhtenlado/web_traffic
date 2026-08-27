@@ -22,7 +22,7 @@ export const CAMERAS = [
     label: "Cầu Thị Nghè - Hàng Xanh",
     direction: "hang_xanh",
     position: { x: 50, y: 72 },
-    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9dde1f766c880017188c98",
+    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9dde1f766c880017188c98&camLocation=N%C3%BAt%20giao%20H%C3%A0ng%20Xanh%203%20(C%E1%BA%A7u%20Th%E1%BB%8B%20Ngh%C3%A8%20-%20H%C3%A0ng%20Xanh)&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
   {
     id: "cam_02",
@@ -30,7 +30,7 @@ export const CAMERAS = [
     label: "Cầu Điện Biên Phủ - Hàng Xanh",
     direction: "dien_bien_phu",
     position: { x: 68, y: 50 },
-    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddf0f766c880017188c9e",
+    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddf0f766c880017188c9e&camLocation=N%C3%BAt%20giao%20H%C3%A0ng%20Xanh%206%20(C%E1%BA%A7u%20%C4%90i%E1%BB%87n%20Bi%C3%AAn%20Ph%E1%BB%A7%20-%20H%C3%A0ng%20Xanh)&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
   {
     id: "cam_03",
@@ -38,7 +38,7 @@ export const CAMERAS = [
     label: "Đinh Bộ Lĩnh - Bạch Đằng",
     direction: "bach_dang",
     position: { x: 50, y: 28 },
-    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5a8253615058170011f6eabf",
+    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5a8253615058170011f6eabf&camLocation=%C4%90inh%20B%E1%BB%99%20L%C4%A9nh%20-%20B%E1%BA%A1ch%20%C4%90%E1%BA%B1ng%201&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
   {
     id: "cam_04",
@@ -46,7 +46,7 @@ export const CAMERAS = [
     label: "Điện Biên Phủ - Nguyễn Gia Trí",
     direction: "dien_bien_phu",
     position: { x: 72, y: 58 },
-    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=66b1c426779f74001867415e",
+    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=66b1c426779f74001867415e&camLocation=%C4%90i%E1%BB%87n%20Bi%C3%AAn%20Ph%E1%BB%A7%20-%20Nguy%E1%BB%85n%20Gia%20Tr%C3%AD&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
   {
     id: "cam_05",
@@ -54,7 +54,7 @@ export const CAMERAS = [
     label: "Viện Máy tính (XVNT)",
     direction: "xo_viet_nghe_tinh",
     position: { x: 32, y: 50 },
-    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddd49766c880017188c94",
+    url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddd49766c880017188c94&camLocation=N%C3%BAt%20giao%20H%C3%A0ng%20Xanh%201%20(Vi%E1%BB%87n%20M%C3%A1y%20t%C3%ADnh)&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
   {
     id: "cam_06",
