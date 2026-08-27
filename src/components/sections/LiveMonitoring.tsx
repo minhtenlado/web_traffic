@@ -56,6 +56,7 @@ export function LiveMonitoring() {
   const isOffline = useTrafficStore((s) => s.isBoardOffline);
   const refreshRealtime = useTrafficStore((s) => s.refreshRealtime);
   const lastUpdate = useTrafficStore((s) => s.lastRealtimeUpdate);
+  const isBoardOffline = useTrafficStore((s) => s.isBoardOffline);
 
   const [expandedCam, setExpandedCam] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,7 +163,7 @@ export function LiveMonitoring() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {CAMERAS.map((cam, i) => {
             const camData = realtimeCams[cam.id] as any;
-            const isCamError = camData?.status === "ERROR" || (camData?.error_message && camData.error_message !== "OK" && camData.error_message !== "None");
+            const isCamError = isBoardOffline || camData?.status === "ERROR" || (camData?.error_message && camData.error_message !== "OK" && camData.error_message !== "None");
             const dir = DIRECTIONS.find((d) => d.id === cam.direction);
             const { text, cls } = labelDisplay(camData?.mapped_label, isCamError);
             const count = camData?.count || 0;

@@ -546,7 +546,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     }
 
     const tickCount = state._tickCount + 1;
-    const isOffline = Date.now() - state.lastRealtimeUpdate > 60000;
+    const isOffline = Date.now() - state.lastRealtimeUpdate > 15000;
 
     set({
       signalState: newSignal,
