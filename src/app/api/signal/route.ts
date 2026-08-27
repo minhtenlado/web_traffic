@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
+import { getDatabase } from 'firebase-admin/database';
 import fs from 'fs';
 import path from 'path';
 
-if (!admin.apps.length) {
+if (!getApps().length) {
   let credential;
   
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      credential = admin.credential.cert(serviceAccount);
+      credential = cert(serviceAccount);
     } catch (e) {
       console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT", e);
     }
@@ -20,15 +21,15 @@ if (!admin.apps.length) {
       const keyPath = path.join(process.cwd(), 'trafic-42620-firebase-adminsdk-fbsvc-f91ac01927.json');
       if (fs.existsSync(keyPath)) {
         const serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-        credential = admin.credential.cert(serviceAccount);
+        credential = cert(serviceAccount);
       }
     } catch (e) {
       console.error("Failed to load local service account key", e);
     }
   }
 
-  admin.initializeApp({
-    credential: credential || admin.credential.applicationDefault(),
+  initializeApp({
+    credential: credential || applicationDefault(),
     databaseURL: "https://trafic-42620-default-rtdb.asia-southeast1.firebasedatabase.app"
   });
 }
@@ -36,8 +37,7 @@ if (!admin.apps.length) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
-    const db = admin.database();
+    const db = getDatabase();
     await db.ref('traffic/signalState').update(body);
 
     return NextResponse.json({ success: true });
