@@ -81,6 +81,7 @@ export function StatCard({
   unit,
   trend,
   trendValue,
+  trendColor,
   color = "primary",
   delay = 0,
 }: {
@@ -90,6 +91,7 @@ export function StatCard({
   unit?: string;
   trend?: "up" | "down" | "neutral";
   trendValue?: string;
+  trendColor?: "success" | "destructive" | "muted" | "warning";
   color?: "primary" | "green" | "amber" | "red" | "cyan" | "purple";
   delay?: number;
 }) {
@@ -124,9 +126,10 @@ export function StatCard({
             <span
               className={cn(
                 "mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-medium",
-                trend === "up" && "text-success",
-                trend === "down" && "text-destructive",
-                trend === "neutral" && "text-muted-foreground",
+                trendColor === "success" || (!trendColor && trend === "up") ? "text-success" : "",
+                trendColor === "destructive" || (!trendColor && trend === "down") ? "text-destructive" : "",
+                trendColor === "warning" ? "text-warning" : "",
+                trendColor === "muted" || (!trendColor && trend === "neutral") ? "text-muted-foreground" : "",
               )}
             >
               {trend === "up" && "▲"}

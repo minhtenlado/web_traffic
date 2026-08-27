@@ -70,6 +70,7 @@ export function Dashboard() {
           unit="giây"
           trend="down"
           trendValue="ổn định"
+          trendColor="success"
           color="amber"
           delay={0.05}
         />
@@ -78,8 +79,9 @@ export function Dashboard() {
           label="Cảnh báo hoạt động"
           value={metrics.activeAlerts}
           unit="sự kiện"
-          trend={metrics.activeAlerts > 2 ? "up" : "neutral"}
-          trendValue={metrics.activeAlerts > 2 ? "cần xử lý" : "bình thường"}
+          trend={metrics.activeAlerts > 0 ? "up" : "neutral"}
+          trendValue={metrics.activeAlerts > 0 ? "cần xử lý" : "bình thường"}
+          trendColor={metrics.activeAlerts > 0 ? "destructive" : "muted"}
           color="red"
           delay={0.1}
         />
