@@ -1,8 +1,10 @@
 // Vietnamese-aware formatting helpers
 
-export function formatNumber(n: number): string {
-  if (n >= 1000) return (n / 1000).toFixed(1) + "k";
-  return n.toLocaleString("vi-VN");
+export function formatNumber(n: number | string | null | undefined): string {
+  const num = Number(n);
+  if (isNaN(num)) return "0";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "k";
+  return num.toLocaleString("vi-VN");
 }
 
 export function formatTime(date: Date | string): string {
