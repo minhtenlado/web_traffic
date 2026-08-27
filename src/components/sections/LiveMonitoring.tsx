@@ -188,17 +188,28 @@ export function LiveMonitoring() {
                   </StatusBadge>
                 </div>
 
-                {/* Simulated video feed */}
+                {/* Actual video feed */}
                 <div
                   className={cn(
-                    "relative mx-3 mt-2 aspect-video overflow-hidden rounded-lg border bg-gradient-to-br",
-                    FEED_BG[cls] || FEED_BG.cyan,
+                    "relative mx-3 mt-2 aspect-video overflow-hidden rounded-lg border",
+                    (!cam.url || isError) ? ("bg-gradient-to-br " + (FEED_BG[cls] || FEED_BG.cyan)) : "bg-black",
                     isError ? "border-destructive/30" : cls === "red" ? "border-destructive/30" : cls === "amber" ? "border-warning/30" : "border-border",
                   )}
                 >
+                  {!isError && cam.url && (
+                    <iframe
+                      src={cam.url}
+                      title={cam.name}
+                      className="absolute inset-0 z-0 h-full w-full border-0 pointer-events-none"
+                      allow="autoplay; encrypted-media; picture-in-picture"
+                      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                    />
+                  )}
                   {/* Grid overlay (camera POV lines) */}
                   <div
-                    className="pointer-events-none absolute inset-0 opacity-[0.08]"
+                    className="pointer-events-none absolute inset-0 z-10 opacity-[0.08]"
                     style={{
                       backgroundImage:
                         "linear-gradient(var(--foreground) 1px, transparent 1px), linear-gradient(90deg, var(--foreground) 1px, transparent 1px)",
@@ -209,7 +220,7 @@ export function LiveMonitoring() {
                   {/* Animated scan line */}
                   {!isError && (
                     <motion.div
-                      className={cn("absolute left-0 right-0 h-px bg-gradient-to-r from-transparent to-transparent", SCANLINE_COLOR[cls])}
+                      className={cn("absolute left-0 right-0 z-10 h-px bg-gradient-to-r from-transparent to-transparent", SCANLINE_COLOR[cls])}
                       initial={{ top: "0%" }}
                       animate={{ top: ["0%", "100%", "0%"] }}
                       transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
@@ -222,12 +233,12 @@ export function LiveMonitoring() {
                   )}
 
                   {/* Center crosshair */}
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                     <Crosshair className={cn("h-6 w-6 opacity-30", isError ? "text-destructive" : "text-foreground")} />
                   </div>
 
                   {/* Direction label */}
-                  <div className="absolute left-2 top-2 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-semibold text-foreground backdrop-blur">
+                  <div className="absolute left-2 top-2 z-10 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-semibold text-foreground backdrop-blur">
                     {dir?.name}
                   </div>
 
