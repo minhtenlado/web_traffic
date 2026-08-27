@@ -53,6 +53,9 @@ function labelToStatus(mappedLabel?: string | null) {
 function buildRouteStats(realtimeData: Record<string, any>) {
   const routeAcc: Record<string, { totalCount: number; labels: string[]; timestamps: string[] }> = {};
   for (const [camId, camData] of Object.entries(realtimeData)) {
+    // Exclude reference cameras from traffic calculations
+    if (['cam_05', 'cam_06', 'cam_07'].includes(camId)) continue;
+    
     const routeId = CAM_TO_ROUTE[camId];
     if (!routeId) continue;
     if (!routeAcc[routeId]) routeAcc[routeId] = { totalCount: 0, labels: [], timestamps: [] };
@@ -250,7 +253,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       
       const ts = new Date().toLocaleTimeString("vi-VN", { hour12: false });
       const chartPoint: { time: string; [k: string]: number | string } = { time: ts };
-      CAMERAS.slice(0, 4).forEach((c) => {
+      CAMERAS.filter(c => !['cam_05', 'cam_06', 'cam_07'].includes(c.id)).forEach((c) => {
         chartPoint[c.id] = sev[(data as any)[c.id]?.mapped_label] || 0;
       });
       

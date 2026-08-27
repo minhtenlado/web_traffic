@@ -54,6 +54,7 @@ export const CAMERAS = [
     label: "Viện Máy tính (XVNT)",
     direction: "xo_viet_nghe_tinh",
     position: { x: 32, y: 50 },
+    isReference: true,
     url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddd49766c880017188c94&camLocation=N%C3%BAt%20giao%20H%C3%A0ng%20Xanh%201%20(Vi%E1%BB%87n%20M%C3%A1y%20t%C3%ADnh)&camMode=camera&videoUrl=https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   },
   {
@@ -62,6 +63,7 @@ export const CAMERAS = [
     label: "Hàng Xanh - Bạch Đằng",
     direction: "bach_dang",
     position: { x: 56, y: 22 },
+    isReference: true,
     url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddec9766c880017188c9c",
   },
   {
@@ -70,6 +72,7 @@ export const CAMERAS = [
     label: "Hàng Xanh - Cầu Văn Thánh",
     direction: "hang_xanh",
     position: { x: 50, y: 82 },
+    isReference: true,
     url: "https://giaothong.hochiminhcity.gov.vn/expandcameraplayer/?camId=5d9ddf49766c880017188ca0",
   },
 ];
