@@ -33,15 +33,15 @@ const CAM_TO_ROUTE: Record<string, string> = {
   cam_03: "bach_dang",
   cam_04: "dien_bien_phu",
   cam_05: "xo_viet_nghe_tinh",
-  cam_06: "bach_dang",
-  cam_07: "hang_xanh",
+  cam_06: "hang_xanh",
+  cam_07: "bach_dang",
 };
 
 const ROUTE_META: Record<string, { name: string; cameras: string[]; isReference: boolean }> = {
-  bach_dang: { name: "Bạch Đằng", cameras: ["Camera 3", "Camera 6"], isReference: false },
+  bach_dang: { name: "Bạch Đằng", cameras: ["Camera 3", "Camera 7"], isReference: false },
   dien_bien_phu: { name: "Điện Biên Phủ", cameras: ["Camera 2", "Camera 4"], isReference: false },
   xo_viet_nghe_tinh: { name: "Xô Viết Nghệ Tĩnh", cameras: ["Camera 5"], isReference: true },
-  hang_xanh: { name: "Hàng Xanh", cameras: ["Camera 1", "Camera 7"], isReference: false },
+  hang_xanh: { name: "Hàng Xanh", cameras: ["Camera 1", "Camera 6"], isReference: false },
 };
 
 function labelToStatus(mappedLabel?: string | null) {
