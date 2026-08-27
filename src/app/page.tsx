@@ -33,7 +33,7 @@ export default function Home() {
       /* ignore */
     }
     useTrafficStore.setState({ theme: stored });
-    useTrafficStore.getState().refreshRealtime();
+    useTrafficStore.getState().initFirebase();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
