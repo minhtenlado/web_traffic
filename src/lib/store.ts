@@ -290,14 +290,23 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
            }
         });
 
+        // Determine if data has actually changed (e.g. board pushing new count/timestamp)
+        // By checking if the new payload stringifies to the exact same as the old state
+        const oldStateStr = JSON.stringify(state.realtimeCams || {});
+        const newStateStr = JSON.stringify(enrichedData);
+        const isDataChanged = oldStateStr !== newStateStr;
+        
+        const newUpdateTimestamp = isDataChanged ? Date.now() : (state.lastRealtimeUpdate || Date.now());
+
         return {
           realtimeCams: enrichedData,
           routeStats: routes,
           alerts: newAlerts,
           chartHistory: newChartHistory,
           signalRec: newSignalRec as any,
-          lastRealtimeUpdate: Date.now(),
-          isBoardOffline: false,
+          lastRealtimeUpdate: newUpdateTimestamp,
+          // Only force it online if data changed. If it didn't change, let the tick loop mark it offline when it expires.
+          isBoardOffline: isDataChanged ? false : state.isBoardOffline,
           metrics: {
             ...state.metrics,
             totalVehicles,
@@ -597,12 +606,15 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     try {
       const data = await firebaseGet("realtime");
       if (data) {
-        set((s) => ({
-          realtimeCams: data,
-          routeStats: buildRouteStats(data),
-          lastRealtimeUpdate: Date.now(),
-          isBoardOffline: false,
-        }));
+        set((s) => {
+          const isChanged = JSON.stringify(s.realtimeCams) !== JSON.stringify(data);
+          return {
+            realtimeCams: data,
+            routeStats: buildRouteStats(data),
+            lastRealtimeUpdate: isChanged ? Date.now() : s.lastRealtimeUpdate,
+            isBoardOffline: isChanged ? false : s.isBoardOffline,
+          };
+        });
       }
     } catch (e) {
       console.error(e);
