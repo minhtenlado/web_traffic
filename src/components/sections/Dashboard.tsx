@@ -221,81 +221,86 @@ export function Dashboard() {
         )}
       </SectionCard>
 
-      {/* Map + Weather */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Intersection map */}
-        <div className="lg:col-span-2">
+      {/* Map + Weather Floating */}
+      <div className="grid grid-cols-1">
+        {/* Intersection map with full width */}
+        <div className="col-span-1">
           <SectionCard
             title="Bản đồ ngã tư Hàng Xanh"
             subtitle={`Pha hiện tại: ${signalState.currentPhase === "phase_1" ? "Bạch Đằng & XVNT" : "ĐBP & Hàng Xanh"} · Đếm ngược ${signalState.countdown}s`}
             icon={Radar}
             noPadding
-            bodyClassName="p-4"
+            bodyClassName="p-4 relative"
           >
             <IntersectionMap />
-          </SectionCard>
-        </div>
 
-        {/* Weather */}
-        <div>
-          <SectionCard title="Thời tiết" subtitle="Ngã tư Hàng Xanh" icon={weather?.is_raining ? CloudRain : Sun}>
-            {weather ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-chart-2/10">
-                    <motion.div
-                      key={weather.is_raining ? "rain" : "sun"}
-                      initial={{ rotate: -10, scale: 0.8 }}
-                      animate={{ rotate: 0, scale: 1 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                    >
-                      {weather.is_raining ? (
-                        <CloudRain className="h-8 w-8 text-chart-2" />
-                      ) : (
-                        <Sun className="h-8 w-8 text-warning" />
-                      )}
-                    </motion.div>
-                  </div>
-                  <div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold tabular-nums text-foreground">{weather.temperature}</span>
-                      <span className="text-sm text-muted-foreground">°C</span>
+            {/* Weather Overlay */}
+            <div className="absolute top-8 right-8 z-[500] w-72 rounded-2xl border border-border/40 bg-card/80 p-5 shadow-2xl backdrop-blur-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  {weather?.is_raining ? <CloudRain className="h-4 w-4 text-chart-2" /> : <Sun className="h-4 w-4 text-warning" />}
+                  Thời tiết
+                </div>
+                <span className="text-[10px] font-medium uppercase text-muted-foreground">Hàng Xanh</span>
+              </div>
+              {weather ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-chart-2/10 shadow-inner">
+                      <motion.div
+                        key={weather.is_raining ? "rain" : "sun"}
+                        initial={{ rotate: -10, scale: 0.8 }}
+                        animate={{ rotate: 0, scale: 1 }}
+                        transition={{ type: "spring", stiffness: 200 }}
+                      >
+                        {weather.is_raining ? (
+                          <CloudRain className="h-7 w-7 text-chart-2" />
+                        ) : (
+                          <Sun className="h-7 w-7 text-warning" />
+                        )}
+                      </motion.div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {weather.is_raining ? "Đang mưa" : "Trời quang"}
-                    </p>
+                    <div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-foreground">{weather.temperature}</span>
+                        <span className="text-sm font-semibold text-muted-foreground">°C</span>
+                      </div>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {weather.is_raining ? "Đang mưa" : "Trời quang mây tạnh"}
+                      </p>
+                    </div>
                   </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col items-center justify-center rounded-xl bg-background/50 p-2 shadow-sm">
+                      <Droplets className="mb-1 h-3.5 w-3.5 text-chart-2/80" />
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Độ ẩm</div>
+                      <div className="text-xs font-bold tabular-nums text-foreground">{weather.humidity}%</div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center rounded-xl bg-background/50 p-2 shadow-sm">
+                      <CloudRain className="mb-1 h-3.5 w-3.5 text-chart-2/80" />
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Mưa</div>
+                      <div className="text-xs font-bold tabular-nums text-foreground">{weather.rain_intensity}mm</div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center rounded-xl bg-background/50 p-2 shadow-sm">
+                      <Wind className="mb-1 h-3.5 w-3.5 text-chart-2/80" />
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Gió</div>
+                      <div className="text-xs font-bold tabular-nums text-foreground">{weather.wind_speed}km/h</div>
+                    </div>
+                  </div>
+                  {weather.is_raining && (
+                    <div className="flex items-start gap-2 rounded-lg border border-chart-2/20 bg-chart-2/10 p-2.5 text-[10px] font-medium text-chart-2">
+                      <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>Cảnh báo mưa có thể làm giảm tốc độ lưu thông.</span>
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-center">
-                    <Droplets className="mx-auto mb-1 h-4 w-4 text-chart-2" />
-                    <div className="text-[10px] uppercase text-muted-foreground">Độ ẩm</div>
-                    <div className="text-sm font-semibold tabular-nums text-foreground">{weather.humidity}%</div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-center">
-                    <CloudRain className="mx-auto mb-1 h-4 w-4 text-chart-2" />
-                    <div className="text-[10px] uppercase text-muted-foreground">Mưa</div>
-                    <div className="text-sm font-semibold tabular-nums text-foreground">{weather.rain_intensity}mm</div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-center">
-                    <Wind className="mx-auto mb-1 h-4 w-4 text-chart-2" />
-                    <div className="text-[10px] uppercase text-muted-foreground">Gió</div>
-                    <div className="text-sm font-semibold tabular-nums text-foreground">{weather.wind_speed}km/h</div>
-                  </div>
+              ) : (
+                <div className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Đang tải dữ liệu...
                 </div>
-                {weather.is_raining && (
-                  <div className="flex items-start gap-2 rounded-lg border border-chart-2/30 bg-chart-2/10 p-2.5 text-xs text-chart-2">
-                    <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>Mưa có thể gây ùn tắc — hệ thống theo dõi sát lưu lượng.</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 py-8 text-sm text-muted-foreground">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                Đang tải dữ liệu thời tiết...
-              </div>
-            )}
+              )}
+            </div>
           </SectionCard>
         </div>
       </div>

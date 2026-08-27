@@ -18,7 +18,7 @@ const LeafletMap = dynamic(
 
 export function IntersectionMap() {
   return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background shadow-md">
+    <div className="relative w-full h-[400px] lg:h-[600px] overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background shadow-md">
       <LeafletMap />
     </div>
   );
