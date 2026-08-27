@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-import { firebaseListen, firebaseUpdate, firebaseGet } from "./firebase";
+import { initUnifiedFirebase, firebaseUpdate, firebaseGet } from "./firebase";
 
 import {
   CAMERAS,
@@ -53,8 +53,8 @@ function labelToStatus(mappedLabel?: string | null) {
 function buildRouteStats(realtimeData: Record<string, any>) {
   const routeAcc: Record<string, { totalCount: number; labels: string[]; timestamps: string[] }> = {};
   for (const [camId, camData] of Object.entries(realtimeData)) {
-    // Exclude reference cameras from traffic calculations
     if (['cam_05', 'cam_06', 'cam_07'].includes(camId)) continue;
+    if (!camData || typeof camData !== 'object') continue;
     
     const routeId = CAM_TO_ROUTE[camId];
     if (!routeId) continue;
@@ -188,96 +188,23 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     if (get()._firebaseInitialized) return;
     set({ _firebaseInitialized: true });
 
-    // Real board implementation for chart_data and predictions
-    firebaseListen("chart_data/latest", (data) => {
-      if (data) {
-        let history = Array.isArray(data.history) ? data.history : Object.values(data.history || {});
-        let predictionsRaw = data.predictions || {};
-        let predictions: any[] = [];
-        if (Array.isArray(predictionsRaw)) {
-             predictions = predictionsRaw;
-        } else {
-             predictions = Object.keys(predictionsRaw)
-                 .filter(k => k !== 'latest')
-                 .sort((a, b) => Number(a) - Number(b))
-                 .map(k => predictionsRaw[k]);
-        }
-        
-        history = history.filter(Boolean);
-        predictions = predictions.filter(Boolean);
-
-        // Convert board data format to what Analytics.tsx expects
-        // Board format: { cam_01: 3, cam_02: 0, time: "12:32:40" } -> index of severity
-        // We will map severity index (0-4) to an approximate vehicle count, or just use it directly.
-        // Let's use severity * 100 as a mock "count" for the chart to render nicely.
-        
-        const mapToTotal = (point: any) => {
-           let sum = 0;
-           const perRoute = [];
-           ['cam_01', 'cam_02', 'cam_03', 'cam_04'].forEach(c => {
-               const val = Number(point[c]) || 0;
-               sum += val * 100;
-               perRoute.push(val * 100);
-           });
-           return { hour: point.time ? String(point.time).substring(0, 5) : '00:00', total: sum, perRoute };
-        };
-
-        const actualArr = history.slice(-30).map(mapToTotal);
-        const forecastArr = predictions.map((p: any) => {
-             const mapped = mapToTotal(p);
-             return { ...mapped, confidence: Math.max(50, 95 - (predictions.indexOf(p) * 0.2)) };
-        });
-
-        const directionsArr = ["Hàng Xanh 3", "Hàng Xanh 6", "Đinh Bộ Lĩnh", "Điện Biên Phủ"];
-
-                set((state) => ({
-           aiForecast: {
-             ...state.aiForecast,
-             actual: actualArr,
-             forecast: forecastArr,
-             directions: directionsArr,
-             daysLearned: 14,
-             rawHistory: history,
-             rawPredictions: predictions
-           }
-        }));
-      }
-    });
-
-    firebaseListen("predictions/latest", (data) => {
-       if (data && data.status_summary) {
-          // This has status_summary and details_30min. We could store this for Analytics.
-          // Let's create an aiSummary in the store, or we can just keep it.
-       }
-    });
-    
-    firebaseListen("realtime/weather", (data) => {
-       if (data) {
-          set((state) => ({
-             weather: {
-                ...state.weather,
-                is_raining: Boolean(data.is_raining),
-                rain_intensity: Number(data.rain_intensity) || 0
-             } as any
-          }));
-       }
-    });
-
-
-
-    
-    firebaseListen("realtime", (data) => {
-      if (!data) return;
-      const routes = buildRouteStats(data);
+    // Process helper for realtime camera data
+    const processRealtimeData = (data: any) => {
+      if (!data || typeof data !== 'object') return;
+      
+      const currentCams = get().realtimeCams || {};
+      const mergedData = { ...currentCams, ...data };
+      
+      const routes = buildRouteStats(mergedData);
       const totalVehicles = routes.reduce((sum, r) => sum + r.vehicleCount, 0);
       const avgDensity = routes.length ? Math.round(routes.reduce((s, r) => s + r.density, 0) / routes.length) : 0;
       
       const sev: Record<string, number> = { Duong_vang: 0, Binh_thuong: 1, Dong_xe: 2, Sap_ket: 3, Ket_xe: 4 };
       const autoAlerts: AlertItem[] = [];
-      for (const [camId, camData] of Object.entries(data)) {
-        if (camId === 'weather' || camId === 'timestamp') continue;
+      for (const [camId, camData] of Object.entries(mergedData)) {
+        if (['cam_05', 'cam_06', 'cam_07', 'weather', 'timestamp', 'test_board'].includes(camId)) continue;
         const cd = camData as any;
-        if (!cd) continue;
+        if (!cd || typeof cd !== 'object') continue;
         if (cd.status === "ERROR" || (cd.error_message && cd.error_message !== "OK" && cd.error_message !== "None")) {
           autoAlerts.push({
             id: `alert-${camId}-err-${Date.now()}`,
@@ -309,9 +236,8 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       const ts = new Date().toLocaleTimeString("vi-VN", { hour12: false });
       const chartPoint: { time: string; [k: string]: number | string } = { time: ts };
       CAMERAS.filter(c => !['cam_05', 'cam_06', 'cam_07'].includes(c.id)).forEach((c) => {
-        chartPoint[c.id] = sev[(data as any)[c.id]?.mapped_label] || 0;
+        chartPoint[c.id] = sev[(mergedData as any)[c.id]?.mapped_label] || 0;
       });
-      
       
       const p1Density = (routes.find(r => r.id === 'bach_dang')?.density || 0) + (routes.find(r => r.id === 'hang_xanh')?.density || 0);
       const p2Density = (routes.find(r => r.id === 'xo_viet_nghe_tinh')?.density || 0) + (routes.find(r => r.id === 'dien_bien_phu')?.density || 0);
@@ -346,10 +272,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
       set(state => {
         const newAlerts = [...autoAlerts, ...state.alerts.filter((a) => a.acknowledged).slice(0, 20)].slice(0, 30);
-        const newChartHistory = [...state.chartHistory, chartPoint].slice(-60);
+        const newChartHistory = [...(state.chartHistory || []), chartPoint].slice(-60);
         
         // Inject reference cameras status so they show as online
-        const enrichedData = { ...data };
+        const enrichedData = { ...mergedData };
         ['cam_05', 'cam_06', 'cam_07'].forEach(c => {
            if (!enrichedData[c]) {
              enrichedData[c] = { status: "ONLINE", name: CAM_TO_ROUTE[c] || c };
@@ -372,48 +298,139 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           }
         };
       });
-    });
+    };
 
-    firebaseListen("traffic/signalState", (data) => {
-      if (data) set({ signalState: data });
-    });
-    
-    firebaseListen("system/hardware", (data) => {
-      if (data) {
-        set((state) => ({
-          healthMetrics: {
-            ...(state.healthMetrics || {}),
-            cpu: Number(data.cpu_usage) || 0,
-            ram: Number(data.ram_percent) || 0,
-            temperature: Number(data.cpu_temp) || 0,
-            networkLatency: Number(data.latency) || Math.floor(Math.random() * 20) + 15,
-            fps: Number(data.camera_fps) || 24,
-            diskUsage: state.healthMetrics?.diskUsage || 45,
-            uptime: state.healthMetrics?.uptime || 99.9,
-          } as any
-        }));
+    // Process helper for chart_data
+    const processChartData = (data: any) => {
+      if (!data) return;
+      let history = Array.isArray(data.history) ? data.history : Object.values(data.history || {});
+      let predictionsRaw = data.predictions || {};
+      let predictions: any[] = [];
+      if (Array.isArray(predictionsRaw)) {
+        predictions = predictionsRaw;
+      } else {
+        predictions = Object.keys(predictionsRaw)
+          .filter(k => k !== 'latest')
+          .sort((a, b) => Number(a) - Number(b))
+          .map(k => predictionsRaw[k]);
       }
-    });
+      
+      history = history.filter(Boolean);
+      predictions = predictions.filter(Boolean);
 
-    firebaseListen("system/status", (data) => {
-      if (data) {
-        set((state) => ({
-          healthMetrics: {
-            ...(state.healthMetrics || {}),
-            diskUsage: data.buffer_max ? (data.buffer_fill / data.buffer_max) * 100 : 45,
-            uptime: data.uptime_seconds ? (data.uptime_seconds / 3600) : 99.9,
-            cpu: state.healthMetrics?.cpu || 0,
-            ram: state.healthMetrics?.ram || 0,
-            temperature: state.healthMetrics?.temperature || 0,
-            networkLatency: state.healthMetrics?.networkLatency || 15,
-            fps: state.healthMetrics?.fps || 24
-          } as any,
-          isBoardOffline: data.online === false
-        }));
+      const mapToTotal = (point: any) => {
+        let sum = 0;
+        const perRoute: number[] = [];
+        ['cam_01', 'cam_02', 'cam_03', 'cam_04'].forEach(c => {
+          const val = Number(point[c]) || 0;
+          sum += val * 100;
+          perRoute.push(val * 100);
+        });
+        return { hour: point.time ? String(point.time).substring(0, 5) : '00:00', total: sum, perRoute };
+      };
+
+      const actualArr = history.slice(-30).map(mapToTotal);
+      const forecastArr = predictions.map((p: any, idx: number) => {
+        const mapped = mapToTotal(p);
+        return { ...mapped, confidence: Math.max(50, 95 - (idx * 0.2)) };
+      });
+
+      const directionsArr = ["Hàng Xanh 3", "Hàng Xanh 6", "Đinh Bộ Lĩnh", "Điện Biên Phủ"];
+
+      set((state) => ({
+        aiForecast: {
+          ...state.aiForecast,
+          actual: actualArr,
+          forecast: forecastArr,
+          directions: directionsArr,
+          daysLearned: 14,
+          rawHistory: history,
+          rawPredictions: predictions
+        }
+      }));
+    };
+
+    // Process helper for hardware metrics
+    const processHardwareData = (data: any) => {
+      if (!data) return;
+      set((state) => ({
+        healthMetrics: {
+          ...(state.healthMetrics || {}),
+          cpu: Number(data.cpu_usage) || 0,
+          ram: Number(data.ram_percent) || 0,
+          temperature: Number(data.cpu_temp) || 0,
+          networkLatency: Number(data.latency) || 15,
+          fps: Number(data.camera_fps) || 24,
+          diskUsage: state.healthMetrics?.diskUsage || 45,
+          uptime: state.healthMetrics?.uptime || 99.9,
+        } as any
+      }));
+    };
+
+    // Process helper for system status
+    const processStatusData = (data: any) => {
+      if (!data) return;
+      set((state) => ({
+        healthMetrics: {
+          ...(state.healthMetrics || {}),
+          diskUsage: data.buffer_max ? (data.buffer_fill / data.buffer_max) * 100 : 45,
+          uptime: data.uptime_seconds ? (data.uptime_seconds / 3600) : 99.9,
+          cpu: state.healthMetrics?.cpu || 0,
+          ram: state.healthMetrics?.ram || 0,
+          temperature: state.healthMetrics?.temperature || 0,
+          networkLatency: state.healthMetrics?.networkLatency || 15,
+          fps: state.healthMetrics?.fps || 24
+        } as any,
+        isBoardOffline: data.online === false
+      }));
+    };
+
+    // Initialize single root SSE listener
+    initUnifiedFirebase((path: string, data: any) => {
+      if (!data) return;
+
+      if (path === '/') {
+        if (data.realtime) processRealtimeData(data.realtime);
+        if (data.chart_data?.latest) processChartData(data.chart_data.latest);
+        if (data.system?.hardware) processHardwareData(data.system.hardware);
+        if (data.system?.status) processStatusData(data.system.status);
+        if (data.traffic?.signalState) set({ signalState: data.traffic.signalState });
+        if (data.realtime?.weather) {
+          set((s) => ({
+            weather: {
+              ...s.weather,
+              is_raining: Boolean(data.realtime.weather.is_raining),
+              rain_intensity: Number(data.realtime.weather.rain_intensity) || 0
+            } as any
+          }));
+        }
+      } else if (path.startsWith('/realtime')) {
+        if (path === '/realtime') {
+          processRealtimeData(data);
+        } else if (path.startsWith('/realtime/cam_')) {
+          const camId = path.split('/')[2];
+          processRealtimeData({ [camId]: data });
+        } else if (path === '/realtime/weather') {
+          set((s) => ({
+            weather: {
+              ...s.weather,
+              is_raining: Boolean(data.is_raining),
+              rain_intensity: Number(data.rain_intensity) || 0
+            } as any
+          }));
+        }
+      } else if (path.startsWith('/chart_data')) {
+        if (path === '/chart_data/latest' || path.startsWith('/chart_data/latest/')) {
+          processChartData(data);
+        }
+      } else if (path.startsWith('/system')) {
+        if (path.includes('hardware')) processHardwareData(data);
+        if (path.includes('status')) processStatusData(data);
+      } else if (path.startsWith('/traffic/signalState')) {
+        set({ signalState: data });
       }
     });
   },
-
 
   setActiveSection: (s) => set({ activeSection: s }),
   toggleSidebar: () => set((st) => ({ sidebarOpen: !st.sidebarOpen })),
@@ -472,7 +489,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     }
 
     const tickCount = state._tickCount + 1;
-    const isOffline = Date.now() - state.lastRealtimeUpdate > 90000;
+    const isOffline = Date.now() - state.lastRealtimeUpdate > 60000;
 
     set({
       signalState: newSignal,
@@ -480,7 +497,6 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       _tickCount: tickCount,
     });
   },
-
 
   setSignalMode: (mode) => {
     const newSignal = { ...get().signalState, mode };
@@ -514,25 +530,3 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     }
   },
 }));
-
-function rand(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-// Initialize store on client mount
-export function initStore() {
-  const store = useTrafficStore;
-  // Initialize realtime data if empty
-  if (!store.getState().realtimeCams) {
-    const data = generateRealtimeCams();
-    store.setState({
-      realtimeCams: data,
-      weather: generateWeather(),
-      healthMetrics: generateHealthMetrics(),
-      routeStats: buildRouteStats(data),
-      user: getStoredUser(),
-      isAuthenticated: !!getStoredUser(),
-      theme: getStoredTheme(),
-    });
-  }
-}

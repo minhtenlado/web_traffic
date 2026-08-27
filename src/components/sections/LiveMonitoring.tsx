@@ -30,8 +30,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-function labelDisplay(mappedLabel?: string | null, isError?: boolean) {
-  if (isError) return { text: "MẤT KẾT NỐI", cls: "red" as const };
+function labelDisplay(mappedLabel?: string | null, isCamError?: boolean) {
+  if (isCamError) return { text: "MẤT KẾT NỐI", cls: "red" as const };
   const entry = mappedLabel ? TRAFFIC_LABELS[mappedLabel as TrafficLabelKey] : null;
   if (!entry) return { text: "Đang chờ", cls: "cyan" as const };
   return { text: entry.text, cls: entry.cls as "green" | "amber" | "red" };
@@ -162,9 +162,9 @@ export function LiveMonitoring() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {CAMERAS.map((cam, i) => {
             const camData = realtimeCams[cam.id] as any;
-            const isError = isOffline || camData?.status === "ERROR";
+            const isCamError = camData?.status === "ERROR" || (camData?.error_message && camData.error_message !== "OK" && camData.error_message !== "None");
             const dir = DIRECTIONS.find((d) => d.id === cam.direction);
-            const { text, cls } = labelDisplay(camData?.mapped_label, isError);
+            const { text, cls } = labelDisplay(camData?.mapped_label, isCamError);
             const count = camData?.count || 0;
             const ts = camData?.timestamp?.split(" ")[1] || "—";
 
@@ -183,8 +183,8 @@ export function LiveMonitoring() {
                     <div className="truncate text-sm font-bold text-foreground">{cam.name}</div>
                     <div className="truncate text-[10px] text-muted-foreground">{cam.label}</div>
                   </div>
-                  <StatusBadge color={isError ? "red" : cls} pulse={!isError && cls !== "green"}>
-                    {isError ? "LỖI" : text}
+                  <StatusBadge color={isCamError ? "red" : cls} pulse={!isCamError && cls !== "green"}>
+                    {isCamError ? "LỖI" : text}
                   </StatusBadge>
                 </div>
 
@@ -192,11 +192,11 @@ export function LiveMonitoring() {
                 <div
                   className={cn(
                     "relative mx-3 mt-2 aspect-video overflow-hidden rounded-lg border",
-                    (!cam.url || isError) ? ("bg-gradient-to-br " + (FEED_BG[cls] || FEED_BG.cyan)) : "bg-black",
-                    isError ? "border-destructive/30" : cls === "red" ? "border-destructive/30" : cls === "amber" ? "border-warning/30" : "border-border",
+                    (!cam.url || isCamError) ? ("bg-gradient-to-br " + (FEED_BG[cls] || FEED_BG.cyan)) : "bg-black",
+                    isCamError ? "border-destructive/30" : cls === "red" ? "border-destructive/30" : cls === "amber" ? "border-warning/30" : "border-border",
                   )}
                 >
-                  {!isError && cam.url && (
+                  {!isCamError && cam.url && (
                     <iframe
                       src={cam.url}
                       title={cam.name}
@@ -218,7 +218,7 @@ export function LiveMonitoring() {
                   />
 
                   {/* Animated scan line */}
-                  {!isError && (
+                  {!isCamError && (
                     <motion.div
                       className={cn("absolute left-0 right-0 z-10 h-px bg-gradient-to-r from-transparent to-transparent", SCANLINE_COLOR[cls])}
                       initial={{ top: "0%" }}
@@ -228,13 +228,13 @@ export function LiveMonitoring() {
                   )}
 
                   {/* Noise / shimmer when error */}
-                  {isError && (
+                  {isCamError && (
                     <div className="absolute inset-0 shimmer opacity-50" />
                   )}
 
                   {/* Center crosshair */}
                   <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-                    <Crosshair className={cn("h-6 w-6 opacity-30", isError ? "text-destructive" : "text-foreground")} />
+                    <Crosshair className={cn("h-6 w-6 opacity-30", isCamError ? "text-destructive" : "text-foreground")} />
                   </div>
 
                   {/* Direction label */}
@@ -243,7 +243,7 @@ export function LiveMonitoring() {
                   </div>
 
                   {/* REC indicator */}
-                  {!isError && (
+                  {!isCamError && (
                     <div className="absolute right-2 top-2 flex items-center gap-1 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-bold text-destructive backdrop-blur">
                       <span className="relative flex h-1.5 w-1.5">
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-70" />
@@ -261,17 +261,17 @@ export function LiveMonitoring() {
                   {/* Vehicle count overlay (bottom-right) */}
                   <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-foreground backdrop-blur">
                     <Video className="h-2.5 w-2.5" />
-                    {isError ? "—" : formatNumber(count)}
+                    {isCamError ? "—" : formatNumber(count)}
                   </div>
 
                   {/* Error overlay */}
-                  {isError && (
+                  {isCamError && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-destructive/10 backdrop-blur-[2px]">
                       <CameraOff className="h-7 w-7 text-destructive" />
                       <span className="rounded bg-destructive/20 px-2 py-0.5 text-[10px] font-semibold text-destructive">
                         Mất tín hiệu
                       </span>
-                      {camData?.error_message && (
+                      {camData?.error_message && camData.error_message !== "OK" && camData.error_message !== "None" && (
                         <span className="px-2 text-center text-[9px] text-destructive/80">
                           {camData.error_message}
                         </span>
@@ -280,7 +280,7 @@ export function LiveMonitoring() {
                   )}
 
                   {/* Expand button on hover */}
-                  {!isError && (
+                  {!isCamError && (
                     <button
                       type="button"
                       onClick={() => {
@@ -303,7 +303,7 @@ export function LiveMonitoring() {
                   <div className="rounded-lg bg-muted/40 p-1.5">
                     <div className="text-[9px] uppercase text-muted-foreground">Số xe</div>
                     <div className="font-bold tabular-nums text-foreground">
-                      {isError ? "—" : formatNumber(count)}
+                      {isCamError ? "—" : formatNumber(count)}
                     </div>
                   </div>
                   <div className="rounded-lg bg-muted/40 p-1.5">
