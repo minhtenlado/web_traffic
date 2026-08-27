@@ -361,7 +361,7 @@ export function Analytics() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <SectionCard
-            title="Dự báo AI — 3 giờ tới"
+            title="Dự báo AI — 30 phút tới"
             subtitle={`Mô hình đã học ${aiForecast.daysLearned} ngày dữ liệu thực tế`}
             icon={Brain}
             action={
@@ -447,10 +447,10 @@ export function Analytics() {
               <span className="text-[11px] font-semibold text-muted-foreground">Độ tin cậy dự báo:</span>
               {aiForecast.forecast.length > 10 
                 ? [
-                    { label: "+30p", f: aiForecast.forecast[29] },
-                    { label: "+1h", f: aiForecast.forecast[59] },
-                    { label: "+2h", f: aiForecast.forecast[119] },
-                    { label: "+3h", f: aiForecast.forecast[179] }
+                    { label: "+5p", f: aiForecast.forecast[29] },
+                    { label: "+10p", f: aiForecast.forecast[59] },
+                    { label: "+20p", f: aiForecast.forecast[119] },
+                    { label: "+30p", f: aiForecast.forecast[179] }
                   ].filter(x => x.f).map((x, i) => (
                     <span key={i} className="flex items-center gap-1.5 text-[11px]">
                       <span className="font-semibold tabular-nums text-foreground">{x.label}</span>
@@ -460,7 +460,7 @@ export function Analytics() {
                   ))
                 : aiForecast.forecast.slice(0, 4).map((f, i) => (
                   <span key={i} className="flex items-center gap-1.5 text-[11px]">
-                    <span className="font-semibold tabular-nums text-foreground">+{i + 1}h</span>
+                    <span className="font-semibold tabular-nums text-foreground">+{(i + 1) * 10}s</span>
                     <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                     <span className="font-mono font-semibold tabular-nums text-primary">{Math.round(f.confidence)}%</span>
                   </span>
