@@ -174,7 +174,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   routeStats: [],
   metrics: { totalVehicles: 0, avgSpeed: 0, avgWaitTime: 0, activeAlerts: 0 },
   signalState: { currentPhase: "phase_1", mode: "auto", countdown: 35, phaseDurations: { phase_1: 35, phase_2: 35 }, cycleNumber: 1 },
-  alerts: generateAlerts(6),
+  alerts: [],
   auditLog: generateAuditLog(12),
   users: generateUsers(),
   healthMetrics: null,
@@ -215,7 +215,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (!cd || typeof cd !== 'object') continue;
         if (cd.status === "ERROR" || (cd.error_message && cd.error_message !== "OK" && cd.error_message !== "None")) {
           autoAlerts.push({
-            id: `alert-${camId}-err-${Date.now()}`,
+            id: `alert-${camId}-err`,
             type: "camera_error",
             label: "Camera lỗi",
             color: "amber",
@@ -228,7 +228,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         }
         if (cd.mapped_label === "Ket_xe" || cd.mapped_label === "Sap_ket") {
           autoAlerts.push({
-            id: `alert-${camId}-cong-${Date.now()}`,
+            id: `alert-${camId}-cong`,
             type: "congestion",
             label: "Ùn tắc",
             color: "red",
@@ -279,7 +279,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       };
 
       set(state => {
-        const newAlerts = [...autoAlerts, ...state.alerts.filter((a) => a.acknowledged).slice(0, 20)].slice(0, 30);
+        const newAlerts = [...autoAlerts, ...state.alerts.filter(a => !autoAlerts.some(newA => newA.id === a.id))].slice(0, 50);
         const newChartHistory = [...(state.chartHistory || []), chartPoint].slice(-60);
         
         // Inject reference cameras status so they show as online
@@ -310,7 +310,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           metrics: {
             ...state.metrics,
             totalVehicles,
-            activeAlerts: newAlerts.length,
+            activeAlerts: newAlerts.filter(a => !a.acknowledged).length,
             avgWaitTime: avgDensity > 70 ? 45 : avgDensity > 40 ? 30 : 15,
           }
         };
