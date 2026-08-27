@@ -149,7 +149,13 @@ function getStoredUser() {
   if (typeof window === "undefined") return null;
   try {
     const u = localStorage.getItem("auth_user");
-    return u ? JSON.parse(u) : null;
+    if (!u) return null;
+    const parsed = JSON.parse(u);
+    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+      localStorage.removeItem("auth_user");
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -449,20 +455,38 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   login: (username, password) =>
     new Promise((resolve, reject) => {
       setTimeout(() => {
-        if (username === "admin" && password === "admin") {
-          const userData = { id: "U01", username: "admin", fullName: "Nguyễn Thanh Nhàn", role: "admin" as const, email: "nhan.nt@gtvt.gov.vn" };
+        const u = username.trim();
+        const p = password.trim();
+        if (u === "admin" && p === "admin") {
+          const userData = {
+            id: "U01",
+            username: "admin",
+            fullName: "Nguyễn Thanh Nhàn",
+            role: "admin" as const,
+            email: "nhan.nt@gtvt.gov.vn",
+            loginAt: Date.now(),
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          };
           localStorage.setItem("auth_user", JSON.stringify(userData));
           set({ user: userData, isAuthenticated: true });
           resolve();
-        } else if (username === "staff" && password === "staff") {
-          const userData = { id: "U02", username: "staff", fullName: "Trần Văn Vận Hành", role: "operator" as const, email: "staff.tv@gtvt.gov.vn" };
+        } else if (u === "staff" && p === "staff") {
+          const userData = {
+            id: "U02",
+            username: "staff",
+            fullName: "Trần Văn Vận Hành",
+            role: "operator" as const,
+            email: "staff.tv@gtvt.gov.vn",
+            loginAt: Date.now(),
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          };
           localStorage.setItem("auth_user", JSON.stringify(userData));
           set({ user: userData, isAuthenticated: true });
           resolve();
         } else {
           reject(new Error("Tài khoản hoặc mật khẩu không chính xác"));
         }
-      }, 600);
+      }, 500);
     }),
 
   logout: () => {

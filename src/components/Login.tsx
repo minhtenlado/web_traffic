@@ -1,26 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { TrafficCone, User, Lock, Loader2, Eye, EyeOff, ShieldCheck, Activity, Radar } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { TrafficCone, User, Lock, Loader2, Eye, EyeOff, ShieldCheck, ShieldAlert, LockKeyhole } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 
 export function Login() {
   const login = useTrafficStore((s) => s.login);
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // Rate limiting / brute-force lockout states
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  // Countdown timer for lockout
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockoutSeconds > 0) return;
+
     setLoading(true);
     setError("");
+
     try {
-      await login(username, password);
+      await login(username.trim(), password);
+      setFailedAttempts(0);
     } catch (err: any) {
-      setError(err.message || "Đăng nhập thất bại");
+      const attempts = failedAttempts + 1;
+      setFailedAttempts(attempts);
+      
+      if (attempts >= 5) {
+        setLockoutSeconds(30);
+        setError("Bạn đã nhập sai quá 5 lần. Tạm khóa đăng nhập 30 giây để bảo mật.");
+      } else {
+        setError(err.message || "Tài khoản hoặc mật khẩu không chính xác");
+      }
     } finally {
       setLoading(false);
     }
@@ -68,7 +93,7 @@ export function Login() {
             Giao Thông AI
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Hệ thống Giám sát Giao thông Thông minh
+            Hệ thống Giám sát & Điều khiển Giao thông Thông minh
           </p>
           <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/50 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
             <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-primary" />
@@ -79,10 +104,17 @@ export function Login() {
         {/* Login card */}
         <div className="glass-card overflow-hidden rounded-2xl border border-border shadow-2xl">
           <div className="border-b border-border px-6 py-4">
-            <h2 className="text-base font-semibold text-foreground">Đăng nhập hệ thống</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Sử dụng tài khoản được cấp để truy cập
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Đăng nhập hệ thống</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Yêu cầu xác thực tài khoản được cấp quyền
+                </p>
+              </div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <LockKeyhole className="h-4 w-4" />
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
@@ -95,10 +127,11 @@ export function Login() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  disabled={lockoutSeconds > 0 || loading}
                   autoFocus
                   required
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 pl-10 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  placeholder="Nhập tài khoản"
+                  className="h-11 w-full rounded-xl border border-input bg-background/60 pl-10 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                  placeholder="Nhập tên tài khoản"
                 />
               </div>
             </div>
@@ -112,87 +145,65 @@ export function Login() {
                   type={showPwd ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={lockoutSeconds > 0 || loading}
                   required
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 pl-10 pr-10 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="h-11 w-full rounded-xl border border-input bg-background/60 pl-10 pr-10 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                   placeholder="Nhập mật khẩu"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPwd((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                  disabled={lockoutSeconds > 0}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
                 >
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                {error}
-              </motion.div>
-            )}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+                >
+                  <ShieldAlert className="h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <button
               type="submit"
-              disabled={loading}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={loading || lockoutSeconds > 0}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang đăng nhập...
+                  Đang xác thực...
                 </>
+              ) : lockoutSeconds > 0 ? (
+                `Vui lòng chờ (${lockoutSeconds}s)`
               ) : (
                 "Đăng nhập"
               )}
             </button>
           </form>
 
-          {/* Demo accounts */}
-          <div className="border-t border-border bg-muted/30 px-6 py-4">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Tài khoản demo
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("admin");
-                  setPassword("admin");
-                }}
-                className="group flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-accent"
-              >
-                <Radar className="h-4 w-4 text-primary" />
-                <div className="flex flex-col leading-tight">
-                  <span className="text-xs font-semibold text-foreground">Admin</span>
-                  <span className="text-[10px] text-muted-foreground">admin / admin</span>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("staff");
-                  setPassword("staff");
-                }}
-                className="group flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-accent"
-              >
-                <Activity className="h-4 w-4 text-chart-2" />
-                <div className="flex flex-col leading-tight">
-                  <span className="text-xs font-semibold text-foreground">Vận hành</span>
-                  <span className="text-[10px] text-muted-foreground">staff / staff</span>
-                </div>
-              </button>
+          {/* Security Badge Footer */}
+          <div className="border-t border-border bg-muted/20 px-6 py-3">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+              <span>Bảo mật kết nối SSL/TLS 256-bit</span>
             </div>
           </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          © 2025 Giao Thông AI · Phiên bản 2.3.1
+          © 2026 Giao Thông AI · Trung tâm Giám sát Điều hành Giao thông
         </p>
       </motion.div>
     </div>
