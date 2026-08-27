@@ -170,7 +170,7 @@ export function generateModelInfo() {
       lastUpdated: new Date(Date.now() - 3 * 86400000).toISOString(),
       status: "active",
       framework: "TensorFlow Lite",
-      type: "LSTM + CNN",
+      type: "TCN",
       size: "18.4 MB",
       inferenceTime: 42,
     },

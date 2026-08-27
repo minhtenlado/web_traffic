@@ -84,6 +84,7 @@ export function StatCard({
   trendColor,
   color = "primary",
   delay = 0,
+  onClick,
 }: {
   icon: LucideIcon;
   label: string;
@@ -94,6 +95,7 @@ export function StatCard({
   trendColor?: "success" | "destructive" | "muted" | "warning";
   color?: "primary" | "green" | "amber" | "red" | "cyan" | "purple";
   delay?: number;
+  onClick?: () => void;
 }) {
   const colorMap: Record<string, string> = {
     primary: "from-primary/20 to-primary/5 text-primary",
@@ -109,7 +111,11 @@ export function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -2 }}
-      className="group relative overflow-hidden rounded-2xl border border-border bg-card p-4 transition-shadow hover:shadow-lg hover:shadow-primary/5"
+      onClick={onClick}
+      className={cn(
+        "group relative overflow-hidden rounded-2xl border border-border bg-card p-4 transition-shadow hover:shadow-lg hover:shadow-primary/5",
+        onClick && "cursor-pointer active:scale-[0.98]"
+      )}
     >
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-1">

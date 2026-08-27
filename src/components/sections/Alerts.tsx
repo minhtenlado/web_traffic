@@ -44,7 +44,7 @@ const SEVERITY_TEXT: Record<string, string> = {
 };
 
 type TypeFilter = "all" | keyof typeof ALERT_TYPES;
-type StatusFilter = "all" | "active" | "acknowledged";
+
 
 export function Alerts() {
   const alerts = useTrafficStore((s) => s.alerts);
@@ -52,7 +52,7 @@ export function Alerts() {
   const acknowledgeAllAlerts = useTrafficStore((s) => s.acknowledgeAllAlerts);
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
 
   const stats = useMemo(() => {
     const active = alerts.filter((a) => !a.acknowledged);
@@ -69,19 +69,18 @@ export function Alerts() {
 
   const filtered = useMemo(() => {
     return alerts.filter((a) => {
+      if (a.acknowledged) return false;
       if (typeFilter !== "all" && a.type !== typeFilter) return false;
-      if (statusFilter === "active" && a.acknowledged) return false;
-      if (statusFilter === "acknowledged" && !a.acknowledged) return false;
       return true;
     });
-  }, [alerts, typeFilter, statusFilter]);
+  }, [alerts, typeFilter]);
 
   const hasActive = stats.active > 0;
 
   return (
     <div className="space-y-5">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={BellRing}
           label="Đang hoạt động"
@@ -112,16 +111,7 @@ export function Alerts() {
           color="amber"
           delay={0.1}
         />
-        <StatCard
-          icon={ShieldCheck}
-          label="Đã xử lý"
-          value={stats.acknowledged}
-          unit="sự kiện"
-          trend="up"
-          trendValue="trong phiên"
-          color="green"
-          delay={0.15}
-        />
+
       </div>
 
       {/* Filter bar + bulk action */}
@@ -172,29 +162,7 @@ export function Alerts() {
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Trạng thái:
-              </span>
-              {[
-                { id: "all", label: "Tất cả" },
-                { id: "active", label: "Đang hoạt động" },
-                { id: "acknowledged", label: "Đã xử lý" },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setStatusFilter(opt.id as StatusFilter)}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                    statusFilter === opt.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+
           </div>
 
           {/* Alert list */}

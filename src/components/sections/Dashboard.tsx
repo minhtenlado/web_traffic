@@ -84,6 +84,7 @@ export function Dashboard() {
           trendColor={metrics.activeAlerts > 0 ? "destructive" : "muted"}
           color="red"
           delay={0.1}
+          onClick={() => setActive("alerts")}
         />
       </div>
 
