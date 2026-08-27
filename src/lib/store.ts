@@ -376,7 +376,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         const nextPhase = signal.currentPhase === "phase_1" ? "phase_2" : "phase_1";
         const gen = generateSignalState(nextPhase);
         newSignal = { ...gen, mode: "auto", phaseDurations: signal.phaseDurations };
-        firebaseUpdate("traffic/signalState", newSignal).catch(console.error);
+        fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(console.error);
       } else {
         newSignal.countdown = signal.phaseDurations[signal.currentPhase as "phase_1" | "phase_2"];
       }
@@ -397,7 +397,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
   setSignalMode: (mode) => {
     const newSignal = { ...get().signalState, mode };
-    firebaseUpdate("traffic/signalState", newSignal).catch(console.error);
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(console.error);
     set({ signalState: newSignal });
   },
   setSignalDuration: (phase, duration) => {
@@ -405,7 +405,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       ...get().signalState,
       phaseDurations: { ...get().signalState.phaseDurations, [phase]: duration },
     };
-    firebaseUpdate("traffic/signalState", newSignal).catch(console.error);
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(console.error);
     set({ signalState: newSignal });
   },
   acknowledgeAlert: (id) =>
