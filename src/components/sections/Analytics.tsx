@@ -360,7 +360,7 @@ export function Analytics() {
                     tickLine={false}
                     width={44}
                     domain={[0, "auto"]}
-                    ticks={3}
+                    tickCount={3}
                   />
                   <Tooltip content={<ChartTooltip />} />
                   <Line
