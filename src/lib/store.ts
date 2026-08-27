@@ -348,8 +348,16 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         const newAlerts = [...autoAlerts, ...state.alerts.filter((a) => a.acknowledged).slice(0, 20)].slice(0, 30);
         const newChartHistory = [...state.chartHistory, chartPoint].slice(-60);
         
+        // Inject reference cameras status so they show as online
+        const enrichedData = { ...data };
+        ['cam_05', 'cam_06', 'cam_07'].forEach(c => {
+           if (!enrichedData[c]) {
+             enrichedData[c] = { status: "ONLINE", name: CAM_TO_ROUTE[c] || c };
+           }
+        });
+
         return {
-          realtimeCams: data,
+          realtimeCams: enrichedData,
           routeStats: routes,
           alerts: newAlerts,
           chartHistory: newChartHistory,

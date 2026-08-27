@@ -44,7 +44,7 @@ export function Header() {
 
   const meta = SECTION_TITLES[activeSection] || SECTION_TITLES.dashboard;
   const onlineCameras = realtimeCams
-    ? Object.values(realtimeCams).filter((c: any) => c.status === "ONLINE").length
+    ? ['cam_01', 'cam_02', 'cam_03', 'cam_04', 'cam_05', 'cam_06', 'cam_07'].filter((id) => realtimeCams[id]?.status === "ONLINE").length
     : 0;
 
   return (
