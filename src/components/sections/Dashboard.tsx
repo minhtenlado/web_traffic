@@ -230,12 +230,12 @@ export function Dashboard() {
             subtitle={`Pha hiện tại: ${signalState.currentPhase === "phase_1" ? "Bạch Đằng & XVNT" : "ĐBP & Hàng Xanh"} · Đếm ngược ${signalState.countdown}s`}
             icon={Radar}
             noPadding
-            bodyClassName="p-4 relative"
+            bodyClassName="p-4 relative flex flex-col lg:block"
           >
             <IntersectionMap />
 
-            {/* Weather Overlay */}
-            <div className="absolute top-8 right-8 z-[500] w-72 rounded-2xl border border-border/40 bg-card/80 p-5 shadow-2xl backdrop-blur-xl">
+            {/* Weather Overlay (Floating on Desktop, Stacked on Mobile) */}
+            <div className="mt-4 lg:mt-0 lg:absolute lg:top-8 lg:right-8 z-[500] w-full lg:w-72 rounded-2xl border border-border/40 bg-card lg:bg-card/80 p-5 shadow-md lg:shadow-2xl lg:backdrop-blur-xl">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                   {weather?.is_raining ? <CloudRain className="h-4 w-4 text-chart-2" /> : <Sun className="h-4 w-4 text-warning" />}
