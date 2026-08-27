@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import {
   Car,
-  Gauge,
   Timer,
   AlertTriangle,
   Camera,
@@ -53,7 +52,7 @@ export function Dashboard() {
   return (
     <div className="space-y-5">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={Car}
           label="Tổng số xe"
@@ -65,16 +64,6 @@ export function Dashboard() {
           delay={0}
         />
         <StatCard
-          icon={Gauge}
-          label="Tốc độ TB"
-          value={metrics.avgSpeed}
-          unit="km/h"
-          trend="neutral"
-          trendValue="trung bình"
-          color="cyan"
-          delay={0.05}
-        />
-        <StatCard
           icon={Timer}
           label="Thời gian chờ TB"
           value={metrics.avgWaitTime}
@@ -82,7 +71,7 @@ export function Dashboard() {
           trend="down"
           trendValue="ổn định"
           color="amber"
-          delay={0.1}
+          delay={0.05}
         />
         <StatCard
           icon={AlertTriangle}
@@ -92,7 +81,7 @@ export function Dashboard() {
           trend={metrics.activeAlerts > 2 ? "up" : "neutral"}
           trendValue={metrics.activeAlerts > 2 ? "cần xử lý" : "bình thường"}
           color="red"
-          delay={0.15}
+          delay={0.1}
         />
       </div>
 
