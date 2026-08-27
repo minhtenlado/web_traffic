@@ -12,7 +12,7 @@ export const VEHICLE_TYPES = [
   { id: "motorbike", name: "Xe máy", color: "var(--primary)" },
   { id: "bus", name: "Xe buýt", color: "var(--warning)" },
   { id: "truck", name: "Xe tải", color: "var(--chart-5)" },
-  { id: "pedestrian", name: "Người đi bộ", color: "var(--chart-3)" },
+  { id: "container", name: "Container", color: "var(--chart-3)" },
 ];
 
 export const CAMERAS = [

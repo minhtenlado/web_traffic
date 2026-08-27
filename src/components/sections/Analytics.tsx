@@ -78,6 +78,7 @@ export function Analytics() {
   const aiForecast = useTrafficStore((s) => s.aiForecast);
   const routeStats = useTrafficStore((s) => s.routeStats);
   const signalRec = useTrafficStore((s) => s.signalRec);
+  const realtimeCams = useTrafficStore((s) => s.realtimeCams);
 
   // Aggregate hourly data into 24h vehicle-type breakdown
   const hourlyAggregated = useMemo(() => {
@@ -121,16 +122,42 @@ export function Analytics() {
   }, [aiForecast]);
 
   // Vehicle distribution data (mock counts weighted realistically — HCMC: motorbike dominant)
-  const vehicleData = useMemo(
-    () => [
-      { name: "Xe máy", value: 4280, color: "var(--primary)" },
-      { name: "Ô tô", value: 1450, color: "var(--chart-2)" },
-      { name: "Xe tải", value: 320, color: "var(--chart-5)" },
-      { name: "Xe buýt", value: 180, color: "var(--warning)" },
-      { name: "Người đi bộ", value: 540, color: "var(--chart-3)" },
-    ],
-    [],
-  );
+  const vehicleData = useMemo(() => {
+    let totalCar = 0, totalMotor = 0, totalBus = 0, totalTruck = 0, totalContainer = 0;
+    const cams = Object.keys(realtimeCams).filter(k => k.startsWith('cam_'));
+    
+    if (cams.length > 0) {
+      cams.forEach(c => {
+        const det = realtimeCams[c]?.details;
+        if (det) {
+          totalCar += det.car || 0;
+          totalMotor += det.motorcycle || 0;
+          totalBus += det.bus || 0;
+          totalTruck += det.truck || 0;
+          totalContainer += det.container || 0;
+        }
+      });
+    }
+
+    // fallback if no data yet to prevent empty chart
+    if (totalCar + totalMotor + totalBus + totalTruck + totalContainer === 0) {
+      return [
+        { name: "Xe máy", value: 4280, color: "var(--primary)" },
+        { name: "Ô tô", value: 1450, color: "var(--chart-2)" },
+        { name: "Xe tải", value: 320, color: "var(--chart-5)" },
+        { name: "Xe buýt", value: 180, color: "var(--warning)" },
+        { name: "Container", value: 540, color: "var(--chart-3)" },
+      ];
+    }
+
+    return [
+      { name: "Xe máy", value: totalMotor, color: "var(--primary)" },
+      { name: "Ô tô", value: totalCar, color: "var(--chart-2)" },
+      { name: "Xe tải", value: totalTruck, color: "var(--chart-5)" },
+      { name: "Xe buýt", value: totalBus, color: "var(--warning)" },
+      { name: "Container", value: totalContainer, color: "var(--chart-3)" },
+    ];
+  }, [realtimeCams]);
   const vehicleTotal = vehicleData.reduce((s, v) => s + v.value, 0);
 
   // Peak hour derived from hourly data
@@ -431,7 +458,7 @@ export function Analytics() {
         {/* Vehicle distribution donut */}
         <SectionCard
           title="Cơ cấu phương tiện"
-          subtitle="Tổng hợp 7 ngày"
+          subtitle="Thời gian thực"
           icon={PieIcon}
         >
           <div className="relative h-48 w-full">

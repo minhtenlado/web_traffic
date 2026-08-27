@@ -57,14 +57,14 @@ export function generateHourlyData(days = 1) {
           motorbike: Math.round(rand(80, 200) * mult),
           bus: Math.round(rand(2, 15) * mult),
           truck: Math.round(rand(5, 20) * mult),
-          pedestrian: Math.round(rand(10, 40) * mult),
+          container: Math.round(rand(10, 40) * mult),
           total: 0,
         });
       });
     }
   }
   data.forEach((d) => {
-    d.total = d.car + d.motorbike + d.bus + d.truck + d.pedestrian;
+    d.total = d.car + d.motorbike + d.bus + d.truck + d.container;
   });
   return data;
 }
