@@ -262,7 +262,7 @@ export function Dashboard() {
                     </div>
                     <div>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-foreground">{weather.temperature}</span>
+                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-foreground">{Number(weather.temperature).toFixed(1)}</span>
                         <span className="text-sm font-semibold text-muted-foreground">°C</span>
                       </div>
                       <p className="text-xs font-medium text-muted-foreground">

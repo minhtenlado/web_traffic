@@ -413,7 +413,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
             weather: {
               ...s.weather,
               is_raining: Boolean(data.realtime.weather.is_raining),
-              rain_intensity: Number(data.realtime.weather.rain_intensity) || 0
+              rain_intensity: Number(data.realtime.weather.rain_intensity) || 0,
+              temperature: Number(data.realtime.weather.temperature) || 0,
+              humidity: Number(data.realtime.weather.humidity) || 0,
+              wind_speed: Number(data.realtime.weather.wind_speed) || 12
             } as any
           }));
         }
@@ -428,7 +431,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
             weather: {
               ...s.weather,
               is_raining: Boolean(data.is_raining),
-              rain_intensity: Number(data.rain_intensity) || 0
+              rain_intensity: Number(data.rain_intensity) || 0,
+              temperature: Number(data.temperature) || 0,
+              humidity: Number(data.humidity) || 0,
+              wind_speed: Number(data.wind_speed) || 12
             } as any
           }));
         }
