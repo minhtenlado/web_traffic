@@ -171,7 +171,7 @@ function getStoredTheme(): "dark" | "light" {
 export const useTrafficStore = create<TrafficState>((set, get) => ({
   realtimeCams: null,
   weather: null,
-  routeStats: [],
+  routeStats: buildRouteStats({}),
   metrics: { totalVehicles: 0, avgSpeed: 0, avgWaitTime: 0, activeAlerts: 0 },
   signalState: { currentPhase: "phase_1", mode: "auto", countdown: 35, phaseDurations: { phase_1: 35, phase_2: 35 }, cycleNumber: 1 },
   alerts: [],

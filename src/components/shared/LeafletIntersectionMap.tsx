@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, Fragment } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -21,33 +21,82 @@ const TRAFFIC_LIGHT_POSITIONS = [
   { id: "hang_xanh", name: "Hàng Xanh", position: [10.80166, 106.7117] },
 ];
 
-const ROUTE_PATHS: Record<string, [number, number][]> = {
-  bach_dang: [
-    [10.8040, 106.7095],
-    [10.8030, 106.7102],
-    [10.80211, 106.71124]
-  ],
-  dien_bien_phu: [
-    [10.8000, 106.7082],
-    [10.8007, 106.7095],
-    [10.80134, 106.71097]
-  ],
-  xo_viet_nghe_tinh: [
-    [10.7985, 106.7122],
-    [10.7995, 106.7118],
-    [10.80083, 106.71138]
-  ],
-  hang_xanh: [
-    [10.8032, 106.7145],
-    [10.8024, 106.7131],
-    [10.80166, 106.7117]
-  ]
-};
+interface RouteConfig {
+  id: string;
+  name: string;
+  paths: [number, number][][];
+}
+
+const ROUTE_CONFIGS: RouteConfig[] = [
+  {
+    id: "dien_bien_phu",
+    name: "Điện Biên Phủ (Q.1 ➔ Hàng Xanh)",
+    paths: [
+      [
+        [10.79900, 106.70500],
+        [10.79980, 106.70680],
+        [10.80050, 106.70840],
+        [10.80077, 106.70898],
+        [10.80115, 106.71015],
+        [10.80134, 106.71097],
+        [10.80150, 106.71150],
+      ],
+    ],
+  },
+  {
+    id: "hang_xanh",
+    name: "Điện Biên Phủ (Cầu Sài Gòn ➔ Hàng Xanh)",
+    paths: [
+      [
+        [10.80060, 106.71650],
+        [10.80102, 106.71495],
+        [10.80125, 106.71350],
+        [10.80137, 106.71210],
+        [10.80166, 106.71170],
+        [10.80150, 106.71150],
+      ],
+    ],
+  },
+  {
+    id: "bach_dang",
+    name: "Bạch Đằng (Bà Chiểu ➔ Hàng Xanh)",
+    paths: [
+      [
+        [10.80480, 106.70800],
+        [10.80380, 106.70920],
+        [10.80300, 106.70985],
+        [10.80250, 106.71060],
+        [10.80211, 106.71124],
+        [10.80160, 106.71140],
+      ],
+    ],
+  },
+  {
+    id: "xo_viet_nghe_tinh",
+    name: "Xô Viết Nghệ Tĩnh (Cầu Thị Nghè ➔ Hàng Xanh)",
+    paths: [
+      [
+        [10.79750, 106.71120],
+        [10.79850, 106.71125],
+        [10.79979, 106.71131],
+        [10.80040, 106.71135],
+        [10.80083, 106.71138],
+        [10.80140, 106.71145],
+      ],
+      [
+        [10.80170, 106.71155],
+        [10.80250, 106.71165],
+        [10.80330, 106.71170],
+        [10.80450, 106.71180],
+      ],
+    ],
+  },
+];
 
 const COLOR_MAP: Record<string, string> = {
-  green: "#10b981",
-  amber: "#eab308",
-  red: "#ef4444"
+  green: "#22c55e",
+  amber: "#f59e0b",
+  red: "#ef4444",
 };
 
 function getLightState(dirId: string, signalState: any) {
@@ -95,7 +144,6 @@ const LIGHT_COLORS: Record<string, string> = {
   red: "bg-destructive shadow-[0_0_12px_2px] shadow-destructive/60",
 };
 
-// Create custom icons using react-dom/server
 function createCameraIcon(cam: any, camData: any, isError: boolean) {
   const label = camData?.mapped_label;
   let dotColor = "bg-muted-foreground";
@@ -123,14 +171,12 @@ function createCameraIcon(cam: any, camData: any, isError: boolean) {
 function createTrafficLightIcon(light: ReturnType<typeof getLightState>) {
   const html = renderToStaticMarkup(
     <div className="flex items-center gap-1.5 transform scale-[1.15]">
-      {/* Straight Light pod */}
       <div className="flex flex-col items-center gap-0.5 rounded-md border border-border bg-card/95 p-1 shadow-lg">
         <div className={cn("h-2 w-2 rounded-full", light.color === "red" ? LIGHT_COLORS.red : "bg-muted opacity-30")} />
         <div className={cn("h-2 w-2 rounded-full", light.color === "yellow" ? LIGHT_COLORS.yellow : "bg-muted opacity-30")} />
         <div className={cn("h-2 w-2 rounded-full", light.color === "green" ? LIGHT_COLORS.green : "bg-muted opacity-30")} />
       </div>
 
-      {/* Left turn Arrow Light pod */}
       <div className="flex flex-col items-center gap-0.5 rounded-md border border-border bg-card/95 p-1 shadow-lg">
         <div className={cn("flex h-2 w-2 items-center justify-center rounded-full", light.leftTurn.color === "red" ? LIGHT_COLORS.red : "bg-muted opacity-30")}>
           <ArrowUpLeft className="h-1.5 w-1.5 text-background stroke-[3]" />
@@ -143,7 +189,6 @@ function createTrafficLightIcon(light: ReturnType<typeof getLightState>) {
         </div>
       </div>
 
-      {/* Countdown badge */}
       <div
         className={cn(
           "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold tabular-nums shadow-md",
@@ -173,7 +218,22 @@ export function LeafletIntersectionMap() {
   const isOffline = useTrafficStore((s) => s.isBoardOffline);
   const routeStats = useTrafficStore((s) => s.routeStats);
 
-  // Use useMemo for camera icons so we don't recreate them unless needed, though realtimeCams change frequently
+  const trafficRoutes = useMemo(() => {
+    const routeMap = new Map((routeStats || []).map((r) => [r.id, r]));
+    return ROUTE_CONFIGS.map((cfg) => {
+      const stat = routeMap.get(cfg.id);
+      const statusColor = stat?.statusColor || "green";
+      const status = stat?.status || "Thông thoáng";
+      const vehicleCount = stat?.vehicleCount ?? 0;
+      return {
+        ...cfg,
+        statusColor,
+        status,
+        vehicleCount,
+      };
+    });
+  }, [routeStats]);
+
   const camIcons = useMemo(() => {
     return CAMERAS.map((cam) => {
       const camData = realtimeCams?.[cam.id] as any;
@@ -203,9 +263,55 @@ export function LeafletIntersectionMap() {
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         />
 
+        {/* Traffic Status Polylines (Google Maps style) */}
+        {trafficRoutes.map((route) => {
+          const color = isOffline ? "#6b7280" : COLOR_MAP[route.statusColor] || "#22c55e";
+          return route.paths.map((path, pIdx) => (
+            <Fragment key={`route-${route.id}-${pIdx}`}>
+              <Polyline
+                positions={path}
+                pathOptions={{
+                  color: "#000000",
+                  weight: 8,
+                  opacity: 0.7,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+              <Polyline
+                positions={path}
+                pathOptions={{
+                  color: color,
+                  weight: 5,
+                  opacity: 0.95,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              >
+                <Tooltip sticky direction="top">
+                  <div className="text-xs p-1">
+                    <div className="font-bold text-foreground">{route.name}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="font-medium">{isOffline ? "Mất kết nối" : route.status}</span>
+                      {route.vehicleCount > 0 && (
+                        <span className="text-muted-foreground">({route.vehicleCount} xe)</span>
+                      )}
+                    </div>
+                  </div>
+                </Tooltip>
+              </Polyline>
+            </Fragment>
+          ));
+        })}
+
+        {/* Cameras */}
         {CAMERAS.map((cam) => {
           const camIcon = camIcons.find((c) => c.id === cam.id)?.icon;
-          const realPos = cam.realPosition || [10.8015, 106.7115]; // Need real lat/lon
+          const realPos = cam.realPosition || [10.8015, 106.7115];
           return (
             <Marker key={cam.id} position={realPos as [number, number]} icon={camIcon}>
               <Tooltip direction="top" offset={[0, -16]}>
@@ -219,6 +325,7 @@ export function LeafletIntersectionMap() {
           );
         })}
 
+        {/* Traffic Lights */}
         {TRAFFIC_LIGHT_POSITIONS.map((tl) => {
           const light = getLightState(tl.id, signalState);
           const icon = createTrafficLightIcon(light);
@@ -234,10 +341,22 @@ export function LeafletIntersectionMap() {
 
       {/* Legend overlay */}
       <div className="absolute bottom-3 left-3 z-[400] flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-medium backdrop-blur shadow-md">
-        <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-success" /> Thông thoáng</span>
-        <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-warning" /> Đông xe</span>
-        <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-destructive" /> Kẹt/Lỗi</span>
-        <span className="flex items-center gap-1 text-muted-foreground"><ArrowUpLeft className="h-2.5 w-2.5" /> Đèn rẽ trái</span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-4 rounded-full bg-[#22c55e]" />
+          Thông thoáng
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-4 rounded-full bg-[#f59e0b]" />
+          Đông xe
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-4 rounded-full bg-[#ef4444]" />
+          Kẹt xe
+        </span>
+        <span className="flex items-center gap-1 text-muted-foreground border-l border-border pl-2">
+          <ArrowUpLeft className="h-2.5 w-2.5" />
+          Đèn rẽ trái
+        </span>
       </div>
     </div>
   );
