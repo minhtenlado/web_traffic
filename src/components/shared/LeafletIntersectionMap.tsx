@@ -21,108 +21,122 @@ const TRAFFIC_LIGHT_POSITIONS = [
   { id: "hang_xanh", name: "Hàng Xanh", position: [10.80166, 106.7117] },
 ];
 
+// Catmull-Rom spline interpolation for continuous, silky-smooth road curves
+function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
+  const v0 = (p2 - p0) * 0.5;
+  const v1 = (p3 - p1) * 0.5;
+  const t2 = t * t;
+  const t3 = t * t2;
+  return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+}
+
+function smoothPath(points: [number, number][], samplesPerSegment = 8): [number, number][] {
+  if (points.length < 3) return points;
+  const result: [number, number][] = [];
+  const pts = [points[0], ...points, points[points.length - 1]];
+
+  for (let i = 0; i < pts.length - 3; i++) {
+    const p0 = pts[i];
+    const p1 = pts[i + 1];
+    const p2 = pts[i + 2];
+    const p3 = pts[i + 3];
+
+    for (let s = 0; s < samplesPerSegment; s++) {
+      const t = s / samplesPerSegment;
+      const lat = catmullRom(p0[0], p1[0], p2[0], p3[0], t);
+      const lng = catmullRom(p0[1], p1[1], p2[1], p3[1], t);
+      result.push([lat, lng]);
+    }
+  }
+  result.push(points[points.length - 1]);
+  return result;
+}
+
 interface RouteConfig {
   id: string;
   name: string;
-  paths: [number, number][][];
+  rawPaths: [number, number][][];
 }
 
-const ROUTE_CONFIGS: RouteConfig[] = [
+// Precise anchor points following the exact visual curves of the roadways on the map
+const RAW_ROUTE_CONFIGS: RouteConfig[] = [
   {
     id: "dien_bien_phu",
     name: "Điện Biên Phủ (Q.1 ➔ Hàng Xanh)",
-    paths: [
+    rawPaths: [
       [
-        [10.79855, 106.70553],
-        [10.79894, 106.70593],
-        [10.79927, 106.70628],
-        [10.79962, 106.70672],
-        [10.79990, 106.70714],
-        [10.80019, 106.70762],
-        [10.80036, 106.70791],
-        [10.80050, 106.70815],
-        [10.80066, 106.70851],
-        [10.80073, 106.70862],
-        [10.80092, 106.70910],
-        [10.80101, 106.70939],
-        [10.80103, 106.70980],
-        [10.80119, 106.71050],
-        [10.80130, 106.71120],
-        [10.80134, 106.71156]
-      ]
-    ]
+        [10.79930, 106.70520],
+        [10.79985, 106.70670],
+        [10.80035, 106.70785],
+        [10.80077, 106.70898],
+        [10.80108, 106.71000],
+        [10.80132, 106.71085],
+        [10.80145, 106.71130],
+      ],
+    ],
   },
   {
     id: "hang_xanh",
     name: "Điện Biên Phủ (Cầu Sài Gòn ➔ Hàng Xanh)",
-    paths: [
+    rawPaths: [
       [
-        [10.79980, 106.71773],
-        [10.80030, 106.71672],
-        [10.80060, 106.71603],
-        [10.80084, 106.71497],
-        [10.80111, 106.71405],
-        [10.80116, 106.71390],
-        [10.80127, 106.71342],
-        [10.80128, 106.71292],
-        [10.80127, 106.71254],
-        [10.80129, 106.71191],
-        [10.80130, 106.71156]
-      ]
-    ]
+        [10.80080, 106.71620],
+        [10.80102, 106.71495],
+        [10.80120, 106.71370],
+        [10.80137, 106.71230],
+        [10.80155, 106.71175],
+        [10.80150, 106.71145],
+      ],
+    ],
   },
   {
     id: "bach_dang",
     name: "Bạch Đằng (Bà Chiểu ➔ Hàng Xanh)",
-    paths: [
+    rawPaths: [
       [
-        [10.80328, 106.70606],
-        [10.80314, 106.70668],
-        [10.80310, 106.70725],
-        [10.80304, 106.70811],
-        [10.80302, 106.70842],
-        [10.80299, 106.70869],
-        [10.80294, 106.70925],
-        [10.80293, 106.70937],
-        [10.80279, 106.71118],
-        [10.80218, 106.71129],
-        [10.80168, 106.71121]
-      ]
-    ]
+        [10.80480, 106.70760],
+        [10.80420, 106.70850],
+        [10.80360, 106.70930],
+        [10.80300, 106.70985],
+        [10.80250, 106.71060],
+        [10.80211, 106.71124],
+        [10.80185, 106.71135],
+      ],
+    ],
   },
   {
     id: "xo_viet_nghe_tinh",
     name: "Xô Viết Nghệ Tĩnh (Cầu Thị Nghè ➔ Hàng Xanh)",
-    paths: [
+    rawPaths: [
       [
-        [10.79779, 106.71090],
-        [10.79815, 106.71099],
-        [10.79862, 106.71109],
-        [10.79949, 106.71117],
-        [10.79981, 106.71120],
-        [10.80045, 106.71127],
-        [10.80064, 106.71130],
-        [10.80103, 106.71135],
-        [10.80119, 106.71138],
-        [10.80145, 106.71145]
+        [10.79720, 106.71125],
+        [10.79850, 106.71128],
+        [10.79979, 106.71131],
+        [10.80050, 106.71135],
+        [10.80083, 106.71138],
+        [10.80135, 106.71140],
       ],
       [
-        [10.80169, 106.71145],
-        [10.80206, 106.71142],
-        [10.80266, 106.71139],
-        [10.80283, 106.71140],
-        [10.80379, 106.71146],
-        [10.80460, 106.71149],
-        [10.80576, 106.71154]
-      ]
-    ]
-  }
+        [10.80165, 106.71145],
+        [10.80210, 106.71150],
+        [10.80280, 106.71158],
+        [10.80380, 106.71168],
+        [10.80520, 106.71175],
+      ],
+    ],
+  },
 ];
 
+// Pre-compute smoothed paths once
+const ROUTE_CONFIGS = RAW_ROUTE_CONFIGS.map((r) => ({
+  ...r,
+  paths: r.rawPaths.map((p) => smoothPath(p, 8)),
+}));
+
 const COLOR_MAP: Record<string, string> = {
-  green: "#22c55e",
-  amber: "#f59e0b",
-  red: "#ef4444",
+  green: "#22c55e", // vibrant Google Maps green
+  amber: "#f59e0b", // vibrant Google Maps amber/yellow
+  red: "#ef4444",   // vibrant Google Maps red
 };
 
 function getLightState(dirId: string, signalState: any) {
@@ -289,21 +303,23 @@ export function LeafletIntersectionMap() {
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         />
 
-        {/* Traffic Status Polylines (Google Maps style) */}
+        {/* Traffic Status Polylines (Smooth Google Maps style curves) */}
         {trafficRoutes.map((route) => {
-          const color = isOffline ? "#6b7280" : COLOR_MAP[route.statusColor] || "#22c55e";
+          const color = isOffline ? "#64748b" : COLOR_MAP[route.statusColor] || "#22c55e";
           return route.paths.map((path, pIdx) => (
             <Fragment key={`route-${route.id}-${pIdx}`}>
+              {/* Soft dark shadow casing */}
               <Polyline
                 positions={path}
                 pathOptions={{
-                  color: "#000000",
+                  color: "#0f172a",
                   weight: 8,
-                  opacity: 0.7,
+                  opacity: 0.55,
                   lineCap: "round",
                   lineJoin: "round",
                 }}
               />
+              {/* Main vibrant traffic line */}
               <Polyline
                 positions={path}
                 pathOptions={{
@@ -330,6 +346,17 @@ export function LeafletIntersectionMap() {
                   </div>
                 </Tooltip>
               </Polyline>
+              {/* Center subtle glass highlight for 3D appearance */}
+              <Polyline
+                positions={path}
+                pathOptions={{
+                  color: "#ffffff",
+                  weight: 1.5,
+                  opacity: 0.25,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
             </Fragment>
           ));
         })}
