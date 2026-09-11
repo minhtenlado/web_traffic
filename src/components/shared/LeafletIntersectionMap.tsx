@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Camera, Video, ArrowUpLeft } from "lucide-react";
@@ -20,6 +20,35 @@ const TRAFFIC_LIGHT_POSITIONS = [
   { id: "xo_viet_nghe_tinh", name: "Xô Viết Nghệ Tĩnh", position: [10.80083, 106.71138] },
   { id: "hang_xanh", name: "Hàng Xanh", position: [10.80166, 106.7117] },
 ];
+
+const ROUTE_PATHS: Record<string, [number, number][]> = {
+  bach_dang: [
+    [10.8040, 106.7095],
+    [10.8030, 106.7102],
+    [10.80211, 106.71124]
+  ],
+  dien_bien_phu: [
+    [10.8000, 106.7082],
+    [10.8007, 106.7095],
+    [10.80134, 106.71097]
+  ],
+  xo_viet_nghe_tinh: [
+    [10.7985, 106.7122],
+    [10.7995, 106.7118],
+    [10.80083, 106.71138]
+  ],
+  hang_xanh: [
+    [10.8032, 106.7145],
+    [10.8024, 106.7131],
+    [10.80166, 106.7117]
+  ]
+};
+
+const COLOR_MAP: Record<string, string> = {
+  green: "#10b981",
+  amber: "#eab308",
+  red: "#ef4444"
+};
 
 function getLightState(dirId: string, signalState: any) {
   const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase);
@@ -142,6 +171,7 @@ export function LeafletIntersectionMap() {
   const signalState = useTrafficStore((s) => s.signalState);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
   const isOffline = useTrafficStore((s) => s.isBoardOffline);
+  const routeStats = useTrafficStore((s) => s.routeStats);
 
   // Use useMemo for camera icons so we don't recreate them unless needed, though realtimeCams change frequently
   const camIcons = useMemo(() => {
