@@ -234,3 +234,9 @@
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
 }
+
+/* Map tiles dark mode filter — watermark-free clean dark maps */
+.map-tiles-dark {
+  filter: invert(100%) hue-rotate(180deg) brightness(82%) contrast(92%) saturate(0.8);
+}
+

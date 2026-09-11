@@ -295,12 +295,11 @@ export function LeafletIntersectionMap() {
       >
         <TileLayer
           key={resolvedTheme}
-          url={
-            resolvedTheme === "light"
-              ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-              : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          }
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          url="https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+          subdomains={["0", "1", "2", "3"]}
+          maxZoom={20}
+          className={resolvedTheme === "dark" ? "map-tiles-dark" : ""}
+          attribution='&copy; Google Maps'
         />
 
         {/* Traffic Status Polylines (Smooth Google Maps style curves) */}
