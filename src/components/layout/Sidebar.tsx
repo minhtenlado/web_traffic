@@ -16,6 +16,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { useTrafficStore, type SectionId } from "@/lib/store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -80,12 +81,12 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
               )}
               <Icon
                 className={cn(
-                  "relative h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
+                  "relative h-5 w-5 shrink-0 transition-transform group-hover:scale-110",
                   isActive && "text-primary",
                 )}
                 strokeWidth={2}
               />
-              <span className="relative flex-1 text-left">{item.label}</span>
+              <span className="relative flex-1 text-left text-sm">{item.label}</span>
               {item.id === "alerts" && alertCount > 0 && (
                 <motion.span
                   key={alertCount}
@@ -132,14 +133,13 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 function Brand() {
   return (
     <div className="flex h-16 items-center gap-3 px-4">
-      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary to-chart-2 shadow-lg shadow-primary/30">
-        <TrafficCone className="relative h-5 w-5 text-primary-foreground" strokeWidth={2.2} />
-        <div className="absolute inset-0 animate-gradient bg-gradient-to-br from-primary/40 to-chart-2/40" />
+      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden">
+        <Image src="/logo_skytech.png" alt="SkyTech" width={36} height={36} className="object-contain" />
       </div>
       <div className="flex flex-col leading-tight">
-        <span className="text-sm font-semibold tracking-tight text-foreground">Giao Thông AI</span>
+        <span className="text-sm font-bold tracking-tight text-foreground">SkyTech</span>
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Hàng Xanh
+          Giao Thông AI
         </span>
       </div>
     </div>
@@ -199,9 +199,8 @@ export function Sidebar() {
       className="relative z-30 flex h-full flex-col border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl"
     >
       <div className="flex h-16 items-center gap-3 px-4">
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary to-chart-2 shadow-lg shadow-primary/30">
-          <TrafficCone className="relative h-5 w-5 text-primary-foreground" strokeWidth={2.2} />
-          <div className="absolute inset-0 animate-gradient bg-gradient-to-br from-primary/40 to-chart-2/40" />
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden">
+          <Image src="/logo_skytech.png" alt="SkyTech" width={36} height={36} className="object-contain" />
         </div>
         {open && (
           <motion.div
@@ -210,9 +209,9 @@ export function Sidebar() {
             transition={{ delay: 0.05 }}
             className="flex flex-col leading-tight"
           >
-            <span className="text-sm font-semibold tracking-tight text-foreground">Giao Thông AI</span>
+            <span className="text-sm font-bold tracking-tight text-foreground">SkyTech</span>
             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Hàng Xanh
+              Giao Thông AI
             </span>
           </motion.div>
         )}
@@ -274,7 +273,7 @@ function DesktopNav() {
               )}
               <Icon
                 className={cn(
-                  "relative h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
+                  "relative h-5 w-5 shrink-0 transition-transform group-hover:scale-110",
                   isActive && "text-primary",
                 )}
                 strokeWidth={2}

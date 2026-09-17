@@ -10,7 +10,6 @@ import {
   AlertCircle,
   Maximize2,
   Radio,
-  Crosshair,
   Activity,
   Signal,
   Clock,
@@ -160,7 +159,7 @@ export function LiveMonitoring() {
           Đang kết nối dữ liệu camera...
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CAMERAS.map((cam, i) => {
             const camData = realtimeCams[cam.id] as any;
             const isCamError = isBoardOffline || camData?.status === "ERROR" || (camData?.error_message && camData.error_message !== "OK" && camData.error_message !== "None");
@@ -179,10 +178,10 @@ export function LiveMonitoring() {
                 className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5"
               >
                 {/* Header */}
-                <div className="flex items-center justify-between gap-2 px-3 pt-3">
+                <div className="flex items-center justify-between gap-2 px-4 pt-4">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-foreground">{cam.name}</div>
-                    <div className="truncate text-[10px] text-muted-foreground">{cam.label}</div>
+                    <div className="truncate text-base font-bold text-foreground">{cam.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">{cam.label}</div>
                   </div>
                   <StatusBadge color={isCamError ? "red" : cls} pulse={!isCamError && cls !== "green"}>
                     {isCamError ? "LỖI" : text}
@@ -192,7 +191,7 @@ export function LiveMonitoring() {
                 {/* Actual video feed */}
                 <div
                   className={cn(
-                    "relative mx-3 mt-2 aspect-video overflow-hidden rounded-lg border",
+                    "relative mx-4 mt-3 aspect-video overflow-hidden border",
                     (!cam.url || isCamError) ? ("bg-gradient-to-br " + (FEED_BG[cls] || FEED_BG.cyan)) : "bg-black",
                     isCamError ? "border-destructive/30" : cls === "red" ? "border-destructive/30" : cls === "amber" ? "border-warning/30" : "border-border",
                   )}
@@ -208,35 +207,14 @@ export function LiveMonitoring() {
                       loading="lazy"
                     />
                   )}
-                  {/* Grid overlay (camera POV lines) */}
-                  <div
-                    className="pointer-events-none absolute inset-0 z-10 opacity-[0.08]"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(var(--foreground) 1px, transparent 1px), linear-gradient(90deg, var(--foreground) 1px, transparent 1px)",
-                      backgroundSize: "20px 20px",
-                    }}
-                  />
 
-                  {/* Animated scan line */}
-                  {!isCamError && (
-                    <motion.div
-                      className={cn("absolute left-0 right-0 z-10 h-px bg-gradient-to-r from-transparent to-transparent", SCANLINE_COLOR[cls])}
-                      initial={{ top: "0%" }}
-                      animate={{ top: ["0%", "100%", "0%"] }}
-                      transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
-                    />
-                  )}
 
                   {/* Noise / shimmer when error */}
                   {isCamError && (
                     <div className="absolute inset-0 shimmer opacity-50" />
                   )}
 
-                  {/* Center crosshair */}
-                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-                    <Crosshair className={cn("h-6 w-6 opacity-30", isCamError ? "text-destructive" : "text-foreground")} />
-                  </div>
+
 
                   {/* Direction label */}
                   <div className="absolute left-2 top-2 z-10 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-semibold text-foreground backdrop-blur">
@@ -300,16 +278,16 @@ export function LiveMonitoring() {
                 </div>
 
                 {/* Footer info */}
-                <div className="grid grid-cols-2 gap-2 px-3 py-3 text-[11px]">
-                  <div className="rounded-lg bg-muted/40 p-1.5">
-                    <div className="text-[9px] uppercase text-muted-foreground">Số xe</div>
-                    <div className="font-bold tabular-nums text-foreground">
+                <div className="grid grid-cols-2 gap-2 px-4 py-4 text-sm">
+                  <div className="bg-muted/40 p-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">Số xe</div>
+                    <div className="font-bold tabular-nums text-foreground text-base">
                       {isCamError ? "—" : formatNumber(count)}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-muted/40 p-1.5">
-                    <div className="text-[9px] uppercase text-muted-foreground">Hướng</div>
-                    <div className="truncate font-semibold text-foreground">{dir?.short || "—"}</div>
+                  <div className="bg-muted/40 p-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">Hướng</div>
+                    <div className="truncate font-semibold text-foreground text-base">{dir?.short || "—"}</div>
                   </div>
                 </div>
               </motion.div>

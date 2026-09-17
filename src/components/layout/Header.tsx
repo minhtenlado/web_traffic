@@ -70,12 +70,12 @@ export function Header() {
               transition={{ duration: 0.25 }}
               className="flex items-center gap-2"
             >
-              <h1 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                 {meta.title}
               </h1>
             </motion.div>
           </AnimatePresence>
-          <p className="hidden truncate text-xs text-muted-foreground sm:block">{meta.subtitle}</p>
+          <p className="hidden truncate text-sm text-muted-foreground sm:block">{meta.subtitle}</p>
         </div>
       </div>
 

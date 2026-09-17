@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrafficCone, User, Lock, Loader2, Eye, EyeOff, ShieldCheck, ShieldAlert, LockKeyhole } from "lucide-react";
+import { User, Lock, Loader2, Eye, EyeOff, ShieldCheck, ShieldAlert, LockKeyhole } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
+import Image from "next/image";
 
 export function Login() {
   const login = useTrafficStore((s) => s.login);
@@ -84,19 +85,18 @@ export function Login() {
             initial={{ rotate: -20, scale: 0 }}
             animate={{ rotate: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-            className="relative mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-chart-2 shadow-xl shadow-primary/30"
+            className="relative mb-4 flex h-20 w-20 items-center justify-center overflow-hidden"
           >
-            <TrafficCone className="h-8 w-8 text-primary-foreground" strokeWidth={2.2} />
-            <div className="absolute inset-0 animate-gradient rounded-2xl bg-gradient-to-br from-white/20 to-transparent" />
+            <Image src="/logo_skytech.png" alt="SkyTech" width={80} height={80} className="object-contain" />
           </motion.div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Giao Thông AI
+            SkyTech
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Hệ thống Giám sát & Điều khiển Giao thông Thông minh
           </p>
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/50 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
-            <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-primary" />
+          <div className="mt-2 inline-flex items-center gap-1.5 border border-border bg-card/50 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
+            <span className="live-dot relative h-1.5 w-1.5 bg-primary" />
             Ngã tư Hàng Xanh · TP.HCM
           </div>
         </div>
@@ -203,7 +203,7 @@ export function Login() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          © 2026 Giao Thông AI · Trung tâm Giám sát Điều hành Giao thông
+          © 2026 SkyTech · Trung tâm Giám sát Điều hành Giao thông
         </p>
       </motion.div>
     </div>

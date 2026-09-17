@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Giao Thông AI — Hệ thống Giám sát Giao thông Thông minh",
+  title: "SkyTech — Hệ thống Giám sát Giao thông Thông minh",
   description:
     "Hệ thống giám sát & điều khiển giao thông thông minh tại ngã tư Hàng Xanh, TP.HCM. Theo dõi real-time, AI dự đoán & điều khiển đèn.",
-  keywords: ["giao thông AI", "giám sát giao thông", "Hàng Xanh", "đèn giao thông", "AI"],
-  authors: [{ name: "Giao Thông AI" }],
+  keywords: ["SkyTech", "giám sát giao thông", "Hàng Xanh", "đèn giao thông", "AI"],
+  authors: [{ name: "SkyTech" }],
   icons: {
     icon: "/favicon.svg",
   },

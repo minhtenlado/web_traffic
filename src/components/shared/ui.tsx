@@ -54,7 +54,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset",
+        "inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-semibold ring-1 ring-inset",
         c.bg,
         c.text,
         c.ring,
@@ -119,11 +119,11 @@ export function StatCard({
     >
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </span>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            <span className="text-3xl font-bold tracking-tight text-foreground tabular-nums">
               {value}
             </span>
             {unit && <span className="text-xs font-medium text-muted-foreground">{unit}</span>}
@@ -196,12 +196,12 @@ export function SectionCard({
             )}
             <div className="min-w-0">
               {title && (
-                <h3 className="truncate text-sm font-semibold tracking-tight text-foreground">
+                <h3 className="truncate text-base font-semibold tracking-tight text-foreground">
                   {title}
                 </h3>
               )}
               {subtitle && (
-                <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+                <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
               )}
             </div>
           </div>
