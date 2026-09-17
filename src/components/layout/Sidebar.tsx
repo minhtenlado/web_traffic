@@ -132,15 +132,9 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 
 function Brand() {
   return (
-    <div className="flex h-20 items-center gap-3 px-4">
-      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
-        <Image src="/logo_skytech.png" alt="SkyTech" width={56} height={56} className="object-contain" />
-      </div>
-      <div className="flex flex-col leading-tight">
-        <span className="text-base font-bold tracking-tight text-foreground">SkyTech</span>
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Giao Thông AI
-        </span>
+    <div className="flex h-20 items-center justify-center px-4 py-4">
+      <div className="relative flex h-full w-[160px] items-center justify-start overflow-hidden">
+        <Image src="/logo_skytech.png" alt="SkyTech" width={160} height={50} className="object-contain" priority />
       </div>
     </div>
   );
@@ -198,22 +192,20 @@ export function Sidebar() {
       transition={{ type: "spring", stiffness: 260, damping: 30 }}
       className="relative z-30 flex h-full flex-col border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl"
     >
-      <div className="flex h-20 items-center gap-3 px-3">
-        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
-          <Image src="/logo_skytech.png" alt="SkyTech" width={56} height={56} className="object-contain" />
-        </div>
-        {open && (
+      <div className="flex h-20 items-center justify-center px-4 py-4">
+        {open ? (
           <motion.div
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 }}
-            className="flex flex-col leading-tight"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="relative flex h-full w-[180px] items-center justify-start overflow-hidden"
           >
-            <span className="text-base font-bold tracking-tight text-foreground">SkyTech</span>
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Giao Thông AI
-            </span>
+            <Image src="/logo_skytech.png" alt="SkyTech" width={180} height={60} className="object-contain" priority />
           </motion.div>
+        ) : (
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden">
+            <Image src="/logo_skytech_icon.png" alt="SkyTech" width={48} height={48} className="object-contain" priority />
+          </div>
         )}
       </div>
 

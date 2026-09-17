@@ -613,7 +613,8 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   tick: () => {
     const state = get();
     const signal = state.signalState;
-    const isOffline = Date.now() - state.lastRealtimeUpdate > 15000;
+    // Increase timeout to 5 minutes for demonstration purposes
+    const isOffline = Date.now() - state.lastRealtimeUpdate > 300000;
     let newSignal = { ...signal };
 
     // Nếu đang ở chế độ Thủ công Tự do, không đếm ngược và không tự động chuyển pha
