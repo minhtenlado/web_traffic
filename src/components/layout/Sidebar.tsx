@@ -133,8 +133,8 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 function Brand() {
   return (
     <div className="flex h-16 items-center gap-3 px-4">
-      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden">
-        <Image src="/logo_skytech.png" alt="SkyTech" width={36} height={36} className="object-contain" />
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden">
+        <Image src="/logo_skytech.png" alt="SkyTech" width={44} height={44} className="object-contain" />
       </div>
       <div className="flex flex-col leading-tight">
         <span className="text-sm font-bold tracking-tight text-foreground">SkyTech</span>
@@ -199,8 +199,8 @@ export function Sidebar() {
       className="relative z-30 flex h-full flex-col border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl"
     >
       <div className="flex h-16 items-center gap-3 px-4">
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden">
-          <Image src="/logo_skytech.png" alt="SkyTech" width={36} height={36} className="object-contain" />
+        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden">
+          <Image src="/logo_skytech.png" alt="SkyTech" width={44} height={44} className="object-contain" />
         </div>
         {open && (
           <motion.div

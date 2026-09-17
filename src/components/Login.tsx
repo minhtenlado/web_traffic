@@ -85,9 +85,9 @@ export function Login() {
             initial={{ rotate: -20, scale: 0 }}
             animate={{ rotate: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-            className="relative mb-4 flex h-20 w-20 items-center justify-center overflow-hidden"
+            className="relative mb-4 flex h-28 w-28 items-center justify-center overflow-hidden"
           >
-            <Image src="/logo_skytech.png" alt="SkyTech" width={80} height={80} className="object-contain" />
+            <Image src="/logo_skytech.png" alt="SkyTech" width={112} height={112} className="object-contain" />
           </motion.div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             SkyTech
@@ -102,7 +102,7 @@ export function Login() {
         </div>
 
         {/* Login card */}
-        <div className="glass-card overflow-hidden rounded-2xl border border-border shadow-2xl">
+        <div className="glass-card overflow-hidden border border-border shadow-2xl">
           <div className="border-b border-border px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -111,7 +111,7 @@ export function Login() {
                   Yêu cầu xác thực tài khoản được cấp quyền
                 </p>
               </div>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <div className="flex h-8 w-8 items-center justify-center bg-primary/10 text-primary">
                 <LockKeyhole className="h-4 w-4" />
               </div>
             </div>
@@ -130,7 +130,7 @@ export function Login() {
                   disabled={lockoutSeconds > 0 || loading}
                   autoFocus
                   required
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 pl-10 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                  className="h-11 w-full border border-input bg-background/60 pl-10 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                   placeholder="Nhập tên tài khoản"
                 />
               </div>
@@ -147,7 +147,7 @@ export function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={lockoutSeconds > 0 || loading}
                   required
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 pl-10 pr-10 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                  className="h-11 w-full border border-input bg-background/60 pl-10 pr-10 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                   placeholder="Nhập mật khẩu"
                 />
                 <button
@@ -167,7 +167,7 @@ export function Login() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+                  className="flex items-center gap-2 border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
                 >
                   <ShieldAlert className="h-4 w-4 shrink-0" />
                   <span>{error}</span>
@@ -178,7 +178,7 @@ export function Login() {
             <button
               type="submit"
               disabled={loading || lockoutSeconds > 0}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-11 w-full items-center justify-center gap-2 bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <>
