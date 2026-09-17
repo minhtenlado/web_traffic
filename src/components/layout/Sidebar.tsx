@@ -132,13 +132,13 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 
 function Brand() {
   return (
-    <div className="flex h-16 items-center gap-3 px-4">
-      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden">
-        <Image src="/logo_skytech.png" alt="SkyTech" width={44} height={44} className="object-contain" />
+    <div className="flex h-20 items-center gap-3 px-4">
+      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
+        <Image src="/logo_skytech.png" alt="SkyTech" width={56} height={56} className="object-contain" />
       </div>
       <div className="flex flex-col leading-tight">
-        <span className="text-sm font-bold tracking-tight text-foreground">SkyTech</span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-base font-bold tracking-tight text-foreground">SkyTech</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Giao Thông AI
         </span>
       </div>
@@ -198,9 +198,9 @@ export function Sidebar() {
       transition={{ type: "spring", stiffness: 260, damping: 30 }}
       className="relative z-30 flex h-full flex-col border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl"
     >
-      <div className="flex h-16 items-center gap-3 px-4">
-        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden">
-          <Image src="/logo_skytech.png" alt="SkyTech" width={44} height={44} className="object-contain" />
+      <div className="flex h-20 items-center gap-3 px-3">
+        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
+          <Image src="/logo_skytech.png" alt="SkyTech" width={56} height={56} className="object-contain" />
         </div>
         {open && (
           <motion.div
@@ -209,8 +209,8 @@ export function Sidebar() {
             transition={{ delay: 0.05 }}
             className="flex flex-col leading-tight"
           >
-            <span className="text-sm font-bold tracking-tight text-foreground">SkyTech</span>
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-base font-bold tracking-tight text-foreground">SkyTech</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Giao Thông AI
             </span>
           </motion.div>
