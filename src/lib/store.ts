@@ -476,12 +476,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           const cur = get().signalState;
           const sig = data.traffic.signalState;
           const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
-          if (cur.mode === "manual" && sig.mode === "auto" && isRecentlyManual) {
+          if (isRecentlyManual) {
             set({
               signalState: {
                 ...cur,
                 ...sig,
-                mode: "manual",
+                mode: cur.mode,
                 manualSubMode: cur.manualSubMode,
                 freeFlushTarget: cur.freeFlushTarget,
                 displaysOff: cur.displaysOff,
@@ -532,12 +532,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         const cur = get().signalState;
         const sig = data;
         const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
-        if (cur.mode === "manual" && sig.mode === "auto" && isRecentlyManual) {
+        if (isRecentlyManual) {
           set({
             signalState: {
               ...cur,
               ...sig,
-              mode: "manual",
+              mode: cur.mode,
               manualSubMode: cur.manualSubMode,
               freeFlushTarget: cur.freeFlushTarget,
               displaysOff: cur.displaysOff,
