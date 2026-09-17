@@ -177,8 +177,7 @@ interface TrafficState {
   acknowledgeAlert: (id: string) => void;
   acknowledgeAllAlerts: () => void;
   refreshRealtime: () => void;
-  isBoardOffline: boolean;
-  lastRealtimeUpdate: number;
+  _lastManualActionTime: number;
   _tickCount: number;
 
   _firebaseInitialized: boolean;
@@ -250,6 +249,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   isAuthenticated: false,
   isBoardOffline: false,
   lastRealtimeUpdate: Date.now(),
+  _lastManualActionTime: 0,
   _tickCount: 0,
 
   _firebaseInitialized: false,
@@ -474,8 +474,21 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.system?.status) processStatusData(data.system.status);
         if (data.traffic?.signalState) {
           const cur = get().signalState;
-          if (cur.mode !== "manual" || data.traffic.signalState.mode === "manual") {
-            set({ signalState: { ...cur, ...data.traffic.signalState } });
+          const sig = data.traffic.signalState;
+          const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
+          if (cur.mode === "manual" && sig.mode === "auto" && isRecentlyManual) {
+            set({
+              signalState: {
+                ...cur,
+                ...sig,
+                mode: "manual",
+                manualSubMode: cur.manualSubMode,
+                freeFlushTarget: cur.freeFlushTarget,
+                displaysOff: cur.displaysOff,
+              }
+            });
+          } else {
+            set({ signalState: { ...cur, ...sig } });
           }
         }
         if (data.realtime?.weather) {
@@ -517,7 +530,22 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (path.includes('status')) processStatusData(data);
       } else if (path.startsWith('/traffic/signalState')) {
         const cur = get().signalState;
-        set({ signalState: { ...cur, ...data } });
+        const sig = data;
+        const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
+        if (cur.mode === "manual" && sig.mode === "auto" && isRecentlyManual) {
+          set({
+            signalState: {
+              ...cur,
+              ...sig,
+              mode: "manual",
+              manualSubMode: cur.manualSubMode,
+              freeFlushTarget: cur.freeFlushTarget,
+              displaysOff: cur.displaysOff,
+            }
+          });
+        } else {
+          set({ signalState: { ...cur, ...sig } });
+        }
       } else if (path.startsWith('/traffic/picoStatus')) {
         set({ picoStatus: data });
       } else if (path.startsWith('/traffic/fuzzyStatus')) {
@@ -598,7 +626,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     }
 
     if (isOffline) {
-      // Fallback offline: tự chuyển pha cục bộ khi mất kết nối bo mạch
+      // Fallback offline: chỉ đếm lùi nội bộ hiển thị trên Web, KHÔNG ghi đè Firebase
       const newCountdown = signal.countdown - 1;
       if (newCountdown <= 0) {
         const phases = ["phase_1", "phase_2", "phase_3"];
@@ -614,9 +642,6 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           phaseDurations: defaultDurations,
           cycleNumber: nextPhase === "phase_1" ? (signal.cycleNumber || 100) + 1 : (signal.cycleNumber || 100),
         };
-        
-        firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-        fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
       } else {
         newSignal.countdown = newCountdown;
       }
@@ -660,7 +685,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({ signalState: newSignal });
+    set({
+      signalState: newSignal,
+      _lastManualActionTime: isMan ? Date.now() : 0,
+    });
   },
 
   setManualSubMode: (subMode) => {
@@ -685,7 +713,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({ signalState: newSignal });
+    set({
+      signalState: newSignal,
+      _lastManualActionTime: Date.now(),
+    });
   },
 
   setFreeFlushTarget: (target) => {
@@ -707,7 +738,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({ signalState: newSignal });
+    set({
+      signalState: newSignal,
+      _lastManualActionTime: Date.now(),
+    });
   },
 
   setSignalDuration: (phase, duration) => {
@@ -732,7 +766,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({ signalState: newSignal });
+    set({
+      signalState: newSignal,
+      _lastManualActionTime: Date.now(),
+    });
   },
 
   setSignalPhase: (phaseId) => {
@@ -757,7 +794,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({ signalState: newSignal });
+    set({
+      signalState: newSignal,
+      _lastManualActionTime: Date.now(),
+    });
   },
 
   adjustSignalCountdown: (delta) => {
@@ -774,7 +814,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({ signalState: newSignal });
+    set({
+      signalState: newSignal,
+      _lastManualActionTime: Date.now(),
+    });
   },
 
   setTestDemands: (demandA, demandB, leftDemandA, leftDemandB) => {
