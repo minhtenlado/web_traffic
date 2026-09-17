@@ -92,14 +92,14 @@ export function Login() {
           <p className="mt-1 text-base text-muted-foreground">
             Hệ thống Giám sát & Điều khiển Giao thông Thông minh
           </p>
-          <div className="mt-2 inline-flex items-center gap-1.5 border border-border bg-card/50 px-3 py-1 text-sm text-muted-foreground backdrop-blur" style={{ borderRadius: '9999px' }}>
-            <span className="live-dot relative h-1.5 w-1.5 bg-primary" style={{ borderRadius: '9999px' }} />
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/50 px-3 py-1 text-sm text-muted-foreground backdrop-blur">
+            <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-primary" />
             Ngã tư Hàng Xanh · TP.HCM
           </div>
         </div>
 
         {/* Login card */}
-        <div className="glass-card overflow-hidden border border-border shadow-2xl" style={{ borderRadius: '16px' }}>
+        <div className="glass-card overflow-hidden rounded-2xl border border-border shadow-2xl">
           <div className="border-b border-border px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -108,7 +108,7 @@ export function Login() {
                   Yêu cầu xác thực tài khoản được cấp quyền
                 </p>
               </div>
-              <div className="flex h-8 w-8 items-center justify-center bg-primary/10 text-primary" style={{ borderRadius: '8px' }}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <LockKeyhole className="h-4 w-4" />
               </div>
             </div>
@@ -127,8 +127,7 @@ export function Login() {
                   disabled={lockoutSeconds > 0 || loading}
                   autoFocus
                   required
-                  className="h-12 w-full border border-input bg-background/60 pl-10 pr-3 text-base text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-                  style={{ borderRadius: '10px' }}
+                  className="h-12 w-full rounded-lg border border-input bg-background/60 pl-10 pr-3 text-base text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                   placeholder="Nhập tên tài khoản"
                 />
               </div>
@@ -145,8 +144,7 @@ export function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={lockoutSeconds > 0 || loading}
                   required
-                  className="h-12 w-full border border-input bg-background/60 pl-10 pr-10 text-base text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-                  style={{ borderRadius: '10px' }}
+                  className="h-12 w-full rounded-lg border border-input bg-background/60 pl-10 pr-10 text-base text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                   placeholder="Nhập mật khẩu"
                 />
                 <button
@@ -166,8 +164,7 @@ export function Login() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center gap-2 border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
-                  style={{ borderRadius: '10px' }}
+                  className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
                 >
                   <ShieldAlert className="h-4 w-4 shrink-0" />
                   <span>{error}</span>
@@ -178,8 +175,7 @@ export function Login() {
             <button
               type="submit"
               disabled={loading || lockoutSeconds > 0}
-              className="flex h-12 w-full items-center justify-center gap-2 bg-primary text-base font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ borderRadius: '10px' }}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-base font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <>
