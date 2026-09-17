@@ -18,10 +18,8 @@ import {
   ShieldAlert,
   Cpu,
   Activity,
-  Sliders,
-  RotateCcw,
+  Camera,
   ShieldCheck,
-  CheckCircle2,
 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { DIRECTIONS, SIGNAL_PHASES } from "@/lib/constants";
@@ -105,20 +103,6 @@ export function SignalControl() {
   const signalRec = useTrafficStore((s) => s.signalRec);
   const picoStatus = useTrafficStore((s) => s.picoStatus);
   const fuzzyStatus = useTrafficStore((s) => s.fuzzyStatus);
-  const setTestDemands = useTrafficStore((s) => s.setTestDemands);
-  const clearTestDemands = useTrafficStore((s) => s.clearTestDemands);
-
-  const [testA, setTestA] = useState<number>(fuzzyStatus?.demandA ?? 50);
-  const [testB, setTestB] = useState<number>(fuzzyStatus?.demandB ?? 50);
-
-  useEffect(() => {
-    if (fuzzyStatus?.demandA !== undefined && !fuzzyStatus.isSimulation) {
-      setTestA(Math.round(fuzzyStatus.demandA));
-    }
-    if (fuzzyStatus?.demandB !== undefined && !fuzzyStatus.isSimulation) {
-      setTestB(Math.round(fuzzyStatus.demandB));
-    }
-  }, [fuzzyStatus?.demandA, fuzzyStatus?.demandB, fuzzyStatus?.isSimulation]);
 
   const situation = fuzzyStatus?.situation || "NORMAL";
   const situationConfig: Record<string, { label: string; desc: string; badgeCls: string }> = {
@@ -144,7 +128,6 @@ export function SignalControl() {
     },
   };
   const sitInfo = situationConfig[situation] || situationConfig.NORMAL;
-  const isSimulation = Boolean(fuzzyStatus?.isSimulation);
 
   const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase) || SIGNAL_PHASES[0];
   const isManual = signalState.mode === "manual";
@@ -417,13 +400,8 @@ export function SignalControl() {
               <Activity className="h-3 w-3 animate-pulse" />
               {sitInfo.label}
             </span>
-            <span className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              isSimulation
-                ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30"
-                : "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30"
-            )}>
-              {isSimulation ? "🧪 Giả lập / Test" : "📷 Camera AI Thực"}
+            <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/15 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
+              <Camera className="h-3 w-3" /> Camera AI Thực Tế (4 Tuyến)
             </span>
           </div>
         }
@@ -578,99 +556,17 @@ export function SignalControl() {
             </div>
           </div>
 
-          {/* Test & Simulation Sandbox */}
-          <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Sliders className="h-4 w-4 text-primary" />
-                <span className="text-xs font-bold text-foreground">Khu Vực Kiểm Thử & Giả Lập Nhu Cầu (Test Sandbox)</span>
-              </div>
-              {isSimulation && (
-                <button
-                  onClick={() => clearTestDemands()}
-                  className="flex items-center gap-1 rounded-md bg-destructive/10 px-2.5 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/20 transition-colors"
-                >
-                  <RotateCcw className="h-3 w-3" /> Hủy giả lập (Về AI Camera)
-                </button>
-              )}
+          {/* Live Camera AI Information Banner */}
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <Camera className="h-4 w-4 text-primary shrink-0" />
+              <span>Dữ liệu lưu lượng tính toán trực tiếp từ 4 luồng Camera RTSP thời gian thực tại ngã tư Hàng Xanh (Bạch Đằng & Điện Biên Phủ).</span>
             </div>
-
-            {isManual && (
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                <Zap className="h-4 w-4 shrink-0" />
-                <span>Hệ thống đang ở <b>Chế độ Thủ công</b> (vận hành hoàn toàn bằng các thanh kéo thời lượng ở trên). Chuyển sang <b>Chế độ Tự động (AI)</b> nếu bạn muốn chạy thích nghi Mờ theo các kịch bản kiểm thử dưới đây.</span>
-              </div>
-            )}
-
-            {/* Quick Presets */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[11px] font-medium text-muted-foreground">Kịch bản nhanh:</span>
-              <button
-                onClick={() => setTestDemands(50, 50, 35, 35)}
-                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-success/50 hover:bg-success/10 transition-colors"
-              >
-                🟢 Cân bằng (50 / 50)
-              </button>
-              <button
-                onClick={() => setTestDemands(85, 25, 60, 18)}
-                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-amber-500/50 hover:bg-amber-500/10 transition-colors"
-              >
-                🟡 Hướng A Đông (85 / 25)
-              </button>
-              <button
-                onClick={() => setTestDemands(25, 85, 18, 60)}
-                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-amber-500/50 hover:bg-amber-500/10 transition-colors"
-              >
-                🟡 Hướng B Đông (25 / 85)
-              </button>
-              <button
-                onClick={() => setTestDemands(80, 80, 56, 56)}
-                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-destructive/50 hover:bg-destructive/10 transition-colors"
-              >
-                🔴 Cả 2 Kẹt xe (80 / 80)
-              </button>
-            </div>
-
-            {/* Custom Sliders */}
-            <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-muted-foreground">Demand Hướng A (%):</span>
-                  <span className="font-mono font-bold text-primary">{testA}%</span>
-                </div>
-                <Slider
-                  value={[testA]}
-                  min={0}
-                  max={100}
-                  step={5}
-                  onValueChange={(v) => setTestA(v[0])}
-                  aria-label="Demand Hướng A"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-muted-foreground">Demand Hướng B (%):</span>
-                  <span className="font-mono font-bold text-primary">{testB}%</span>
-                </div>
-                <Slider
-                  value={[testB]}
-                  min={0}
-                  max={100}
-                  step={5}
-                  onValueChange={(v) => setTestB(v[0])}
-                  aria-label="Demand Hướng B"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <button
-                onClick={() => setTestDemands(testA, testB)}
-                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" /> Gửi Lệnh Giả Lập Tới Hệ Thống
-              </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Vận hành Thực tế 100%
+              </span>
             </div>
           </div>
         </div>
