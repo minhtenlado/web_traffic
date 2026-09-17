@@ -7,6 +7,13 @@ import { useTrafficStore } from "@/lib/store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatLongDate, formatClockTime } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const SECTION_TITLES: Record<string, { title: string; subtitle: string }> = {
   dashboard: { title: "Tổng quan", subtitle: "Trung tâm điều khiển giao thông" },
@@ -96,17 +103,21 @@ export function Header() {
         </div>
 
         {/* Location Selector */}
-        <div className="hidden items-center gap-1.5 rounded-full border border-border bg-muted/50 pl-3 pr-2 py-1.5 lg:flex hover:bg-muted/80 transition-colors">
-          <MapPin className="h-3.5 w-3.5 text-primary" />
-          <select 
-            className="bg-transparent text-xs font-medium text-foreground outline-none appearance-none cursor-pointer pr-5"
-            style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23737373%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.1rem top 50%', backgroundSize: '0.55rem auto' }}
-          >
-            <option value="hang-xanh">Ngã tư Hàng Xanh</option>
-            <option value="truong-chinh">Đường Trường Chinh</option>
-            <option value="cong-hoa">Đường Cộng Hòa</option>
-            <option value="xa-lo-ha-noi">Xa lộ Hà Nội</option>
-          </select>
+        <div className="hidden items-center lg:flex">
+          <Select defaultValue="hang-xanh">
+            <SelectTrigger className="h-8 gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 focus:ring-0 focus:ring-offset-0">
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                <SelectValue placeholder="Chọn khu vực" />
+              </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-border bg-popover/95 backdrop-blur-md shadow-xl">
+              <SelectItem value="hang-xanh" className="text-xs font-medium cursor-pointer">Ngã tư Hàng Xanh</SelectItem>
+              <SelectItem value="truong-chinh" className="text-xs font-medium cursor-pointer">Đường Trường Chinh</SelectItem>
+              <SelectItem value="cong-hoa" className="text-xs font-medium cursor-pointer">Đường Cộng Hòa</SelectItem>
+              <SelectItem value="xa-lo-ha-noi" className="text-xs font-medium cursor-pointer">Xa lộ Hà Nội</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Alerts */}
