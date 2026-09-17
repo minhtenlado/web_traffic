@@ -103,12 +103,20 @@ interface TrafficState {
   weather: ReturnType<typeof generateWeather> | null;
   routeStats: RouteStat[];
   metrics: { totalVehicles: number; avgSpeed: number; avgWaitTime: number; activeAlerts: number };
-  signalState: ReturnType<typeof generateSignalState> & { mode: "auto" | "manual" };
+  signalState: ReturnType<typeof generateSignalState> & {
+    mode: "auto" | "manual";
+    manualSubMode?: "cycle" | "free";
+    freeFlushTarget?: string;
+    displaysOff?: boolean;
+  };
   picoStatus: {
     online: boolean;
     ip?: string;
     rssi?: number;
     mode?: string;
+    manualSubMode?: string;
+    freeFlushTarget?: string;
+    displaysOff?: boolean;
     currentPhase?: string;
     countdown?: number;
     uptime?: number;
@@ -159,6 +167,8 @@ interface TrafficState {
   logout: () => void;
   tick: () => void;
   setSignalMode: (mode: "auto" | "manual") => void;
+  setManualSubMode: (subMode: "cycle" | "free") => void;
+  setFreeFlushTarget: (target: string) => void;
   setSignalDuration: (phase: string, duration: number) => void;
   setSignalPhase: (phase: string) => void;
   adjustSignalCountdown: (delta: number) => void;
@@ -201,7 +211,16 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   weather: null,
   routeStats: buildRouteStats({}),
   metrics: { totalVehicles: 0, avgSpeed: 0, avgWaitTime: 0, activeAlerts: 0 },
-  signalState: { currentPhase: "phase_1", mode: "auto", countdown: 35, phaseDurations: { phase_1: 35, phase_2: 35, phase_3: 20 }, cycleNumber: 1 },
+  signalState: {
+    currentPhase: "phase_1",
+    mode: "auto",
+    manualSubMode: "cycle",
+    freeFlushTarget: "B1",
+    displaysOff: false,
+    countdown: 35,
+    phaseDurations: { phase_1: 35, phase_2: 35, phase_3: 20 },
+    cycleNumber: 1
+  },
   picoStatus: null,
   fuzzyStatus: {
     demandA: 50,
@@ -569,6 +588,15 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     const isOffline = Date.now() - state.lastRealtimeUpdate > 15000;
     let newSignal = { ...signal };
 
+    // Nếu đang ở chế độ Thủ công Tự do, không đếm ngược và không tự động chuyển pha
+    if (signal.mode === "manual" && signal.manualSubMode === "free") {
+      set({
+        isBoardOffline: isOffline,
+        _tickCount: state._tickCount + 1,
+      });
+      return;
+    }
+
     if (isOffline) {
       // Fallback offline: tự chuyển pha cục bộ khi mất kết nối bo mạch
       const newCountdown = signal.countdown - 1;
@@ -609,10 +637,71 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   },
 
   setSignalMode: (mode) => {
-    const newSignal = { ...get().signalState, mode };
+    const current = get().signalState;
+    const isMan = mode === "manual";
+    const subMode = isMan ? (current.manualSubMode || "cycle") : "cycle";
+    const isFree = isMan && subMode === "free";
+    const newSignal = {
+      ...current,
+      mode,
+      manualSubMode: subMode,
+      freeFlushTarget: current.freeFlushTarget || "B1",
+      displaysOff: isFree,
+      countdown: isFree ? 0 : (current.countdown > 0 ? current.countdown : 35),
+    };
     const cmd = {
       action: "set_mode",
       mode: mode,
+      manualSubMode: subMode,
+      freeFlushTarget: newSignal.freeFlushTarget,
+      displaysOff: isFree,
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
+    set({ signalState: newSignal });
+  },
+
+  setManualSubMode: (subMode) => {
+    const current = get().signalState;
+    const isFree = subMode === "free";
+    const target = current.freeFlushTarget || "B1";
+    const newSignal = {
+      ...current,
+      mode: "manual" as const,
+      manualSubMode: subMode,
+      freeFlushTarget: target,
+      displaysOff: isFree,
+      countdown: isFree ? 0 : (current.countdown > 0 ? current.countdown : 35),
+    };
+    const cmd = {
+      action: "set_manual_submode",
+      subMode: subMode,
+      freeFlushTarget: target,
+      displaysOff: isFree,
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
+    set({ signalState: newSignal });
+  },
+
+  setFreeFlushTarget: (target) => {
+    const current = get().signalState;
+    const newSignal = {
+      ...current,
+      mode: "manual" as const,
+      manualSubMode: "free" as const,
+      freeFlushTarget: target,
+      displaysOff: true,
+      countdown: 0,
+    };
+    const cmd = {
+      action: "set_free_flush",
+      target: target,
+      displaysOff: true,
       timestamp: Date.now(),
     };
     firebaseUpdate("traffic/command", cmd).catch(() => {});
