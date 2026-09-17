@@ -104,6 +104,16 @@ interface TrafficState {
   routeStats: RouteStat[];
   metrics: { totalVehicles: number; avgSpeed: number; avgWaitTime: number; activeAlerts: number };
   signalState: ReturnType<typeof generateSignalState> & { mode: "auto" | "manual" };
+  picoStatus: {
+    online: boolean;
+    ip?: string;
+    rssi?: number;
+    mode?: string;
+    currentPhase?: string;
+    countdown?: number;
+    uptime?: number;
+    lastSeen?: number;
+  } | null;
   alerts: AlertItem[];
   auditLog: AuditItem[];
   users: UserItem[];
@@ -111,6 +121,22 @@ interface TrafficState {
   signalRec: ReturnType<typeof generateSignalRecommendations>;
   aiForecast: ReturnType<typeof generateAIForecast>;
   modelInfo: ReturnType<typeof generateModelInfo>;
+
+  // Mamdani Fuzzy Adaptive Control state
+  fuzzyStatus: {
+    demandA: number;
+    demandB: number;
+    leftDemandA?: number;
+    leftDemandB?: number;
+    situation: "NORMAL" | "BOTH_HEAVY" | "A_HEAVY" | "B_HEAVY";
+    greenStraightA: number;
+    greenStraightB: number;
+    greenLeftA: number;
+    greenLeftB: number;
+    yellowTime?: number;
+    isSimulation?: boolean;
+    timestamp?: number;
+  } | null;
 
   // Chart history
   chartHistory: { time: string; [camId: string]: number | string }[];
@@ -136,6 +162,8 @@ interface TrafficState {
   setSignalDuration: (phase: string, duration: number) => void;
   setSignalPhase: (phase: string) => void;
   adjustSignalCountdown: (delta: number) => void;
+  setTestDemands: (demandA: number, demandB: number, leftDemandA?: number, leftDemandB?: number) => void;
+  clearTestDemands: () => void;
   acknowledgeAlert: (id: string) => void;
   acknowledgeAllAlerts: () => void;
   refreshRealtime: () => void;
@@ -173,7 +201,21 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   weather: null,
   routeStats: buildRouteStats({}),
   metrics: { totalVehicles: 0, avgSpeed: 0, avgWaitTime: 0, activeAlerts: 0 },
-  signalState: { currentPhase: "phase_1", mode: "auto", countdown: 35, phaseDurations: { phase_1: 35, phase_2: 35 }, cycleNumber: 1 },
+  signalState: { currentPhase: "phase_1", mode: "auto", countdown: 35, phaseDurations: { phase_1: 35, phase_2: 35, phase_3: 20 }, cycleNumber: 1 },
+  picoStatus: null,
+  fuzzyStatus: {
+    demandA: 50,
+    demandB: 50,
+    leftDemandA: 35,
+    leftDemandB: 35,
+    situation: "NORMAL",
+    greenStraightA: 30,
+    greenStraightB: 30,
+    greenLeftA: 24,
+    greenLeftB: 24,
+    yellowTime: 5,
+    isSimulation: false,
+  },
   alerts: [],
   auditLog: generateAuditLog(12),
   users: generateUsers(),
@@ -456,9 +498,11 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (path.includes('status')) processStatusData(data);
       } else if (path.startsWith('/traffic/signalState')) {
         const cur = get().signalState;
-        if (cur.mode !== "manual" || data.mode === "manual") {
-          set({ signalState: { ...cur, ...data } });
-        }
+        set({ signalState: { ...cur, ...data } });
+      } else if (path.startsWith('/traffic/picoStatus')) {
+        set({ picoStatus: data });
+      } else if (path.startsWith('/traffic/fuzzyStatus')) {
+        set({ fuzzyStatus: data });
       }
     });
   },
@@ -522,31 +566,40 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   tick: () => {
     const state = get();
     const signal = state.signalState;
+    const isOffline = Date.now() - state.lastRealtimeUpdate > 15000;
     let newSignal = { ...signal };
-    const newCountdown = signal.countdown - 1;
-    if (newCountdown <= 0) {
-      const phases = ["phase_1", "phase_2", "phase_3"];
-      const currIdx = phases.indexOf(signal.currentPhase);
-      const nextPhase = phases[(currIdx + 1) % phases.length];
-      const defaultDurations = { phase_1: 35, phase_2: 35, phase_3: 20, ...(signal.phaseDurations || {}) };
-      const nextDuration = defaultDurations[nextPhase as keyof typeof defaultDurations] || 35;
-      
-      newSignal = {
-        ...signal,
-        currentPhase: nextPhase,
-        countdown: nextDuration,
-        phaseDurations: defaultDurations,
-        cycleNumber: nextPhase === "phase_1" ? (signal.cycleNumber || 100) + 1 : (signal.cycleNumber || 100),
-      };
-      
-      firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-      fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
+
+    if (isOffline) {
+      // Fallback offline: tự chuyển pha cục bộ khi mất kết nối bo mạch
+      const newCountdown = signal.countdown - 1;
+      if (newCountdown <= 0) {
+        const phases = ["phase_1", "phase_2", "phase_3"];
+        const currIdx = phases.indexOf(signal.currentPhase);
+        const nextPhase = phases[(currIdx + 1) % phases.length];
+        const defaultDurations = Object.assign({ phase_1: 35, phase_2: 35, phase_3: 20 }, signal.phaseDurations);
+        const nextDuration = defaultDurations[nextPhase as keyof typeof defaultDurations] || 35;
+        
+        newSignal = {
+          ...signal,
+          currentPhase: nextPhase,
+          countdown: nextDuration,
+          phaseDurations: defaultDurations,
+          cycleNumber: nextPhase === "phase_1" ? (signal.cycleNumber || 100) + 1 : (signal.cycleNumber || 100),
+        };
+        
+        firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
+        fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
+      } else {
+        newSignal.countdown = newCountdown;
+      }
     } else {
-      newSignal.countdown = newCountdown;
+      // Bo mạch đang Online: chỉ đếm lùi mượt mà giữa các nhịp đồng bộ, KHÔNG ghi đè Firebase
+      if (newSignal.countdown > 0) {
+        newSignal.countdown = newSignal.countdown - 1;
+      }
     }
 
     const tickCount = state._tickCount + 1;
-    const isOffline = Date.now() - state.lastRealtimeUpdate > 15000;
 
     set({
       signalState: newSignal,
@@ -557,6 +610,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
   setSignalMode: (mode) => {
     const newSignal = { ...get().signalState, mode };
+    const cmd = {
+      action: "set_mode",
+      mode: mode,
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({ signalState: newSignal });
@@ -571,6 +630,14 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       phaseDurations: newDurations,
       countdown: isCurrentPhase ? duration : current.countdown,
     };
+    const cmd = {
+      action: "set_duration",
+      phase: phase,
+      duration: duration,
+      phaseDurations: newDurations,
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({ signalState: newSignal });
@@ -578,14 +645,24 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
   setSignalPhase: (phaseId) => {
     const current = get().signalState;
-    const defaultDurations = { phase_1: 35, phase_2: 35, phase_3: 20, ...(current.phaseDurations || {}) };
+    const defaultDurations = Object.assign({ phase_1: 35, phase_2: 35, phase_3: 20 }, current.phaseDurations);
     const dur = defaultDurations[phaseId as keyof typeof defaultDurations] || 35;
     const newSignal = {
       ...current,
+      mode: "manual" as const,
       currentPhase: phaseId,
       countdown: dur,
       phaseDurations: defaultDurations,
     };
+    const cmd = {
+      action: "override",
+      mode: "manual",
+      currentPhase: phaseId,
+      countdown: dur,
+      phaseDurations: defaultDurations,
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({ signalState: newSignal });
@@ -594,10 +671,58 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   adjustSignalCountdown: (delta) => {
     const current = get().signalState;
     const newCountdown = Math.max(5, current.countdown + delta);
-    const newSignal = { ...current, countdown: newCountdown };
+    const newSignal = { ...current, mode: "manual" as const, countdown: newCountdown };
+    const cmd = {
+      action: "adjust_countdown",
+      delta: delta,
+      countdown: newCountdown,
+      mode: "manual",
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({ signalState: newSignal });
+  },
+
+  setTestDemands: (demandA, demandB, leftDemandA, leftDemandB) => {
+    const lA = leftDemandA !== undefined ? leftDemandA : Math.round(demandA * 0.7);
+    const lB = leftDemandB !== undefined ? leftDemandB : Math.round(demandB * 0.7);
+    const cmd = {
+      action: "set_demands",
+      demandA,
+      demandB,
+      leftDemandA: lA,
+      leftDemandB: lB,
+      isSimulation: true,
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    set((s) => ({
+      fuzzyStatus: s.fuzzyStatus ? {
+        ...s.fuzzyStatus,
+        demandA,
+        demandB,
+        leftDemandA: lA,
+        leftDemandB: lB,
+        isSimulation: true,
+      } : null,
+    }));
+  },
+
+  clearTestDemands: () => {
+    const cmd = {
+      action: "clear_demands",
+      isSimulation: false,
+      timestamp: Date.now(),
+    };
+    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    set((s) => ({
+      fuzzyStatus: s.fuzzyStatus ? {
+        ...s.fuzzyStatus,
+        isSimulation: false,
+      } : null,
+    }));
   },
   acknowledgeAlert: (id) =>
     set((s) => ({ alerts: s.alerts.map((a) => (a.id === id ? { ...a, acknowledged: true } : a)) })),

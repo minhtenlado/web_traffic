@@ -102,9 +102,12 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
   // Fallback Polling every 8 seconds to ensure data NEVER goes stale even if SSE drops
   const polling = setInterval(async () => {
     try {
-      const [realtimeRes, statusRes] = await Promise.allSettled([
+      const [realtimeRes, statusRes, signalRes, picoRes, fuzzyRes] = await Promise.allSettled([
         fetch(`${DB_URL}/realtime.json`, { cache: "no-store" }),
         fetch(`${DB_URL}/system.json`, { cache: "no-store" }),
+        fetch(`${DB_URL}/traffic/signalState.json`, { cache: "no-store" }),
+        fetch(`${DB_URL}/traffic/picoStatus.json`, { cache: "no-store" }),
+        fetch(`${DB_URL}/traffic/fuzzyStatus.json`, { cache: "no-store" }),
       ]);
       if (realtimeRes.status === "fulfilled" && realtimeRes.value.ok) {
         const rData = await realtimeRes.value.json();
@@ -113,6 +116,18 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
       if (statusRes.status === "fulfilled" && statusRes.value.ok) {
         const sData = await statusRes.value.json();
         if (sData) onEvent('/system', sData);
+      }
+      if (signalRes.status === "fulfilled" && signalRes.value.ok) {
+        const sigData = await signalRes.value.json();
+        if (sigData) onEvent('/traffic/signalState', sigData);
+      }
+      if (picoRes.status === "fulfilled" && picoRes.value.ok) {
+        const pData = await picoRes.value.json();
+        if (pData) onEvent('/traffic/picoStatus', pData);
+      }
+      if (fuzzyRes.status === "fulfilled" && fuzzyRes.value.ok) {
+        const fData = await fuzzyRes.value.json();
+        if (fData) onEvent('/traffic/fuzzyStatus', fData);
       }
     } catch {}
   }, 8000);

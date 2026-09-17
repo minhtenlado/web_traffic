@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Timer,
@@ -16,6 +16,12 @@ import {
   Minus,
   Sparkles,
   ShieldAlert,
+  Cpu,
+  Activity,
+  Sliders,
+  RotateCcw,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { DIRECTIONS, SIGNAL_PHASES } from "@/lib/constants";
@@ -97,9 +103,52 @@ export function SignalControl() {
   const setSignalPhase = useTrafficStore((s) => s.setSignalPhase);
   const adjustSignalCountdown = useTrafficStore((s) => s.adjustSignalCountdown);
   const signalRec = useTrafficStore((s) => s.signalRec);
+  const picoStatus = useTrafficStore((s) => s.picoStatus);
+  const fuzzyStatus = useTrafficStore((s) => s.fuzzyStatus);
+  const setTestDemands = useTrafficStore((s) => s.setTestDemands);
+  const clearTestDemands = useTrafficStore((s) => s.clearTestDemands);
+
+  const [testA, setTestA] = useState<number>(fuzzyStatus?.demandA ?? 50);
+  const [testB, setTestB] = useState<number>(fuzzyStatus?.demandB ?? 50);
+
+  useEffect(() => {
+    if (fuzzyStatus?.demandA !== undefined && !fuzzyStatus.isSimulation) {
+      setTestA(Math.round(fuzzyStatus.demandA));
+    }
+    if (fuzzyStatus?.demandB !== undefined && !fuzzyStatus.isSimulation) {
+      setTestB(Math.round(fuzzyStatus.demandB));
+    }
+  }, [fuzzyStatus?.demandA, fuzzyStatus?.demandB, fuzzyStatus?.isSimulation]);
+
+  const situation = fuzzyStatus?.situation || "NORMAL";
+  const situationConfig: Record<string, { label: string; desc: string; badgeCls: string }> = {
+    NORMAL: {
+      label: "Cân bằng (NORMAL)",
+      desc: "Lưu lượng 2 hướng cân bằng, duy trì chu kỳ cơ sở 30s.",
+      badgeCls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    },
+    A_HEAVY: {
+      label: "Hướng A Đông xe (A_HEAVY)",
+      desc: "Ưu tiên kéo dài thời gian xanh Hướng A (Bạch Đằng - Hàng Xanh).",
+      badgeCls: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    },
+    B_HEAVY: {
+      label: "Hướng B Đông xe (B_HEAVY)",
+      desc: "Ưu tiên kéo dài thời gian xanh Hướng B (Điện Biên Phủ - Hàng Xanh).",
+      badgeCls: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    },
+    BOTH_HEAVY: {
+      label: "Cả 2 Hướng Kẹt xe (BOTH_HEAVY)",
+      desc: "Cả 2 tuyến cùng chịu áp lực lớn, kéo dài cả 2 pha để giải tỏa tối đa giao lộ.",
+      badgeCls: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+    },
+  };
+  const sitInfo = situationConfig[situation] || situationConfig.NORMAL;
+  const isSimulation = Boolean(fuzzyStatus?.isSimulation);
 
   const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase) || SIGNAL_PHASES[0];
   const isManual = signalState.mode === "manual";
+  const isPicoOnline = Boolean(picoStatus?.online);
 
   // Ring progress: countdown / phase duration
   const phaseDuration = signalState.phaseDurations?.[signalState.currentPhase as keyof typeof signalState.phaseDurations] || 35;
@@ -116,9 +165,14 @@ export function SignalControl() {
             subtitle={`Chu kỳ #${signalState.cycleNumber || 100}`}
             icon={Timer}
             action={
-              <StatusBadge color={isManual ? "amber" : "green"} pulse={!isManual}>
-                {isManual ? "Thủ công" : "Tự động (AI)"}
-              </StatusBadge>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge color={isPicoOnline ? "green" : "amber"} pulse={isPicoOnline}>
+                  {isPicoOnline ? `Pico W: Online (${picoStatus?.ip || "Connected"})` : "Pico W: Offline (Fallback)"}
+                </StatusBadge>
+                <StatusBadge color={isManual ? "amber" : "green"} pulse={!isManual}>
+                  {isManual ? "Thủ công" : "Tự động (AI)"}
+                </StatusBadge>
+              </div>
             }
             bodyClassName="p-0"
           >
@@ -214,7 +268,6 @@ export function SignalControl() {
                         <button
                           key={p.id}
                           onClick={() => {
-                            if (!isManual) setSignalMode("manual");
                             setSignalPhase(p.id);
                           }}
                           className={cn(
@@ -328,6 +381,269 @@ export function SignalControl() {
           </div>
         </SectionCard>
       </div>
+
+      {/* Mamdani Fuzzy Adaptive Control Panel */}
+      <SectionCard
+        title="Hệ Thống Thích Nghi Mờ (Mamdani Fuzzy Logic)"
+        subtitle="Thích nghi thời gian đèn xanh theo thời gian thực dựa trên lưu lượng & hàng chờ (4 Camera AI)"
+        icon={Cpu}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold", sitInfo.badgeCls)}>
+              <Activity className="h-3 w-3 animate-pulse" />
+              {sitInfo.label}
+            </span>
+            <span className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+              isSimulation
+                ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30"
+                : "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30"
+            )}>
+              {isSimulation ? "🧪 Giả lập / Test" : "📷 Camera AI Thực"}
+            </span>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          {/* Situation Explanation Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 p-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <span className="font-medium text-foreground">{sitInfo.desc}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono shrink-0">
+              <ShieldCheck className="h-3.5 w-3.5 text-success" />
+              <span>Safety: Đi thẳng [22s, 36s] | Rẽ trái [20s, 30s] | Vàng 5s</span>
+            </div>
+          </div>
+
+          {/* 2 Direction Demand & Fuzzy Output Columns */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Column A */}
+            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <div>
+                  <span className="text-xs font-bold text-foreground">Hướng A (Bạch Đằng - Hàng Xanh)</span>
+                  <div className="text-[10px] text-muted-foreground">Zone 1 & Zone 3 (Cam 01 + Cam 03)</div>
+                </div>
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary tabular-nums">
+                  {fuzzyStatus?.demandA ?? 50}% Nhu cầu
+                </span>
+              </div>
+
+              {/* Progress bars */}
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">Nhu cầu Đi thẳng</span>
+                    <span className="font-bold tabular-nums text-foreground">{fuzzyStatus?.demandA ?? 50}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-500",
+                        (fuzzyStatus?.demandA ?? 50) > 75
+                          ? "bg-destructive"
+                          : (fuzzyStatus?.demandA ?? 50) > 40
+                          ? "bg-warning"
+                          : "bg-success"
+                      )}
+                      style={{ width: `${Math.min(100, Math.max(0, fuzzyStatus?.demandA ?? 50))}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">Nhu cầu Rẽ trái</span>
+                    <span className="font-bold tabular-nums text-foreground">{fuzzyStatus?.leftDemandA ?? 35}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-chart-4 transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.max(0, fuzzyStatus?.leftDemandA ?? 35))}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Adaptive Outputs */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+                <div className="rounded-lg bg-success/10 p-2.5 text-center border border-success/20">
+                  <div className="text-[10px] uppercase font-bold text-success">Xanh Đi Thẳng</div>
+                  <div className="text-xl font-extrabold text-success tabular-nums">
+                    {fuzzyStatus?.greenStraightA ?? 30}s
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [22s - 36s]</div>
+                </div>
+                <div className="rounded-lg bg-chart-4/10 p-2.5 text-center border border-chart-4/20">
+                  <div className="text-[10px] uppercase font-bold text-chart-4">Xanh Rẽ Trái</div>
+                  <div className="text-xl font-extrabold text-chart-4 tabular-nums">
+                    {fuzzyStatus?.greenLeftA ?? 24}s
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [20s - 30s]</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Column B */}
+            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <div>
+                  <span className="text-xs font-bold text-foreground">Hướng B (Điện Biên Phủ - Hàng Xanh)</span>
+                  <div className="text-[10px] text-muted-foreground">Zone 2 & Zone 4 (Cam 02 + Cam 04)</div>
+                </div>
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary tabular-nums">
+                  {fuzzyStatus?.demandB ?? 50}% Nhu cầu
+                </span>
+              </div>
+
+              {/* Progress bars */}
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">Nhu cầu Đi thẳng</span>
+                    <span className="font-bold tabular-nums text-foreground">{fuzzyStatus?.demandB ?? 50}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-500",
+                        (fuzzyStatus?.demandB ?? 50) > 75
+                          ? "bg-destructive"
+                          : (fuzzyStatus?.demandB ?? 50) > 40
+                          ? "bg-warning"
+                          : "bg-success"
+                      )}
+                      style={{ width: `${Math.min(100, Math.max(0, fuzzyStatus?.demandB ?? 50))}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">Nhu cầu Rẽ trái</span>
+                    <span className="font-bold tabular-nums text-foreground">{fuzzyStatus?.leftDemandB ?? 35}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-chart-4 transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.max(0, fuzzyStatus?.leftDemandB ?? 35))}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Adaptive Outputs */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+                <div className="rounded-lg bg-success/10 p-2.5 text-center border border-success/20">
+                  <div className="text-[10px] uppercase font-bold text-success">Xanh Đi Thẳng</div>
+                  <div className="text-xl font-extrabold text-success tabular-nums">
+                    {fuzzyStatus?.greenStraightB ?? 30}s
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [22s - 36s]</div>
+                </div>
+                <div className="rounded-lg bg-chart-4/10 p-2.5 text-center border border-chart-4/20">
+                  <div className="text-[10px] uppercase font-bold text-chart-4">Xanh Rẽ Trái</div>
+                  <div className="text-xl font-extrabold text-chart-4 tabular-nums">
+                    {fuzzyStatus?.greenLeftB ?? 24}s
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [20s - 30s]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Test & Simulation Sandbox */}
+          <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold text-foreground">Khu Vực Kiểm Thử & Giả Lập Nhu Cầu (Test Sandbox)</span>
+              </div>
+              {isSimulation && (
+                <button
+                  onClick={() => clearTestDemands()}
+                  className="flex items-center gap-1 rounded-md bg-destructive/10 px-2.5 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/20 transition-colors"
+                >
+                  <RotateCcw className="h-3 w-3" /> Hủy giả lập (Về AI Camera)
+                </button>
+              )}
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[11px] font-medium text-muted-foreground">Kịch bản nhanh:</span>
+              <button
+                onClick={() => setTestDemands(50, 50, 35, 35)}
+                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-success/50 hover:bg-success/10 transition-colors"
+              >
+                🟢 Cân bằng (50 / 50)
+              </button>
+              <button
+                onClick={() => setTestDemands(85, 25, 60, 18)}
+                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-amber-500/50 hover:bg-amber-500/10 transition-colors"
+              >
+                🟡 Hướng A Đông (85 / 25)
+              </button>
+              <button
+                onClick={() => setTestDemands(25, 85, 18, 60)}
+                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-amber-500/50 hover:bg-amber-500/10 transition-colors"
+              >
+                🟡 Hướng B Đông (25 / 85)
+              </button>
+              <button
+                onClick={() => setTestDemands(80, 80, 56, 56)}
+                className="rounded-lg border border-border bg-background/80 px-2.5 py-1 text-[11px] font-medium hover:border-destructive/50 hover:bg-destructive/10 transition-colors"
+              >
+                🔴 Cả 2 Kẹt xe (80 / 80)
+              </button>
+            </div>
+
+            {/* Custom Sliders */}
+            <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">Demand Hướng A (%):</span>
+                  <span className="font-mono font-bold text-primary">{testA}%</span>
+                </div>
+                <Slider
+                  value={[testA]}
+                  min={0}
+                  max={100}
+                  step={5}
+                  onValueChange={(v) => setTestA(v[0])}
+                  aria-label="Demand Hướng A"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">Demand Hướng B (%):</span>
+                  <span className="font-mono font-bold text-primary">{testB}%</span>
+                </div>
+                <Slider
+                  value={[testB]}
+                  min={0}
+                  max={100}
+                  step={5}
+                  onValueChange={(v) => setTestB(v[0])}
+                  aria-label="Demand Hướng B"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setTestDemands(testA, testB)}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Gửi Lệnh Giả Lập Tới Hệ Thống
+              </button>
+            </div>
+          </div>
+        </div>
+      </SectionCard>
 
       {/* 4-direction traffic light grid with Left Turn Indicators */}
       <SectionCard

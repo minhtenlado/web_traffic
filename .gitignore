@@ -54,3 +54,12 @@ server.log
 /skills/
 # Firebase Service Account
 trafic-*.json
+
+# Scratch & test scripts
+patch*.py
+test_*.js
+test_*.py
+update_store*.py
+*.dump.json
+realtime_dump.json
+screenshot*.png

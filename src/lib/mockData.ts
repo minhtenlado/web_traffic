@@ -90,7 +90,7 @@ export function generateSignalState(currentPhaseId?: string) {
   const phase = phases[nextIdx];
   return {
     currentPhase: phase,
-    mode: "auto" as const,
+    mode: "auto" as "auto" | "manual",
     countdown: phaseDurations[phase as keyof typeof phaseDurations] || 35,
     phaseDurations,
     cycleNumber: rand(100, 999),
