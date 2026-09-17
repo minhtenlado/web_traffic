@@ -623,6 +623,9 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
   setSignalDuration: (phase, duration) => {
     const current = get().signalState;
+    // Chỉ cho phép điều chỉnh thanh kéo thời lượng khi đang ở chế độ thủ công
+    if (current.mode !== "manual") return;
+
     const isCurrentPhase = current.currentPhase === phase;
     const newDurations = { ...current.phaseDurations, [phase]: duration };
     const newSignal = {

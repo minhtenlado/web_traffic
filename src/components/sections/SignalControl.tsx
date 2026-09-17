@@ -342,16 +342,35 @@ export function SignalControl() {
 
             {/* Phase duration controls */}
             <div className="space-y-4">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                <Gauge className="h-3.5 w-3.5 text-primary" /> Cài đặt thời lượng pha (giây)
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Gauge className="h-3.5 w-3.5 text-primary" /> Cài đặt thời lượng pha (giây)
+                </div>
+                <span className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                  isManual ? "bg-amber-500/15 text-amber-500 border border-amber-500/30" : "bg-muted text-muted-foreground border border-border"
+                )}>
+                  {isManual ? "Thủ công: Mở khóa" : "Tự động: Khóa thanh kéo"}
+                </span>
               </div>
+
+              {!isManual && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-[11px] text-primary flex items-start gap-2">
+                  <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>Chế độ tự động đang bật: Thuật toán <b>Mamdani Fuzzy Logic</b> tự động thích ứng thời lượng xanh tối ưu từ 4 Camera AI. Các thanh kéo đã được khóa lại.</span>
+                </div>
+              )}
+
               {SIGNAL_PHASES.map((phase) => {
                 const value = signalState.phaseDurations?.[phase.id as keyof typeof signalState.phaseDurations] || (phase.id === "phase_3" ? 20 : 35);
                 return (
-                  <div key={phase.id} className="space-y-1.5">
+                  <div key={phase.id} className={cn("space-y-1.5 transition-opacity", !isManual && "opacity-50 pointer-events-none")}>
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-muted-foreground">{(phase as any).shortName || phase.name}</span>
-                      <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-mono font-bold tabular-nums text-primary">
+                      <span className={cn(
+                        "rounded-md px-1.5 py-0.5 font-mono font-bold tabular-nums",
+                        isManual ? "bg-amber-500/15 text-amber-500" : "bg-primary/10 text-primary"
+                      )}>
                         {value}s
                       </span>
                     </div>
@@ -360,7 +379,12 @@ export function SignalControl() {
                       min={10}
                       max={90}
                       step={5}
-                      onValueChange={(v) => setSignalDuration(phase.id, v[0])}
+                      disabled={!isManual}
+                      onValueChange={(v) => {
+                        if (isManual) {
+                          setSignalDuration(phase.id, v[0]);
+                        }
+                      }}
                       aria-label={`Thời lượng ${phase.name}`}
                     />
                     <div className="flex justify-between text-[9px] text-muted-foreground">
@@ -374,7 +398,7 @@ export function SignalControl() {
               {isManual && (
                 <div className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning/5 p-2.5 text-[11px] text-warning">
                   <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>Chế độ thủ công đang bật. Bạn có thể bấm chuyển pha đèn tức thì bên trái.</span>
+                  <span>Chế độ thủ công đang bật. Bạn có toàn quyền kéo thanh thời lượng và bấm chuyển pha đèn tức thì bên trái.</span>
                 </div>
               )}
             </div>
@@ -570,6 +594,13 @@ export function SignalControl() {
                 </button>
               )}
             </div>
+
+            {isManual && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <Zap className="h-4 w-4 shrink-0" />
+                <span>Hệ thống đang ở <b>Chế độ Thủ công</b> (vận hành hoàn toàn bằng các thanh kéo thời lượng ở trên). Chuyển sang <b>Chế độ Tự động (AI)</b> nếu bạn muốn chạy thích nghi Mờ theo các kịch bản kiểm thử dưới đây.</span>
+              </div>
+            )}
 
             {/* Quick Presets */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
