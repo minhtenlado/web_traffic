@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-import { initUnifiedFirebase, firebaseUpdate, firebaseGet } from "./firebase";
+import { initUnifiedFirebase, firebaseUpdate, firebaseSet, firebaseGet } from "./firebase";
 
 import {
   CAMERAS,
@@ -499,6 +499,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
                 manualSubMode: cur.manualSubMode,
                 freeFlushTarget: cur.freeFlushTarget,
                 displaysOff: cur.displaysOff,
+                phaseDurations: cur.phaseDurations,
               }
             });
           } else {
@@ -555,6 +556,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
               manualSubMode: cur.manualSubMode,
               freeFlushTarget: cur.freeFlushTarget,
               displaysOff: cur.displaysOff,
+              phaseDurations: cur.phaseDurations,
             }
           });
         } else {
@@ -696,9 +698,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       manualSubMode: subMode,
       freeFlushTarget: newSignal.freeFlushTarget,
       displaysOff: isFree,
+      phaseDurations: newSignal.phaseDurations,
       timestamp: Date.now(),
     };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseSet("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({
@@ -724,9 +727,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       subMode: subMode,
       freeFlushTarget: target,
       displaysOff: isFree,
+      phaseDurations: newSignal.phaseDurations,
       timestamp: Date.now(),
     };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseSet("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({
@@ -751,7 +755,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       displaysOff: true,
       timestamp: Date.now(),
     };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseSet("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({
@@ -779,7 +783,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       phaseDurations: newDurations,
       timestamp: Date.now(),
     };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseSet("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({
@@ -807,7 +811,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       phaseDurations: defaultDurations,
       timestamp: Date.now(),
     };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseSet("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({
@@ -827,7 +831,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       mode: "manual",
       timestamp: Date.now(),
     };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
+    firebaseSet("traffic/command", cmd).catch(() => {});
     firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
     fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
     set({
