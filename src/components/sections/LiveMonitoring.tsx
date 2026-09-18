@@ -228,7 +228,6 @@ export function LiveMonitoring() {
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-70" />
                         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-destructive" />
                       </span>
-                      REC
                     </div>
                   )}
 
