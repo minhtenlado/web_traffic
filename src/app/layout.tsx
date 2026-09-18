@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   keywords: ["SkyTech", "giám sát giao thông", "Hàng Xanh", "đèn giao thông", "AI"],
   authors: [{ name: "SkyTech" }],
   icons: {
-    icon: "/logo_skytech_icon.png",
+    icon: "/logo_skytech_3.png",
   },
 };
 
