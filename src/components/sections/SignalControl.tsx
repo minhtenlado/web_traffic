@@ -619,7 +619,7 @@ export function SignalControl() {
                       <Slider
                         value={[value]}
                         min={10}
-                        max={90}
+                        max={999}
                         step={5}
                         disabled={!isManual}
                         onValueChange={(v) => {
@@ -631,7 +631,7 @@ export function SignalControl() {
                       />
                       <div className="flex justify-between text-[9px] text-muted-foreground">
                         <span>10s</span>
-                        <span>90s</span>
+                        <span>999s</span>
                       </div>
                     </div>
                   );
