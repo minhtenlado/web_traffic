@@ -69,8 +69,6 @@ export default function Home() {
         return user?.role === "admin" ? <AuditLog /> : <Dashboard />;
       case "admin":
         return user?.role === "admin" ? <Admin /> : <Dashboard />;
-      case "devices":
-        return user?.role === "admin" ? <DeviceManagement /> : <Dashboard />;
       case "health":
         return user?.role === "admin" ? <SystemHealth /> : <Dashboard />;
       case "profile":

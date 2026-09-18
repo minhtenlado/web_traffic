@@ -14,10 +14,13 @@ import {
   Settings2,
   Clock,
   Save,
+  Server,
 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { timeAgo } from "@/lib/formatters";
 import { StatCard, SectionCard, StatusBadge } from "@/components/shared/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DeviceManagement } from "./DeviceManagement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -129,6 +132,19 @@ export function Admin() {
 
   return (
     <div className="space-y-5">
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="users" className="gap-2">
+            <Users className="h-4 w-4" />
+            Người dùng & Cấu hình
+          </TabsTrigger>
+          <TabsTrigger value="devices" className="gap-2">
+            <Server className="h-4 w-4" />
+            Quản lý thiết bị
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-5 mt-0">
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
@@ -448,6 +464,12 @@ export function Admin() {
           </Button>
         </div>
       </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="devices" className="mt-0">
+          <DeviceManagement />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
