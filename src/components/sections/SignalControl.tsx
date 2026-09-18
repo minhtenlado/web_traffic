@@ -675,7 +675,7 @@ export function SignalControl() {
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono shrink-0">
               <ShieldCheck className="h-3.5 w-3.5 text-success" />
-              <span>Safety: Đi thẳng [22s, 36s] | Rẽ trái [20s, 30s] | Vàng 5s</span>
+              <span>Safety: Đi thẳng [20s, 90s] | Rẽ trái [15s, 60s] | Vàng 5s</span>
             </div>
           </div>
 
@@ -736,14 +736,14 @@ export function SignalControl() {
                   <div className="text-xl font-extrabold text-success tabular-nums">
                     {fuzzyStatus?.greenStraightA ?? 30}s
                   </div>
-                  <div className="text-[9px] text-muted-foreground">Giới hạn: [22s - 36s]</div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [20s - 90s]</div>
                 </div>
                 <div className="rounded-lg bg-chart-4/10 p-2.5 text-center border border-chart-4/20">
                   <div className="text-[10px] uppercase font-bold text-chart-4">Xanh Rẽ Trái</div>
                   <div className="text-xl font-extrabold text-chart-4 tabular-nums">
                     {fuzzyStatus?.greenLeftA ?? 24}s
                   </div>
-                  <div className="text-[9px] text-muted-foreground">Giới hạn: [20s - 30s]</div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [15s - 60s]</div>
                 </div>
               </div>
             </div>
@@ -803,26 +803,30 @@ export function SignalControl() {
                   <div className="text-xl font-extrabold text-success tabular-nums">
                     {fuzzyStatus?.greenStraightB ?? 30}s
                   </div>
-                  <div className="text-[9px] text-muted-foreground">Giới hạn: [22s - 36s]</div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [20s - 90s]</div>
                 </div>
                 <div className="rounded-lg bg-chart-4/10 p-2.5 text-center border border-chart-4/20">
                   <div className="text-[10px] uppercase font-bold text-chart-4">Xanh Rẽ Trái</div>
                   <div className="text-xl font-extrabold text-chart-4 tabular-nums">
                     {fuzzyStatus?.greenLeftB ?? 24}s
                   </div>
-                  <div className="text-[9px] text-muted-foreground">Giới hạn: [20s - 30s]</div>
+                  <div className="text-[9px] text-muted-foreground">Giới hạn: [15s - 60s]</div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Live Camera AI Information Banner */}
+          {/* Live Camera AI & TCN Prediction Banner */}
           <div className="rounded-xl border border-border/60 bg-muted/20 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5 text-muted-foreground">
               <Camera className="h-4 w-4 text-primary shrink-0" />
-              <span>Dữ liệu lưu lượng tính toán trực tiếp từ 4 luồng Camera RTSP thời gian thực tại ngã tư Hàng Xanh (Bạch Đằng & Điện Biên Phủ).</span>
+              <span>Nhu cầu điều khiển kết hợp <b>60% Camera AI Thực tế</b> + <b>40% Mô hình AI Dự báo 30 phút (TCN-Seq2Seq)</b> để chủ động chống ùn tắc.</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                <Sparkles className="h-3 w-3" />
+                Dự báo AI 30 Phút
+              </span>
               <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 Vận hành Thực tế 100%
