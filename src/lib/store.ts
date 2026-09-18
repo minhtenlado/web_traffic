@@ -153,6 +153,7 @@ interface TrafficState {
   activeSection: SectionId;
   sidebarOpen: boolean;
   theme: "dark" | "light";
+  selectedArea: string;
 
   // Auth
   user: { id: string; username: string; fullName: string; role: "admin" | "operator"; email: string } | null;
@@ -163,6 +164,7 @@ interface TrafficState {
   toggleSidebar: () => void;
   setTheme: (t: "dark" | "light") => void;
   toggleTheme: () => void;
+  setSelectedArea: (area: string) => void;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   tick: () => void;
@@ -245,6 +247,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   activeSection: "dashboard",
   sidebarOpen: true,
   theme: "dark",
+  selectedArea: "hang-xanh",
   user: null,
   isAuthenticated: false,
   isBoardOffline: false,
@@ -556,6 +559,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
   setActiveSection: (s) => set({ activeSection: s }),
   toggleSidebar: () => set((st) => ({ sidebarOpen: !st.sidebarOpen })),
+  setSelectedArea: (area) => set({ selectedArea: area }),
   setTheme: (t) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("theme", t);

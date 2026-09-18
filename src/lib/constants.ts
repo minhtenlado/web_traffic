@@ -166,3 +166,10 @@ export function pickWorstLabel(labels: string[]): string {
   }
   return worst;
 }
+
+export const AREA_CONFIGS: Record<string, { name: string; center: [number, number]; zoom: number }> = {
+  "hang-xanh": { name: "Ngã tư Hàng Xanh", center: [10.8015, 106.7115], zoom: 18 },
+  "truong-chinh": { name: "Đường Trường Chinh", center: [10.8300, 106.6550], zoom: 16 },
+  "cong-hoa": { name: "Đường Cộng Hòa", center: [10.8000, 106.6500], zoom: 16 },
+  "xa-lo-ha-noi": { name: "Xa lộ Hà Nội", center: [10.8550, 106.7700], zoom: 16 },
+};

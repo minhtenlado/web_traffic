@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
+import { useTrafficStore } from "@/lib/store";
 
 // Dynamically import the real Leaflet map component with SSR disabled
 const LeafletMap = dynamic(
@@ -17,9 +18,11 @@ const LeafletMap = dynamic(
 );
 
 export function IntersectionMap() {
+  const selectedArea = useTrafficStore((s) => s.selectedArea);
+
   return (
     <div className="relative w-full h-[350px] lg:h-[600px] overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background shadow-md shrink-0">
-      <LeafletMap />
+      <LeafletMap selectedArea={selectedArea} />
     </div>
   );
 }

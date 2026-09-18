@@ -41,6 +41,8 @@ export function Header() {
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
   const toggleSidebar = useTrafficStore((s) => s.toggleSidebar);
   const isMobile = useIsMobile();
+  const selectedArea = useTrafficStore((s) => s.selectedArea);
+  const setSelectedArea = useTrafficStore((s) => s.setSelectedArea);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -104,7 +106,7 @@ export function Header() {
 
         {/* Location Selector */}
         <div className="hidden items-center lg:flex">
-          <Select defaultValue="hang-xanh">
+          <Select value={selectedArea} onValueChange={setSelectedArea}>
             <SelectTrigger className="h-8 gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 focus:ring-0 focus:ring-offset-0">
               <div className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />

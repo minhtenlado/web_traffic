@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, Fragment } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline } from "react-leaflet";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Camera, Video, ArrowUpLeft } from "lucide-react";
+import { Camera, Video, ArrowUpLeft, X, ExternalLink, MapPin, Clock, Activity } from "lucide-react";
 import { useTheme } from "next-themes";
-import { CAMERAS, SIGNAL_PHASES, DIRECTIONS } from "@/lib/constants";
+import { CAMERAS, SIGNAL_PHASES, DIRECTIONS, AREA_CONFIGS } from "@/lib/constants";
 import { useTrafficStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { formatNumber, formatClockTime } from "@/lib/formatters";
 
 import "leaflet/dist/leaflet.css";
 
@@ -20,124 +21,6 @@ const TRAFFIC_LIGHT_POSITIONS = [
   { id: "xo_viet_nghe_tinh", name: "Xô Viết Nghệ Tĩnh", position: [10.80083, 106.71138] },
   { id: "hang_xanh", name: "Hàng Xanh", position: [10.80166, 106.7117] },
 ];
-
-// Catmull-Rom spline interpolation for continuous, silky-smooth road curves
-function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
-  const v0 = (p2 - p0) * 0.5;
-  const v1 = (p3 - p1) * 0.5;
-  const t2 = t * t;
-  const t3 = t * t2;
-  return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
-}
-
-function smoothPath(points: [number, number][], samplesPerSegment = 8): [number, number][] {
-  if (points.length < 3) return points;
-  const result: [number, number][] = [];
-  const pts = [points[0], ...points, points[points.length - 1]];
-
-  for (let i = 0; i < pts.length - 3; i++) {
-    const p0 = pts[i];
-    const p1 = pts[i + 1];
-    const p2 = pts[i + 2];
-    const p3 = pts[i + 3];
-
-    for (let s = 0; s < samplesPerSegment; s++) {
-      const t = s / samplesPerSegment;
-      const lat = catmullRom(p0[0], p1[0], p2[0], p3[0], t);
-      const lng = catmullRom(p0[1], p1[1], p2[1], p3[1], t);
-      result.push([lat, lng]);
-    }
-  }
-  result.push(points[points.length - 1]);
-  return result;
-}
-
-interface RouteConfig {
-  id: string;
-  name: string;
-  rawPaths: [number, number][][];
-}
-
-// Precise anchor points following the exact visual curves of the roadways on the map
-const RAW_ROUTE_CONFIGS: RouteConfig[] = [
-  {
-    id: "dien_bien_phu",
-    name: "Điện Biên Phủ (Q.1 ➔ Hàng Xanh)",
-    rawPaths: [
-      [
-        [10.79930, 106.70520],
-        [10.79985, 106.70670],
-        [10.80035, 106.70785],
-        [10.80077, 106.70898],
-        [10.80108, 106.71000],
-        [10.80132, 106.71085],
-        [10.80145, 106.71130],
-      ],
-    ],
-  },
-  {
-    id: "hang_xanh",
-    name: "Điện Biên Phủ (Cầu Sài Gòn ➔ Hàng Xanh)",
-    rawPaths: [
-      [
-        [10.80080, 106.71620],
-        [10.80102, 106.71495],
-        [10.80120, 106.71370],
-        [10.80137, 106.71230],
-        [10.80155, 106.71175],
-        [10.80150, 106.71145],
-      ],
-    ],
-  },
-  {
-    id: "bach_dang",
-    name: "Bạch Đằng (Bà Chiểu ➔ Hàng Xanh)",
-    rawPaths: [
-      [
-        [10.80480, 106.70760],
-        [10.80420, 106.70850],
-        [10.80360, 106.70930],
-        [10.80300, 106.70985],
-        [10.80250, 106.71060],
-        [10.80211, 106.71124],
-        [10.80185, 106.71135],
-      ],
-    ],
-  },
-  {
-    id: "xo_viet_nghe_tinh",
-    name: "Xô Viết Nghệ Tĩnh (Cầu Thị Nghè ➔ Hàng Xanh)",
-    rawPaths: [
-      [
-        [10.79720, 106.71125],
-        [10.79850, 106.71128],
-        [10.79979, 106.71131],
-        [10.80050, 106.71135],
-        [10.80083, 106.71138],
-        [10.80135, 106.71140],
-      ],
-      [
-        [10.80165, 106.71145],
-        [10.80210, 106.71150],
-        [10.80280, 106.71158],
-        [10.80380, 106.71168],
-        [10.80520, 106.71175],
-      ],
-    ],
-  },
-];
-
-// Pre-compute smoothed paths once
-const ROUTE_CONFIGS = RAW_ROUTE_CONFIGS.map((r) => ({
-  ...r,
-  paths: r.rawPaths.map((p) => smoothPath(p, 8)),
-}));
-
-const COLOR_MAP: Record<string, string> = {
-  green: "#22c55e", // vibrant Google Maps green
-  amber: "#f59e0b", // vibrant Google Maps amber/yellow
-  red: "#ef4444",   // vibrant Google Maps red
-};
 
 function getLightState(dirId: string, signalState: any) {
   const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase);
@@ -184,6 +67,25 @@ const LIGHT_COLORS: Record<string, string> = {
   red: "bg-destructive shadow-[0_0_12px_2px] shadow-destructive/60",
 };
 
+const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; glow: string }> = {
+  green: { bg: "bg-success/10", border: "border-success/40", text: "text-success", glow: "shadow-success/20" },
+  amber: { bg: "bg-warning/10", border: "border-warning/40", text: "text-warning", glow: "shadow-warning/20" },
+  red: { bg: "bg-destructive/10", border: "border-destructive/40", text: "text-destructive", glow: "shadow-destructive/20" },
+  cyan: { bg: "bg-chart-2/10", border: "border-chart-2/40", text: "text-chart-2", glow: "shadow-chart-2/20" },
+};
+
+function getStatusInfo(mappedLabel?: string, isError?: boolean) {
+  if (isError) return { text: "Mất kết nối", cls: "red" as const };
+  switch (mappedLabel) {
+    case "Ket_xe": return { text: "Kẹt xe", cls: "red" as const };
+    case "Sap_ket": return { text: "Sắp kẹt", cls: "amber" as const };
+    case "Dong_xe": return { text: "Đông xe", cls: "amber" as const };
+    case "Binh_thuong": return { text: "Bình thường", cls: "green" as const };
+    case "Duong_vang": return { text: "Thông thoáng", cls: "green" as const };
+    default: return { text: "Đang chờ", cls: "cyan" as const };
+  }
+}
+
 function createCameraIcon(cam: any, camData: any, isError: boolean) {
   const label = camData?.mapped_label;
   let dotColor = "bg-muted-foreground";
@@ -193,7 +95,7 @@ function createCameraIcon(cam: any, camData: any, isError: boolean) {
   else dotColor = "bg-success";
 
   const html = renderToStaticMarkup(
-    <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card shadow-md">
+    <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card shadow-md cursor-pointer hover:scale-110 transition-transform">
       <Video className="h-4 w-4 text-foreground" />
       <span className={cn("absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2 ring-card", dotColor)}></span>
     </div>
@@ -251,28 +153,188 @@ function createTrafficLightIcon(light: ReturnType<typeof getLightState>) {
   });
 }
 
-export function LeafletIntersectionMap() {
+/* FlyTo component — listens for area changes and flies the map */
+function FlyToArea({ selectedArea }: { selectedArea: string }) {
+  const map = useMap();
+  const prevAreaRef = useRef(selectedArea);
+
+  useEffect(() => {
+    if (selectedArea !== prevAreaRef.current) {
+      prevAreaRef.current = selectedArea;
+      const area = AREA_CONFIGS[selectedArea];
+      if (area) {
+        map.flyTo(area.center, area.zoom, {
+          duration: 1.8,
+          easeLinearity: 0.25,
+        });
+      }
+    }
+  }, [selectedArea, map]);
+
+  return null;
+}
+
+/* Camera Popup Overlay — shown when a camera marker is clicked */
+function CameraPopup({
+  cam,
+  camData,
+  isError,
+  onClose,
+}: {
+  cam: (typeof CAMERAS)[number];
+  camData: any;
+  isError: boolean;
+  onClose: () => void;
+}) {
+  const dir = DIRECTIONS.find((d) => d.id === cam.direction);
+  const { text, cls } = getStatusInfo(camData?.mapped_label, isError);
+  const count = camData?.count || 0;
+  const ts = camData?.timestamp?.split(" ")[1] || "—";
+  const colors = STATUS_COLORS[cls] || STATUS_COLORS.cyan;
+
+  return (
+    <div className="absolute inset-0 z-[1000] flex items-center justify-center p-4 sm:p-8" onClick={onClose}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+      {/* Card */}
+      <div
+        className={cn(
+          "relative w-full max-w-2xl overflow-hidden rounded-2xl border bg-card/95 backdrop-blur-xl shadow-2xl",
+          colors.border,
+          `shadow-lg ${colors.glow}`
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-border/50 px-5 py-3.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", colors.bg)}>
+              <Camera className={cn("h-4.5 w-4.5", colors.text)} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-foreground">{cam.name}</h3>
+              <p className="truncate text-xs text-muted-foreground">{cam.label}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Status badge */}
+            <span className={cn(
+              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold",
+              colors.bg, colors.border, colors.text
+            )}>
+              <span className={cn("h-1.5 w-1.5 rounded-full bg-current", cls !== "green" && "animate-pulse")} />
+              {text}
+            </span>
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted/50 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+              aria-label="Đóng"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Video feed */}
+        <div className="relative aspect-video w-full bg-black">
+          {!isError && cam.url ? (
+            <>
+              <iframe
+                src={cam.url}
+                title={cam.name}
+                className="absolute inset-0 h-full w-full border-0"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                referrerPolicy="no-referrer"
+                loading="eager"
+              />
+              {/* REC indicator */}
+              <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-red-400 backdrop-blur-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-400" />
+                </span>
+                REC
+              </div>
+              {/* Time indicator */}
+              <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 backdrop-blur-sm">
+                <Clock className="h-3 w-3 text-blue-400" />
+                <span className="font-mono text-[10px] font-bold tabular-nums text-white/90">{formatClockTime(new Date())}</span>
+                <span className="flex items-center gap-1 text-[10px] font-bold text-red-400">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-70" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-400" />
+                  </span>
+                  LIVE
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-muted/30 to-background p-6 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/15">
+                <Camera className="h-7 w-7 text-destructive" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {isError ? "Mất tín hiệu camera" : "Đang tải luồng video..."}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {isError ? "Camera hiện không khả dụng" : "Vui lòng đợi hoặc mở trong tab mới"}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Info bar */}
+        <div className="grid grid-cols-4 gap-px border-t border-border/50 bg-border/30">
+          <div className="flex flex-col items-center justify-center bg-card/95 p-3">
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Hướng</span>
+            <span className="mt-0.5 text-sm font-bold text-foreground">{dir?.short || "—"}</span>
+          </div>
+          <div className="flex flex-col items-center justify-center bg-card/95 p-3">
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Số xe</span>
+            <span className="mt-0.5 text-sm font-bold tabular-nums text-foreground">{isError ? "—" : formatNumber(count)}</span>
+          </div>
+          <div className="flex flex-col items-center justify-center bg-card/95 p-3">
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Cập nhật</span>
+            <span className="mt-0.5 font-mono text-sm font-bold tabular-nums text-foreground">{ts}</span>
+          </div>
+          <div className="flex flex-col items-center justify-center bg-card/95 p-3">
+            {cam.url && (
+              <a
+                href={cam.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] font-semibold text-primary transition-colors hover:text-primary/80"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Tab mới
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selectedArea?: string }) {
   const { resolvedTheme } = useTheme();
   const signalState = useTrafficStore((s) => s.signalState);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
   const isOffline = useTrafficStore((s) => s.isBoardOffline);
-  const routeStats = useTrafficStore((s) => s.routeStats);
 
-  const trafficRoutes = useMemo(() => {
-    const routeMap = new Map((routeStats || []).map((r) => [r.id, r]));
-    return ROUTE_CONFIGS.map((cfg) => {
-      const stat = routeMap.get(cfg.id);
-      const statusColor = stat?.statusColor || "green";
-      const status = stat?.status || "Thông thoáng";
-      const vehicleCount = stat?.vehicleCount ?? 0;
-      return {
-        ...cfg,
-        statusColor,
-        status,
-        vehicleCount,
-      };
-    });
-  }, [routeStats]);
+  const [activeCam, setActiveCam] = useState<string | null>(null);
+
+  const activeCamInfo = useMemo(
+    () => (activeCam ? CAMERAS.find((c) => c.id === activeCam) || null : null),
+    [activeCam],
+  );
+  const activeCamData = activeCam ? realtimeCams?.[activeCam] : null;
+  const activeCamError = isOffline || activeCamData?.status === "ERROR";
 
   const camIcons = useMemo(() => {
     return CAMERAS.map((cam) => {
@@ -302,75 +364,29 @@ export function LeafletIntersectionMap() {
           attribution='&copy; Google Maps'
         />
 
-        {/* Traffic Status Polylines (Smooth Google Maps style curves) */}
-        {trafficRoutes.map((route) => {
-          const color = isOffline ? "#64748b" : COLOR_MAP[route.statusColor] || "#22c55e";
-          return route.paths.map((path, pIdx) => (
-            <Fragment key={`route-${route.id}-${pIdx}`}>
-              {/* Soft dark shadow casing */}
-              <Polyline
-                positions={path}
-                pathOptions={{
-                  color: "#0f172a",
-                  weight: 8,
-                  opacity: 0.55,
-                  lineCap: "round",
-                  lineJoin: "round",
-                }}
-              />
-              {/* Main vibrant traffic line */}
-              <Polyline
-                positions={path}
-                pathOptions={{
-                  color: color,
-                  weight: 5,
-                  opacity: 0.95,
-                  lineCap: "round",
-                  lineJoin: "round",
-                }}
-              >
-                <Tooltip sticky direction="top">
-                  <div className="text-xs p-1">
-                    <div className="font-bold text-foreground">{route.name}</div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span
-                        className="inline-block h-2 w-2 rounded-full"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="font-medium">{isOffline ? "Mất kết nối" : route.status}</span>
-                      {route.vehicleCount > 0 && (
-                        <span className="text-muted-foreground">({route.vehicleCount} xe)</span>
-                      )}
-                    </div>
-                  </div>
-                </Tooltip>
-              </Polyline>
-              {/* Center subtle glass highlight for 3D appearance */}
-              <Polyline
-                positions={path}
-                pathOptions={{
-                  color: "#ffffff",
-                  weight: 1.5,
-                  opacity: 0.25,
-                  lineCap: "round",
-                  lineJoin: "round",
-                }}
-              />
-            </Fragment>
-          ));
-        })}
+        {/* FlyTo controller */}
+        <FlyToArea selectedArea={selectedArea} />
 
         {/* Cameras */}
         {CAMERAS.map((cam) => {
           const camIcon = camIcons.find((c) => c.id === cam.id)?.icon;
           const realPos = cam.realPosition || [10.8015, 106.7115];
           return (
-            <Marker key={cam.id} position={realPos as [number, number]} icon={camIcon}>
+            <Marker
+              key={cam.id}
+              position={realPos as [number, number]}
+              icon={camIcon}
+              eventHandlers={{
+                click: () => setActiveCam(cam.id),
+              }}
+            >
               <Tooltip direction="top" offset={[0, -16]}>
                 <div className="text-xs">
                   <span className="font-bold">{cam.name}</span>
                   <br />
                   <span className="text-muted-foreground">{cam.label}</span>
+                  <br />
+                  <span className="text-[10px] text-primary font-medium">Click để xem hình ảnh</span>
                 </div>
               </Tooltip>
             </Marker>
@@ -391,19 +407,21 @@ export function LeafletIntersectionMap() {
         })}
       </MapContainer>
 
-      {/* Legend overlay */}
-      <div className="absolute bottom-3 left-3 z-[400] flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-medium backdrop-blur shadow-md">
+      {/* Camera Popup Overlay */}
+      {activeCamInfo && (
+        <CameraPopup
+          cam={activeCamInfo}
+          camData={activeCamData}
+          isError={activeCamError}
+          onClose={() => setActiveCam(null)}
+        />
+      )}
+
+      {/* Minimal legend */}
+      <div className="absolute bottom-3 left-3 z-[400] flex items-center gap-2 rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-medium backdrop-blur shadow-md">
         <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-4 rounded-full bg-[#22c55e]" />
-          Thông thoáng
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-4 rounded-full bg-[#f59e0b]" />
-          Đông xe
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-4 rounded-full bg-[#ef4444]" />
-          Kẹt xe
+          <Camera className="h-3 w-3 text-primary" />
+          Click camera để xem hình ảnh
         </span>
         <span className="flex items-center gap-1 text-muted-foreground border-l border-border pl-2">
           <ArrowUpLeft className="h-2.5 w-2.5" />
