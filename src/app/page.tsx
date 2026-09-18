@@ -13,6 +13,7 @@ import { ModelManagement } from "@/components/sections/ModelManagement";
 import { SystemHealth } from "@/components/sections/SystemHealth";
 import { AuditLog } from "@/components/sections/AuditLog";
 import { Admin } from "@/components/sections/Admin";
+import { DeviceManagement } from "@/components/sections/DeviceManagement";
 import { Profile } from "@/components/sections/Profile";
 
 export default function Home() {
@@ -68,6 +69,8 @@ export default function Home() {
         return user?.role === "admin" ? <AuditLog /> : <Dashboard />;
       case "admin":
         return user?.role === "admin" ? <Admin /> : <Dashboard />;
+      case "devices":
+        return user?.role === "admin" ? <DeviceManagement /> : <Dashboard />;
       case "health":
         return user?.role === "admin" ? <SystemHealth /> : <Dashboard />;
       case "profile":

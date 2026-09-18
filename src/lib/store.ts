@@ -23,6 +23,7 @@ import {
   generateAIForecast,
   generateModelInfo,
   generateUsers,
+  generateDevices,
   trafficMultiplier,
 } from "./mockData";
 
@@ -84,6 +85,7 @@ export type RouteStat = ReturnType<typeof buildRouteStats>[number];
 export type AlertItem = ReturnType<typeof generateAlerts>[number];
 export type AuditItem = ReturnType<typeof generateAuditLog>[number];
 export type UserItem = ReturnType<typeof generateUsers>[number];
+export type DeviceItem = ReturnType<typeof generateDevices>[number];
 
 export type SectionId =
   | "dashboard"
@@ -94,6 +96,7 @@ export type SectionId =
   | "alerts"
   | "audit"
   | "admin"
+  | "devices"
   | "profile"
   | "health";
 
@@ -125,6 +128,7 @@ interface TrafficState {
   alerts: AlertItem[];
   auditLog: AuditItem[];
   users: UserItem[];
+  devices: DeviceItem[];
   healthMetrics: ReturnType<typeof generateHealthMetrics> | null;
   signalRec: ReturnType<typeof generateSignalRecommendations>;
   aiForecast: ReturnType<typeof generateAIForecast>;
@@ -178,6 +182,9 @@ interface TrafficState {
   clearTestDemands: () => void;
   acknowledgeAlert: (id: string) => void;
   acknowledgeAllAlerts: () => void;
+  addDevice: (device: DeviceItem) => void;
+  updateDevice: (id: string, updates: Partial<DeviceItem>) => void;
+  deleteDevice: (id: string) => void;
   refreshRealtime: () => void;
   _lastManualActionTime: number;
   _tickCount: number;
@@ -239,6 +246,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   alerts: [],
   auditLog: generateAuditLog(12),
   users: generateUsers(),
+  devices: generateDevices(),
   healthMetrics: null,
   signalRec: generateSignalRecommendations(),
   aiForecast: generateAIForecast(),
@@ -867,6 +875,9 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   acknowledgeAlert: (id) =>
     set((s) => ({ alerts: s.alerts.map((a) => (a.id === id ? { ...a, acknowledged: true } : a)) })),
   acknowledgeAllAlerts: () => set((s) => ({ alerts: s.alerts.map((a) => ({ ...a, acknowledged: true })) })),
+  addDevice: (device) => set((s) => ({ devices: [device, ...s.devices] })),
+  updateDevice: (id, updates) => set((s) => ({ devices: s.devices.map((d) => (d.id === id ? { ...d, ...updates } : d)) })),
+  deleteDevice: (id) => set((s) => ({ devices: s.devices.filter((d) => d.id !== id) })),
   refreshRealtime: async () => {
     try {
       const data = await firebaseGet("realtime");

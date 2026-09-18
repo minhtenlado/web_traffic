@@ -24,6 +24,7 @@ const SECTION_TITLES: Record<string, { title: string; subtitle: string }> = {
   alerts: { title: "Cảnh báo", subtitle: "Sự kiện & cảnh báo hệ thống" },
   audit: { title: "Nhật ký hoạt động", subtitle: "Lịch sử thao tác người dùng" },
   admin: { title: "Quản trị", subtitle: "Quản lý người dùng & cấu hình" },
+  devices: { title: "Quản lý thiết bị", subtitle: "Danh sách và trạng thái thiết bị ngoại vi" },
   profile: { title: "Hồ sơ", subtitle: "Thông tin tài khoản" },
   health: { title: "Giám sát Hệ thống", subtitle: "Trạng thái phần cứng & dịch vụ" },
 };

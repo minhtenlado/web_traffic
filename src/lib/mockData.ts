@@ -208,6 +208,17 @@ export function generateUsers() {
   ];
 }
 
+export function generateDevices() {
+  return [
+    { id: "DEV-CAM-01", name: "Camera 1", type: "camera", ip: "192.168.1.101", location: "Cầu Thị Nghè - Hàng Xanh", status: "online", lastSeen: new Date(Date.now() - rand(0, 60000)).toISOString() },
+    { id: "DEV-CAM-02", name: "Camera 2", type: "camera", ip: "192.168.1.102", location: "Cầu Điện Biên Phủ", status: "online", lastSeen: new Date(Date.now() - rand(0, 60000)).toISOString() },
+    { id: "DEV-CTRL-01", name: "Tủ điều khiển T1", type: "controller", ip: "192.168.1.50", location: "Ngã tư Hàng Xanh", status: "online", lastSeen: new Date(Date.now() - rand(0, 60000)).toISOString() },
+    { id: "DEV-DISP-01", name: "Màn hình VMS 1", type: "display", ip: "192.168.1.80", location: "Điện Biên Phủ", status: "offline", lastSeen: new Date(Date.now() - rand(3600000, 86400000)).toISOString() },
+    { id: "DEV-SENS-01", name: "Cảm biến ngập N1", type: "sensor", ip: "192.168.1.120", location: "Xô Viết Nghệ Tĩnh", status: "error", lastSeen: new Date(Date.now() - rand(60000, 3600000)).toISOString() },
+    { id: "DEV-CAM-03", name: "Camera 3", type: "camera", ip: "192.168.1.103", location: "Đinh Bộ Lĩnh - Bạch Đằng", status: "online", lastSeen: new Date(Date.now() - rand(0, 60000)).toISOString() },
+  ];
+}
+
 export function generatePerRouteStats() {
   const hour = new Date().getHours();
   const mult = trafficMultiplier(hour);

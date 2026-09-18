@@ -14,6 +14,7 @@ import {
   Activity,
   User,
   X,
+  Server,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -37,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "alerts", icon: Bell, label: "Cảnh báo" },
   { id: "audit", icon: ClipboardList, label: "Nhật ký", adminOnly: true },
   { id: "admin", icon: Settings, label: "Quản trị", adminOnly: true },
+  { id: "devices", icon: Server, label: "Thiết bị", adminOnly: true },
   { id: "health", icon: Activity, label: "Hệ thống", adminOnly: true },
 ];
 
