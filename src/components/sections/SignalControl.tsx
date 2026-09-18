@@ -133,140 +133,127 @@ const FREE_TARGET_INFO: Record<string, { name: string; zone: string; desc: strin
   ALL_RED: { name: "Dừng toàn bộ (All RED)", zone: "Tất cả Zone", desc: "Cả 4 hướng cùng ĐỎ (Dừng khẩn cấp)", dir: "Dừng toàn bộ" },
 };
 
-// Cụm đèn giao thông thực tế 3 màu (Đỏ, Vàng, Xanh) với quầng sáng LED và thấu kính
-function TrafficLightHead({
+// Cụm đèn giao thông 3 màu (Đỏ - Vàng - Xanh) thanh lịch, gọn gàng, chuẩn Dashboard ITS
+function CompactTrafficSignal({
   color,
-  countdown,
   type = "straight",
-  label,
-  size = "md",
-  isFreeMode = false,
 }: {
   color: "green" | "yellow" | "red";
-  countdown?: number;
   type?: "straight" | "left";
-  label?: string;
-  size?: "sm" | "md" | "lg";
-  isFreeMode?: boolean;
 }) {
-  const isLg = size === "lg";
-  const isMd = size === "md";
-  const isSm = size === "sm";
-
-  const bulbSize = isLg ? "h-9 w-9" : isMd ? "h-7 w-7 sm:h-8 sm:w-8" : "h-5 w-5";
-  const iconSize = isLg ? "h-5 w-5" : isMd ? "h-4 w-4" : "h-2.5 w-2.5";
-  const visorWidth = isLg ? "w-8" : isMd ? "w-6 sm:w-7" : "w-4.5";
-  const housingWidth = isLg ? "w-14 p-2.5 gap-2.5" : isMd ? "w-12 sm:w-13 p-2 gap-2" : "w-9 p-1.5 gap-1.5";
-
   const isRed = color === "red";
   const isYellow = color === "yellow";
   const isGreen = color === "green";
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      {label && (
-        <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">
-          {type === "left" ? <ArrowUpLeft className="h-3 w-3 text-chart-4" /> : <ArrowUp className="h-3 w-3 text-primary" />}
-          <span>{label}</span>
-        </div>
-      )}
-
-      {/* Realistic Traffic Light Housing Body */}
+    <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-2 py-1 border border-slate-700/80 shadow-sm shrink-0">
+      {/* 🔴 Đèn ĐỎ */}
       <div
+        title="Đèn Đỏ"
         className={cn(
-          "relative flex flex-col items-center rounded-2xl border-2 border-neutral-700/80 bg-gradient-to-b from-[#1c1c1f] via-[#111113] to-[#0a0a0c] shadow-xl shadow-black/50",
-          housingWidth
+          "relative flex h-3.5 w-3.5 items-center justify-center rounded-full transition-all duration-200",
+          isRed
+            ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)] ring-1.5 ring-rose-300 scale-110"
+            : "bg-slate-800 border border-slate-700/50 opacity-25"
         )}
       >
-        {/* RED LAMP */}
-        <div className="flex flex-col items-center">
-          <div className={cn("h-1 rounded-t-full bg-neutral-800 border-t border-neutral-600/50 -mb-0.5 z-10", visorWidth)} />
-          <div
-            className={cn(
-              "relative flex items-center justify-center rounded-full transition-all duration-300",
-              bulbSize,
-              isRed
-                ? "bg-[radial-gradient(circle_at_38%_35%,#ffa4a4_0%,#ef4444_55%,#991b1b_100%)] shadow-[0_0_18px_4px_rgba(239,68,68,0.85)] ring-1 ring-red-400/60 scale-105"
-                : "bg-[#220707] border border-red-950/60 opacity-30 shadow-inner"
-            )}
-          >
-            {isRed && <span className="absolute top-1 left-1.5 h-1 w-1.5 rounded-full bg-white/70 blur-[0.2px]" />}
-            {type === "left" ? (
-              <ArrowUpLeft className={cn(iconSize, isRed ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
-            ) : (
-              <ArrowUp className={cn(iconSize, isRed ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
-            )}
-          </div>
-        </div>
-
-        {/* YELLOW LAMP */}
-        <div className="flex flex-col items-center">
-          <div className={cn("h-1 rounded-t-full bg-neutral-800 border-t border-neutral-600/50 -mb-0.5 z-10", visorWidth)} />
-          <div
-            className={cn(
-              "relative flex items-center justify-center rounded-full transition-all duration-300",
-              bulbSize,
-              isYellow
-                ? "bg-[radial-gradient(circle_at_38%_35%,#fff59d_0%,#f59e0b_55%,#b45309_100%)] shadow-[0_0_20px_5px_rgba(245,158,11,0.95)] ring-1 ring-amber-300/70 scale-105 animate-pulse"
-                : "bg-[#261c04] border border-amber-950/60 opacity-30 shadow-inner"
-            )}
-          >
-            {isYellow && <span className="absolute top-1 left-1.5 h-1 w-1.5 rounded-full bg-white/70 blur-[0.2px]" />}
-            {type === "left" ? (
-              <ArrowUpLeft className={cn(iconSize, isYellow ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
-            ) : (
-              <ArrowUp className={cn(iconSize, isYellow ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
-            )}
-          </div>
-        </div>
-
-        {/* GREEN LAMP */}
-        <div className="flex flex-col items-center">
-          <div className={cn("h-1 rounded-t-full bg-neutral-800 border-t border-neutral-600/50 -mb-0.5 z-10", visorWidth)} />
-          <div
-            className={cn(
-              "relative flex items-center justify-center rounded-full transition-all duration-300",
-              bulbSize,
-              isGreen
-                ? "bg-[radial-gradient(circle_at_38%_35%,#a7f3d0_0%,#10b981_55%,#047857_100%)] shadow-[0_0_18px_4px_rgba(16,185,129,0.85)] ring-1 ring-emerald-400/60 scale-105"
-                : "bg-[#041c10] border border-emerald-950/60 opacity-30 shadow-inner"
-            )}
-          >
-            {isGreen && <span className="absolute top-1 left-1.5 h-1 w-1.5 rounded-full bg-white/70 blur-[0.2px]" />}
-            {type === "left" ? (
-              <ArrowUpLeft className={cn(iconSize, isGreen ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
-            ) : (
-              <ArrowUp className={cn(iconSize, isGreen ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
-            )}
-          </div>
-        </div>
+        {type === "left" && (
+          <ArrowUpLeft className={cn("h-2.5 w-2.5 stroke-[3]", isRed ? "text-white" : "text-slate-600 opacity-20")} />
+        )}
+        {type === "straight" && (
+          <ArrowUp className={cn("h-2.5 w-2.5 stroke-[3]", isRed ? "text-white" : "text-slate-600 opacity-20")} />
+        )}
       </div>
 
-      {/* Status & Countdown Pill */}
+      {/* 🟡 Đèn VÀNG */}
       <div
+        title="Đèn Vàng"
         className={cn(
-          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-extrabold border transition-colors",
-          isGreen && "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-sm shadow-emerald-500/10",
-          isYellow && "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-sm shadow-amber-500/10 animate-pulse",
-          isRed && "bg-red-500/15 border-red-500/30 text-red-600 dark:text-red-400 shadow-sm shadow-red-500/10"
+          "relative flex h-3.5 w-3.5 items-center justify-center rounded-full transition-all duration-200",
+          isYellow
+            ? "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.95)] ring-1.5 ring-amber-200 scale-110 animate-pulse"
+            : "bg-slate-800 border border-slate-700/50 opacity-25"
         )}
       >
+        {type === "left" && (
+          <ArrowUpLeft className={cn("h-2.5 w-2.5 stroke-[3]", isYellow ? "text-white" : "text-slate-600 opacity-20")} />
+        )}
+        {type === "straight" && (
+          <ArrowUp className={cn("h-2.5 w-2.5 stroke-[3]", isYellow ? "text-white" : "text-slate-600 opacity-20")} />
+        )}
+      </div>
+
+      {/* 🟢 Đèn XANH */}
+      <div
+        title="Đèn Xanh"
+        className={cn(
+          "relative flex h-3.5 w-3.5 items-center justify-center rounded-full transition-all duration-200",
+          isGreen
+            ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] ring-1.5 ring-emerald-300 scale-110"
+            : "bg-slate-800 border border-slate-700/50 opacity-25"
+        )}
+      >
+        {type === "left" && (
+          <ArrowUpLeft className={cn("h-2.5 w-2.5 stroke-[3]", isGreen ? "text-white" : "text-slate-600 opacity-20")} />
+        )}
+        {type === "straight" && (
+          <ArrowUp className={cn("h-2.5 w-2.5 stroke-[3]", isGreen ? "text-white" : "text-slate-600 opacity-20")} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LaneSignalRow({
+  icon: Icon,
+  label,
+  color,
+  countdown,
+  type = "straight",
+  isFreeMode = false,
+}: {
+  icon: any;
+  label: string;
+  color: "green" | "yellow" | "red";
+  countdown: number;
+  type?: "straight" | "left";
+  isFreeMode?: boolean;
+}) {
+  const isGreen = color === "green";
+  const isYellow = color === "yellow";
+  const isRed = color === "red";
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl bg-card border border-border/80 px-3 py-2 shadow-sm">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className={cn(
+          "flex h-6 w-6 items-center justify-center rounded-md transition-colors shrink-0",
+          isGreen ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+          isYellow ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+          "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+        )}>
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <span className="text-xs font-bold text-foreground truncate">{label}</span>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <CompactTrafficSignal color={color} type={type} />
         <span
           className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            isGreen && "bg-emerald-500",
-            isYellow && "bg-amber-500 animate-ping",
-            isRed && "bg-red-500"
+            "min-w-[70px] text-center rounded-md px-2 py-0.5 text-[11px] font-extrabold tabular-nums border transition-colors",
+            isGreen && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+            isYellow && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse",
+            isRed && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
           )}
-        />
-        <span>
+        >
           {isFreeMode
-            ? (isGreen ? "XANH (Xả)" : "ĐỎ (Dừng)")
+            ? (isGreen ? "XANH" : "ĐỎ")
             : isGreen
-            ? `XANH ${countdown ?? 0}s`
+            ? `XANH ${countdown}s`
             : isYellow
-            ? `VÀNG ${countdown ?? 0}s`
-            : `ĐỎ ${countdown ?? 0}s`}
+            ? `VÀNG ${countdown}s`
+            : `ĐỎ ${countdown}s`}
         </span>
       </div>
     </div>
@@ -469,57 +456,57 @@ export function SignalControl() {
                   </div>
                 )}
 
-                {/* REALISTIC 2-AXIS TRAFFIC LIGHTS SHOWCASE */}
+                {/* 2-AXIS TRAFFIC SIGNALS (TRỤC A & TRỤC B) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   {/* Trục A: Bạch Đằng ↔ Xô Viết Nghệ Tĩnh */}
                   <div className={cn(
-                    "relative overflow-hidden rounded-2xl border p-3 transition-all flex flex-col justify-between",
+                    "rounded-2xl border p-3 transition-all space-y-2",
                     (lightA.color === "green" || lightA.color === "yellow" || lightA.leftTurn.color === "green" || lightA.leftTurn.color === "yellow")
-                      ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 via-card to-card shadow-sm shadow-emerald-500/10 ring-1 ring-emerald-500/20"
-                      : "border-border/80 bg-card/60"
+                      ? "border-emerald-500/40 bg-emerald-500/[0.03] ring-1 ring-emerald-500/20"
+                      : "border-border bg-muted/20"
                   )}>
-                    <div className="flex items-center justify-between border-b border-border/70 pb-2 mb-2.5">
+                    <div className="flex items-center justify-between border-b border-border/70 pb-2">
                       <div>
                         <div className="text-xs font-black text-foreground">Trục A: Bạch Đằng ↔ XVNT</div>
                         <div className="text-[9px] text-muted-foreground">Zone 1 & Zone 3 (Cam 01 + 03)</div>
                       </div>
                       <span className={cn(
-                        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase border",
+                        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase border",
                         lightA.color === "green"
                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                           : lightA.color === "yellow"
                           ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse"
-                          : "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30"
+                          : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
                       )}>
                         <span className={cn(
                           "h-1.5 w-1.5 rounded-full",
-                          lightA.color === "green" ? "bg-emerald-500" : lightA.color === "yellow" ? "bg-amber-500 animate-ping" : "bg-red-500"
+                          lightA.color === "green" ? "bg-emerald-500" : lightA.color === "yellow" ? "bg-amber-500 animate-ping" : "bg-rose-500"
                         )} />
                         {lightA.isFreeMode
-                          ? (lightA.color === "green" ? "XẢ LUỒNG" : "DỪNG CHỜ")
+                          ? (lightA.color === "green" ? "ĐANG XẢ LUỒNG" : "DỪNG CHỜ")
                           : lightA.color === "green"
-                          ? "THÔNG XE"
+                          ? "ĐANG THÔNG XE"
                           : lightA.color === "yellow"
-                          ? "SẮP DỪNG"
+                          ? "CHUẨN BỊ DỪNG"
                           : "DỪNG CHỜ"}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 justify-items-center bg-muted/20 rounded-xl p-2 border border-border/50">
-                      <TrafficLightHead
+                    <div className="space-y-1.5">
+                      <LaneSignalRow
+                        icon={ArrowUp}
+                        label="Đi thẳng (BĐ - XVNT)"
                         color={lightA.color}
                         countdown={lightA.countdown}
                         type="straight"
-                        label="Đi thẳng"
-                        size="md"
                         isFreeMode={lightA.isFreeMode}
                       />
-                      <TrafficLightHead
+                      <LaneSignalRow
+                        icon={ArrowUpLeft}
+                        label="Rẽ trái (Bạch Đằng)"
                         color={lightA.leftTurn.color}
                         countdown={lightA.leftTurn.countdown}
                         type="left"
-                        label="Rẽ trái"
-                        size="md"
                         isFreeMode={lightA.isFreeMode}
                       />
                     </div>
@@ -527,53 +514,53 @@ export function SignalControl() {
 
                   {/* Trục B: Điện Biên Phủ ↔ Hàng Xanh */}
                   <div className={cn(
-                    "relative overflow-hidden rounded-2xl border p-3 transition-all flex flex-col justify-between",
+                    "rounded-2xl border p-3 transition-all space-y-2",
                     (lightB.color === "green" || lightB.color === "yellow" || lightB.leftTurn.color === "green" || lightB.leftTurn.color === "yellow")
-                      ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 via-card to-card shadow-sm shadow-emerald-500/10 ring-1 ring-emerald-500/20"
-                      : "border-border/80 bg-card/60"
+                      ? "border-emerald-500/40 bg-emerald-500/[0.03] ring-1 ring-emerald-500/20"
+                      : "border-border bg-muted/20"
                   )}>
-                    <div className="flex items-center justify-between border-b border-border/70 pb-2 mb-2.5">
+                    <div className="flex items-center justify-between border-b border-border/70 pb-2">
                       <div>
                         <div className="text-xs font-black text-foreground">Trục B: ĐBP ↔ Hàng Xanh</div>
                         <div className="text-[9px] text-muted-foreground">Zone 2 & Zone 4 (Cam 02 + 04)</div>
                       </div>
                       <span className={cn(
-                        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase border",
+                        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase border",
                         lightB.color === "green"
                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                           : lightB.color === "yellow"
                           ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse"
-                          : "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30"
+                          : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
                       )}>
                         <span className={cn(
                           "h-1.5 w-1.5 rounded-full",
-                          lightB.color === "green" ? "bg-emerald-500" : lightB.color === "yellow" ? "bg-amber-500 animate-ping" : "bg-red-500"
+                          lightB.color === "green" ? "bg-emerald-500" : lightB.color === "yellow" ? "bg-amber-500 animate-ping" : "bg-rose-500"
                         )} />
                         {lightB.isFreeMode
-                          ? (lightB.color === "green" ? "XẢ LUỒNG" : "DỪNG CHỜ")
+                          ? (lightB.color === "green" ? "ĐANG XẢ LUỒNG" : "DỪNG CHỜ")
                           : lightB.color === "green"
-                          ? "THÔNG XE"
+                          ? "ĐANG THÔNG XE"
                           : lightB.color === "yellow"
-                          ? "SẮP DỪNG"
+                          ? "CHUẨN BỊ DỪNG"
                           : "DỪNG CHỜ"}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 justify-items-center bg-muted/20 rounded-xl p-2 border border-border/50">
-                      <TrafficLightHead
+                    <div className="space-y-1.5">
+                      <LaneSignalRow
+                        icon={ArrowUp}
+                        label="Đi thẳng (ĐBP - HX)"
                         color={lightB.color}
                         countdown={lightB.countdown}
                         type="straight"
-                        label="Đi thẳng"
-                        size="md"
                         isFreeMode={lightB.isFreeMode}
                       />
-                      <TrafficLightHead
+                      <LaneSignalRow
+                        icon={ArrowUpLeft}
+                        label="Rẽ trái (Điện Biên Phủ)"
                         color={lightB.leftTurn.color}
                         countdown={lightB.leftTurn.countdown}
                         type="left"
-                        label="Rẽ trái"
-                        size="md"
                         isFreeMode={lightB.isFreeMode}
                       />
                     </div>
@@ -1138,22 +1125,22 @@ export function SignalControl() {
                   </span>
                 </div>
 
-                {/* 2 Traffic Light Pods: Straight + Left Turn */}
-                <div className="mt-4 grid grid-cols-2 gap-2.5 justify-items-center bg-muted/20 rounded-xl p-2.5 border border-border/60">
-                  <TrafficLightHead
+                {/* 2 Lane Signal Rows: Straight + Left Turn */}
+                <div className="mt-3 space-y-2">
+                  <LaneSignalRow
+                    icon={ArrowUp}
+                    label="Đi thẳng"
                     color={light.color}
                     countdown={light.countdown}
                     type="straight"
-                    label="Đi thẳng"
-                    size="sm"
                     isFreeMode={light.isFreeMode}
                   />
-                  <TrafficLightHead
+                  <LaneSignalRow
+                    icon={ArrowUpLeft}
+                    label="Rẽ trái"
                     color={light.leftTurn.color}
                     countdown={light.leftTurn.countdown}
                     type="left"
-                    label="Rẽ trái"
-                    size="sm"
                     isFreeMode={light.isFreeMode}
                   />
                 </div>
