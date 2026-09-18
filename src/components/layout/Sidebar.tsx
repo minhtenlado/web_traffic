@@ -135,7 +135,7 @@ function Brand() {
   return (
     <div className="flex h-20 items-center justify-center px-4 py-4">
       <div className="relative flex h-full w-[160px] items-center justify-start overflow-hidden">
-        <Image src="/logo_skytech.png" alt="SkyTech" width={160} height={50} className="object-contain" priority />
+        <Image src="/logo_skytech_3.png" alt="SkyTech" width={160} height={50} className="object-contain" priority />
       </div>
     </div>
   );
