@@ -66,9 +66,9 @@ function getLightState(dirId: string, signalState: any) {
   let straightColor: "green" | "yellow" | "red" = "red";
   let straightCountdown = signalState.countdown;
   if (isStraightActive) {
-    if (signalState.countdown > 3) {
+    if (signalState.countdown > 5) {
       straightColor = "green";
-      straightCountdown = signalState.countdown - 3;
+      straightCountdown = signalState.countdown - 5;
     } else {
       straightColor = "yellow";
       straightCountdown = signalState.countdown;
@@ -79,9 +79,9 @@ function getLightState(dirId: string, signalState: any) {
   let leftTurnColor: "green" | "yellow" | "red" = "red";
   let leftTurnCountdown = signalState.countdown;
   if (isLeftTurnActive) {
-    if (signalState.countdown > 3) {
+    if (signalState.countdown > 5) {
       leftTurnColor = "green";
-      leftTurnCountdown = signalState.countdown - 3;
+      leftTurnCountdown = signalState.countdown - 5;
     } else {
       leftTurnColor = "yellow";
       leftTurnCountdown = signalState.countdown;
@@ -133,6 +133,146 @@ const FREE_TARGET_INFO: Record<string, { name: string; zone: string; desc: strin
   ALL_RED: { name: "Dừng toàn bộ (All RED)", zone: "Tất cả Zone", desc: "Cả 4 hướng cùng ĐỎ (Dừng khẩn cấp)", dir: "Dừng toàn bộ" },
 };
 
+// Cụm đèn giao thông thực tế 3 màu (Đỏ, Vàng, Xanh) với quầng sáng LED và thấu kính
+function TrafficLightHead({
+  color,
+  countdown,
+  type = "straight",
+  label,
+  size = "md",
+  isFreeMode = false,
+}: {
+  color: "green" | "yellow" | "red";
+  countdown?: number;
+  type?: "straight" | "left";
+  label?: string;
+  size?: "sm" | "md" | "lg";
+  isFreeMode?: boolean;
+}) {
+  const isLg = size === "lg";
+  const isMd = size === "md";
+  const isSm = size === "sm";
+
+  const bulbSize = isLg ? "h-9 w-9" : isMd ? "h-7 w-7 sm:h-8 sm:w-8" : "h-5 w-5";
+  const iconSize = isLg ? "h-5 w-5" : isMd ? "h-4 w-4" : "h-2.5 w-2.5";
+  const visorWidth = isLg ? "w-8" : isMd ? "w-6 sm:w-7" : "w-4.5";
+  const housingWidth = isLg ? "w-14 p-2.5 gap-2.5" : isMd ? "w-12 sm:w-13 p-2 gap-2" : "w-9 p-1.5 gap-1.5";
+
+  const isRed = color === "red";
+  const isYellow = color === "yellow";
+  const isGreen = color === "green";
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      {label && (
+        <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">
+          {type === "left" ? <ArrowUpLeft className="h-3 w-3 text-chart-4" /> : <ArrowUp className="h-3 w-3 text-primary" />}
+          <span>{label}</span>
+        </div>
+      )}
+
+      {/* Realistic Traffic Light Housing Body */}
+      <div
+        className={cn(
+          "relative flex flex-col items-center rounded-2xl border-2 border-neutral-700/80 bg-gradient-to-b from-[#1c1c1f] via-[#111113] to-[#0a0a0c] shadow-xl shadow-black/50",
+          housingWidth
+        )}
+      >
+        {/* RED LAMP */}
+        <div className="flex flex-col items-center">
+          <div className={cn("h-1 rounded-t-full bg-neutral-800 border-t border-neutral-600/50 -mb-0.5 z-10", visorWidth)} />
+          <div
+            className={cn(
+              "relative flex items-center justify-center rounded-full transition-all duration-300",
+              bulbSize,
+              isRed
+                ? "bg-[radial-gradient(circle_at_38%_35%,#ffa4a4_0%,#ef4444_55%,#991b1b_100%)] shadow-[0_0_18px_4px_rgba(239,68,68,0.85)] ring-1 ring-red-400/60 scale-105"
+                : "bg-[#220707] border border-red-950/60 opacity-30 shadow-inner"
+            )}
+          >
+            {isRed && <span className="absolute top-1 left-1.5 h-1 w-1.5 rounded-full bg-white/70 blur-[0.2px]" />}
+            {type === "left" ? (
+              <ArrowUpLeft className={cn(iconSize, isRed ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
+            ) : (
+              <ArrowUp className={cn(iconSize, isRed ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
+            )}
+          </div>
+        </div>
+
+        {/* YELLOW LAMP */}
+        <div className="flex flex-col items-center">
+          <div className={cn("h-1 rounded-t-full bg-neutral-800 border-t border-neutral-600/50 -mb-0.5 z-10", visorWidth)} />
+          <div
+            className={cn(
+              "relative flex items-center justify-center rounded-full transition-all duration-300",
+              bulbSize,
+              isYellow
+                ? "bg-[radial-gradient(circle_at_38%_35%,#fff59d_0%,#f59e0b_55%,#b45309_100%)] shadow-[0_0_20px_5px_rgba(245,158,11,0.95)] ring-1 ring-amber-300/70 scale-105 animate-pulse"
+                : "bg-[#261c04] border border-amber-950/60 opacity-30 shadow-inner"
+            )}
+          >
+            {isYellow && <span className="absolute top-1 left-1.5 h-1 w-1.5 rounded-full bg-white/70 blur-[0.2px]" />}
+            {type === "left" ? (
+              <ArrowUpLeft className={cn(iconSize, isYellow ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
+            ) : (
+              <ArrowUp className={cn(iconSize, isYellow ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
+            )}
+          </div>
+        </div>
+
+        {/* GREEN LAMP */}
+        <div className="flex flex-col items-center">
+          <div className={cn("h-1 rounded-t-full bg-neutral-800 border-t border-neutral-600/50 -mb-0.5 z-10", visorWidth)} />
+          <div
+            className={cn(
+              "relative flex items-center justify-center rounded-full transition-all duration-300",
+              bulbSize,
+              isGreen
+                ? "bg-[radial-gradient(circle_at_38%_35%,#a7f3d0_0%,#10b981_55%,#047857_100%)] shadow-[0_0_18px_4px_rgba(16,185,129,0.85)] ring-1 ring-emerald-400/60 scale-105"
+                : "bg-[#041c10] border border-emerald-950/60 opacity-30 shadow-inner"
+            )}
+          >
+            {isGreen && <span className="absolute top-1 left-1.5 h-1 w-1.5 rounded-full bg-white/70 blur-[0.2px]" />}
+            {type === "left" ? (
+              <ArrowUpLeft className={cn(iconSize, isGreen ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
+            ) : (
+              <ArrowUp className={cn(iconSize, isGreen ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] stroke-[2.5]" : "text-neutral-500 opacity-20")} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Status & Countdown Pill */}
+      <div
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-extrabold border transition-colors",
+          isGreen && "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-sm shadow-emerald-500/10",
+          isYellow && "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-sm shadow-amber-500/10 animate-pulse",
+          isRed && "bg-red-500/15 border-red-500/30 text-red-600 dark:text-red-400 shadow-sm shadow-red-500/10"
+        )}
+      >
+        <span
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            isGreen && "bg-emerald-500",
+            isYellow && "bg-amber-500 animate-ping",
+            isRed && "bg-red-500"
+          )}
+        />
+        <span>
+          {isFreeMode
+            ? (isGreen ? "XANH (Xả)" : "ĐỎ (Dừng)")
+            : isGreen
+            ? `XANH ${countdown ?? 0}s`
+            : isYellow
+            ? `VÀNG ${countdown ?? 0}s`
+            : `ĐỎ ${countdown ?? 0}s`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function SignalControl() {
   const signalState = useTrafficStore((s) => s.signalState);
   const setSignalMode = useTrafficStore((s) => s.setSignalMode);
@@ -179,6 +319,8 @@ export function SignalControl() {
   // Ring progress: countdown / phase duration
   const phaseDuration = signalState.phaseDurations?.[signalState.currentPhase as keyof typeof signalState.phaseDurations] || 35;
   const ringPct = Math.max(0, Math.min(100, (signalState.countdown / phaseDuration) * 100));
+  const lightA = getLightState("bach_dang", signalState);
+  const lightB = getLightState("dien_bien_phu", signalState);
 
   return (
     <div className="space-y-5">
@@ -208,60 +350,73 @@ export function SignalControl() {
             }
             bodyClassName="p-0"
           >
-            <div className="flex flex-col items-center gap-6 p-6 sm:flex-row sm:items-center sm:gap-8">
+            <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center">
               {/* Countdown ring */}
-              <div className="relative h-44 w-44 shrink-0">
-                <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-                  <circle cx="50" cy="50" r="44" fill="none" stroke="var(--muted)" strokeWidth="6" />
-                  <motion.circle
-                    cx="50"
-                    cy="50"
-                    r="44"
-                    fill="none"
-                    stroke={isFree ? "#f59e0b" : "var(--primary)"}
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 44}
-                    animate={{ strokeDashoffset: isFree ? 0 : 2 * Math.PI * 44 * (1 - ringPct / 100) }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
-                  {isFree ? (
-                    <>
-                      <EyeOff className="h-5 w-5 text-amber-500 mb-1 animate-pulse" />
-                      <span className="text-2xl font-black text-foreground tracking-tight">TẮT LED</span>
-                      <span className="text-[10px] font-semibold text-amber-500 uppercase mt-0.5">7 đoạn đã tắt</span>
-                      <span className="text-[9px] font-mono text-muted-foreground mt-0.5">Xả: {freeTarget}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Đếm ngược
-                      </span>
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={signalState.countdown}
-                          initial={{ scale: 0.5, opacity: 0, y: -4 }}
-                          animate={{ scale: 1, opacity: 1, y: 0 }}
-                          exit={{ scale: 0.5, opacity: 0, y: 4 }}
-                          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                          className={cn(
-                            "text-5xl font-bold tabular-nums leading-none",
-                            signalState.countdown <= 3 ? "text-warning" : "text-foreground",
-                          )}
-                        >
-                          {signalState.countdown}
-                        </motion.div>
-                      </AnimatePresence>
-                      <span className="text-[10px] font-medium text-muted-foreground">giây</span>
-                    </>
-                  )}
+              <div className="flex flex-col items-center justify-center shrink-0">
+                <div className="relative h-44 w-44">
+                  <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+                    <circle cx="50" cy="50" r="44" fill="none" stroke="var(--muted)" strokeWidth="6" />
+                    <motion.circle
+                      cx="50"
+                      cy="50"
+                      r="44"
+                      fill="none"
+                      stroke={isFree ? "#f59e0b" : signalState.countdown <= 5 ? "#f59e0b" : "#10b981"}
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 44}
+                      animate={{ strokeDashoffset: isFree ? 0 : 2 * Math.PI * 44 * (1 - ringPct / 100) }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
+                    {isFree ? (
+                      <>
+                        <EyeOff className="h-5 w-5 text-amber-500 mb-1 animate-pulse" />
+                        <span className="text-2xl font-black text-foreground tracking-tight">TẮT LED</span>
+                        <span className="text-[10px] font-semibold text-amber-500 uppercase mt-0.5">7 đoạn đã tắt</span>
+                        <span className="text-[9px] font-mono text-muted-foreground mt-0.5">Xả: {freeTarget}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider",
+                          signalState.countdown <= 5 ? "text-amber-500 animate-pulse" : "text-muted-foreground"
+                        )}>
+                          {signalState.countdown <= 5 ? "Đèn Vàng" : "Đếm ngược"}
+                        </span>
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={signalState.countdown}
+                            initial={{ scale: 0.5, opacity: 0, y: -4 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.5, opacity: 0, y: 4 }}
+                            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                            className={cn(
+                              "text-5xl font-bold tabular-nums leading-none",
+                              signalState.countdown <= 5 ? "text-amber-500 animate-pulse" : "text-foreground",
+                            )}
+                          >
+                            {signalState.countdown}
+                          </motion.div>
+                        </AnimatePresence>
+                        <span className="text-[10px] font-medium text-muted-foreground">giây</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Subtitle pill below ring */}
+                <div className="mt-3 text-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
+                    <Activity className="h-3 w-3" />
+                    Chu kỳ #{signalState.cycleNumber || 100}
+                  </span>
                 </div>
               </div>
 
-              {/* Phase info */}
-              <div className="flex-1 space-y-4 text-center sm:text-left">
+              {/* Phase info and Traffic Light Dashboard */}
+              <div className="flex-1 space-y-3.5 text-center sm:text-left">
                 {isFree ? (
                   <div className="space-y-1">
                     <div className="flex items-center justify-center sm:justify-start gap-2">
@@ -281,45 +436,149 @@ export function SignalControl() {
                     </p>
                   </div>
                 ) : (
-                  <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Pha đang hoạt động
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Pha đang hoạt động ({isManual ? "Thủ công" : "Tự động AI"})
+                      </div>
+                      <div className="mt-0.5 text-lg font-black tracking-tight text-foreground flex items-center justify-center sm:justify-start gap-2">
+                        <span className={cn(
+                          "h-2.5 w-2.5 rounded-full",
+                          signalState.countdown <= 5 ? "bg-amber-500 animate-ping" : "bg-emerald-500 animate-pulse"
+                        )} />
+                        <span>{currentPhase?.name}</span>
+                      </div>
                     </div>
-                    <div className="mt-1 text-xl font-bold tracking-tight text-foreground">
-                      {currentPhase?.name}
+
+                    <div className="flex items-center justify-center sm:justify-end gap-2">
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold border transition-colors",
+                        signalState.countdown <= 5
+                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse"
+                          : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                      )}>
+                        <span className={cn(
+                          "h-2 w-2 rounded-full",
+                          signalState.countdown <= 5 ? "bg-amber-500 animate-ping" : "bg-emerald-500"
+                        )} />
+                        {signalState.countdown <= 5
+                          ? `ĐÈN VÀNG (${signalState.countdown}s)`
+                          : `ĐÈN XANH (${signalState.countdown - 5}s)`}
+                      </span>
                     </div>
                   </div>
                 )}
 
-                {/* Active directions badges */}
-                {!isFree && (
-                  <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                    {currentPhase?.directions?.length > 0 && currentPhase.directions.map((dirId) => {
-                      const dir = DIRECTIONS.find((d) => d.id === dirId);
-                      return (
-                        <span
-                          key={dirId}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success ring-1 ring-inset ring-success/20"
-                        >
-                          <ArrowUp className="h-3 w-3" />
-                          Đi thẳng: {dir?.name}
-                        </span>
-                      );
-                    })}
-                    {(currentPhase as any)?.leftTurnDirections?.length > 0 && (currentPhase as any).leftTurnDirections.map((dirId: string) => {
-                      const dir = DIRECTIONS.find((d) => d.id === dirId);
-                      return (
-                        <span
-                          key={`left-${dirId}`}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-chart-4/15 px-2.5 py-1 text-xs font-semibold text-chart-4 ring-1 ring-inset ring-chart-4/30"
-                        >
-                          <ArrowUpLeft className="h-3 w-3" />
-                          Rẽ trái: {dir?.name}
-                        </span>
-                      );
-                    })}
+                {/* REALISTIC 2-AXIS TRAFFIC LIGHTS SHOWCASE */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Trục A: Bạch Đằng ↔ Xô Viết Nghệ Tĩnh */}
+                  <div className={cn(
+                    "relative overflow-hidden rounded-2xl border p-3 transition-all flex flex-col justify-between",
+                    (lightA.color === "green" || lightA.color === "yellow" || lightA.leftTurn.color === "green" || lightA.leftTurn.color === "yellow")
+                      ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 via-card to-card shadow-sm shadow-emerald-500/10 ring-1 ring-emerald-500/20"
+                      : "border-border/80 bg-card/60"
+                  )}>
+                    <div className="flex items-center justify-between border-b border-border/70 pb-2 mb-2.5">
+                      <div>
+                        <div className="text-xs font-black text-foreground">Trục A: Bạch Đằng ↔ XVNT</div>
+                        <div className="text-[9px] text-muted-foreground">Zone 1 & Zone 3 (Cam 01 + 03)</div>
+                      </div>
+                      <span className={cn(
+                        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase border",
+                        lightA.color === "green"
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                          : lightA.color === "yellow"
+                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse"
+                          : "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30"
+                      )}>
+                        <span className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          lightA.color === "green" ? "bg-emerald-500" : lightA.color === "yellow" ? "bg-amber-500 animate-ping" : "bg-red-500"
+                        )} />
+                        {lightA.isFreeMode
+                          ? (lightA.color === "green" ? "XẢ LUỒNG" : "DỪNG CHỜ")
+                          : lightA.color === "green"
+                          ? "THÔNG XE"
+                          : lightA.color === "yellow"
+                          ? "SẮP DỪNG"
+                          : "DỪNG CHỜ"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 justify-items-center bg-muted/20 rounded-xl p-2 border border-border/50">
+                      <TrafficLightHead
+                        color={lightA.color}
+                        countdown={lightA.countdown}
+                        type="straight"
+                        label="Đi thẳng"
+                        size="md"
+                        isFreeMode={lightA.isFreeMode}
+                      />
+                      <TrafficLightHead
+                        color={lightA.leftTurn.color}
+                        countdown={lightA.leftTurn.countdown}
+                        type="left"
+                        label="Rẽ trái"
+                        size="md"
+                        isFreeMode={lightA.isFreeMode}
+                      />
+                    </div>
                   </div>
-                )}
+
+                  {/* Trục B: Điện Biên Phủ ↔ Hàng Xanh */}
+                  <div className={cn(
+                    "relative overflow-hidden rounded-2xl border p-3 transition-all flex flex-col justify-between",
+                    (lightB.color === "green" || lightB.color === "yellow" || lightB.leftTurn.color === "green" || lightB.leftTurn.color === "yellow")
+                      ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 via-card to-card shadow-sm shadow-emerald-500/10 ring-1 ring-emerald-500/20"
+                      : "border-border/80 bg-card/60"
+                  )}>
+                    <div className="flex items-center justify-between border-b border-border/70 pb-2 mb-2.5">
+                      <div>
+                        <div className="text-xs font-black text-foreground">Trục B: ĐBP ↔ Hàng Xanh</div>
+                        <div className="text-[9px] text-muted-foreground">Zone 2 & Zone 4 (Cam 02 + 04)</div>
+                      </div>
+                      <span className={cn(
+                        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase border",
+                        lightB.color === "green"
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                          : lightB.color === "yellow"
+                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse"
+                          : "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30"
+                      )}>
+                        <span className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          lightB.color === "green" ? "bg-emerald-500" : lightB.color === "yellow" ? "bg-amber-500 animate-ping" : "bg-red-500"
+                        )} />
+                        {lightB.isFreeMode
+                          ? (lightB.color === "green" ? "XẢ LUỒNG" : "DỪNG CHỜ")
+                          : lightB.color === "green"
+                          ? "THÔNG XE"
+                          : lightB.color === "yellow"
+                          ? "SẮP DỪNG"
+                          : "DỪNG CHỜ"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 justify-items-center bg-muted/20 rounded-xl p-2 border border-border/50">
+                      <TrafficLightHead
+                        color={lightB.color}
+                        countdown={lightB.countdown}
+                        type="straight"
+                        label="Đi thẳng"
+                        size="md"
+                        isFreeMode={lightB.isFreeMode}
+                      />
+                      <TrafficLightHead
+                        color={lightB.leftTurn.color}
+                        countdown={lightB.leftTurn.countdown}
+                        type="left"
+                        label="Rẽ trái"
+                        size="md"
+                        isFreeMode={lightB.isFreeMode}
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 {/* Control Buttons in Left Panel */}
                 {isFree ? (
@@ -880,68 +1139,23 @@ export function SignalControl() {
                 </div>
 
                 {/* 2 Traffic Light Pods: Straight + Left Turn */}
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {/* Pod 1: Đi thẳng (Straight) */}
-                  <div className="flex flex-col items-center rounded-xl border border-border/80 bg-muted/30 p-2.5 text-center">
-                    <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                      <ArrowUp className="h-3.5 w-3.5 text-primary" />
-                      <span>Đi thẳng</span>
-                    </div>
-
-                    {/* Vertical 3 dots */}
-                    <div className="my-2 flex flex-col items-center gap-1 rounded-full border border-border bg-background/90 p-1.5 shadow-inner">
-                      {(["red", "yellow", "green"] as const).map((c) => (
-                        <span
-                          key={`str-${c}`}
-                          className={cn(
-                            "h-3 w-3 rounded-full transition-all duration-300",
-                            light.color === c ? cn(LIGHT_DOT_BG[c], "scale-110 shadow-[0_0_10px_2px]") : "bg-muted opacity-25",
-                            light.color === c && c === "green" && "shadow-success/70",
-                            light.color === c && c === "yellow" && "shadow-warning/70",
-                            light.color === c && c === "red" && "shadow-destructive/70",
-                          )}
-                        />
-                      ))}
-                    </div>
-
-                    <div className={cn("text-xs font-bold", LIGHT_TEXT[light.color])}>
-                      {light.isFreeMode
-                        ? (light.color === "green" ? "Xanh (Xả)" : "Đỏ (Dừng)")
-                        : `${LIGHT_LABEL_VN[light.color]} (${light.countdown}s)`}
-                    </div>
-                  </div>
-
-                  {/* Pod 2: Rẽ trái (Left Turn Arrow) */}
-                  <div className="flex flex-col items-center rounded-xl border border-border/80 bg-muted/30 p-2.5 text-center">
-                    <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                      <ArrowUpLeft className="h-3.5 w-3.5 text-chart-4" />
-                      <span>Rẽ trái</span>
-                    </div>
-
-                    {/* Left turn arrow indicator with glowing colors */}
-                    <div className="my-2 flex flex-col items-center gap-1 rounded-full border border-border bg-background/90 p-1.5 shadow-inner">
-                      {(["red", "yellow", "green"] as const).map((c) => (
-                        <div
-                          key={`left-${c}`}
-                          className={cn(
-                            "flex h-3 w-3 items-center justify-center rounded-full transition-all duration-300",
-                            light.leftTurn.color === c ? cn(LIGHT_DOT_BG[c], "scale-110 shadow-[0_0_10px_2px]") : "bg-muted opacity-25",
-                            light.leftTurn.color === c && c === "green" && "shadow-success/70",
-                            light.leftTurn.color === c && c === "yellow" && "shadow-warning/70",
-                            light.leftTurn.color === c && c === "red" && "shadow-destructive/70",
-                          )}
-                        >
-                          <ArrowUpLeft className="h-2 w-2 text-background stroke-[3]" />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className={cn("text-xs font-bold", LIGHT_TEXT[light.leftTurn.color])}>
-                      {light.isFreeMode
-                        ? (light.leftTurn.color === "green" ? "Xanh (Xả)" : "Đỏ (Dừng)")
-                        : `${LIGHT_LABEL_VN[light.leftTurn.color]} (${light.leftTurn.countdown}s)`}
-                    </div>
-                  </div>
+                <div className="mt-4 grid grid-cols-2 gap-2.5 justify-items-center bg-muted/20 rounded-xl p-2.5 border border-border/60">
+                  <TrafficLightHead
+                    color={light.color}
+                    countdown={light.countdown}
+                    type="straight"
+                    label="Đi thẳng"
+                    size="sm"
+                    isFreeMode={light.isFreeMode}
+                  />
+                  <TrafficLightHead
+                    color={light.leftTurn.color}
+                    countdown={light.leftTurn.countdown}
+                    type="left"
+                    label="Rẽ trái"
+                    size="sm"
+                    isFreeMode={light.isFreeMode}
+                  />
                 </div>
 
                 {light.isFreeMode && (

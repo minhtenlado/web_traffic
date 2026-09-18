@@ -30,9 +30,9 @@ function getLightState(dirId: string, signalState: any) {
   let straightColor: "green" | "yellow" | "red" = "red";
   let straightCountdown = signalState.countdown;
   if (isStraightActive) {
-    if (signalState.countdown > 3) {
+    if (signalState.countdown > 5) {
       straightColor = "green";
-      straightCountdown = signalState.countdown - 3;
+      straightCountdown = signalState.countdown - 5;
     } else {
       straightColor = "yellow";
       straightCountdown = signalState.countdown;
@@ -42,9 +42,9 @@ function getLightState(dirId: string, signalState: any) {
   let leftTurnColor: "green" | "yellow" | "red" = "red";
   let leftTurnCountdown = signalState.countdown;
   if (isLeftTurnActive) {
-    if (signalState.countdown > 3) {
+    if (signalState.countdown > 5) {
       leftTurnColor = "green";
-      leftTurnCountdown = signalState.countdown - 3;
+      leftTurnCountdown = signalState.countdown - 5;
     } else {
       leftTurnColor = "yellow";
       leftTurnCountdown = signalState.countdown;
