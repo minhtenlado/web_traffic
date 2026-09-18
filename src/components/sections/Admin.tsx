@@ -16,7 +16,7 @@ import {
   Save,
   Server,
 } from "lucide-react";
-import { useTrafficStore } from "@/lib/store";
+import { useTrafficStore, type UserItem } from "@/lib/store";
 import { timeAgo } from "@/lib/formatters";
 import { StatCard, SectionCard, StatusBadge } from "@/components/shared/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -65,7 +65,7 @@ function initials(name: string) {
 function roleBadge(role: string) {
   if (role === "admin") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/20">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
         <span className="h-1.5 w-1.5 rounded-full bg-primary" />
         Admin
       </span>
@@ -76,8 +76,21 @@ function roleBadge(role: string) {
 
 export function Admin() {
   const users = useTrafficStore((s) => s.users);
+  const addUser = useTrafficStore((s) => s.addUser);
+  const updateUser = useTrafficStore((s) => s.updateUser);
+  const deleteUser = useTrafficStore((s) => s.deleteUser);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [viewUser, setViewUser] = useState<UserItem | null>(null);
+
+  const [formData, setFormData] = useState<Partial<UserItem>>({
+    name: "",
+    email: "",
+    role: "operator",
+    status: "active",
+  });
+
   // System config state (local mock)
   const [intersectionName, setIntersectionName] = useState("Ngã tư Hàng Xanh");
   const [refreshInterval, setRefreshInterval] = useState(5);
@@ -101,26 +114,61 @@ export function Admin() {
     );
   }, [users, search]);
 
-  const handleAddUser = () => {
+  const handleOpenAdd = () => {
+    setEditingUser(null);
+    setFormData({
+      name: "",
+      email: "",
+      role: "operator",
+      status: "active",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (user: UserItem) => {
+    setEditingUser(user);
+    setFormData({ ...user });
+    setDialogOpen(true);
+  };
+
+  const handleSaveUser = () => {
+    if (!formData.name || !formData.email) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập đầy đủ tên và email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingUser) {
+      updateUser(editingUser.id, formData);
+      toast({
+        title: "Cập nhật thành công",
+        description: `Thông tin tài khoản ${formData.name} đã được lưu.`,
+      });
+    } else {
+      addUser({
+        ...(formData as UserItem),
+        id: Math.max(...users.map((u) => u.id), 0) + 1,
+        lastLogin: new Date().toISOString(),
+      });
+      toast({
+        title: "Thêm thành công",
+        description: `Tài khoản ${formData.name} đã được tạo.`,
+      });
+    }
     setDialogOpen(false);
-    toast({
-      title: "Tạo người dùng mới",
-      description: "Tài khoản đã được tạo thành công (mô phỏng).",
-    });
   };
 
-  const handleEdit = (name: string) => {
-    toast({
-      title: "Chỉnh sửa người dùng",
-      description: `Mở form chỉnh sửa cho ${name} (mô phỏng).`,
-    });
-  };
-
-  const handleDelete = (name: string) => {
-    toast({
-      title: "Xoá người dùng",
-      description: `Đã gửi yêu cầu xoá tài khoản ${name} (mô phỏng).`,
-    });
+  const handleDelete = (id: number, name: string) => {
+    if (confirm(`Bạn có chắc chắn muốn xóa tài khoản ${name}?`)) {
+      deleteUser(id);
+      toast({
+        title: "Xóa thành công",
+        description: `Tài khoản ${name} đã được xoá khỏi hệ thống.`,
+      });
+    }
   };
 
   const handleSaveConfig = () => {
@@ -197,22 +245,27 @@ export function Admin() {
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" onClick={handleOpenAdd}>
                 <UserPlus className="h-3.5 w-3.5" />
                 Thêm người dùng
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Thêm người dùng mới</DialogTitle>
+                <DialogTitle>{editingUser ? "Chỉnh sửa người dùng" : "Thêm người dùng mới"}</DialogTitle>
                 <DialogDescription>
-                  Tạo tài khoản mới cho hệ thống giám sát giao thông.
+                  {editingUser ? "Cập nhật thông tin cho tài khoản hiện có." : "Tạo tài khoản mới cho hệ thống giám sát giao thông."}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="new-name">Họ và tên</Label>
-                  <Input id="new-name" placeholder="VD: Nguyễn Văn A" />
+                  <Input 
+                    id="new-name" 
+                    placeholder="VD: Nguyễn Văn A" 
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="new-email">Email</Label>
@@ -220,12 +273,17 @@ export function Admin() {
                     id="new-email"
                     type="email"
                     placeholder="email@gtvt.gov.vn"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="new-role">Vai trò</Label>
-                    <Select defaultValue="operator">
+                    <Select 
+                      value={formData.role} 
+                      onValueChange={(val) => setFormData({ ...formData, role: val })}
+                    >
                       <SelectTrigger id="new-role">
                         <SelectValue />
                       </SelectTrigger>
@@ -237,7 +295,10 @@ export function Admin() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="new-status">Trạng thái</Label>
-                    <Select defaultValue="active">
+                    <Select 
+                      value={formData.status}
+                      onValueChange={(val) => setFormData({ ...formData, status: val })}
+                    >
                       <SelectTrigger id="new-status">
                         <SelectValue />
                       </SelectTrigger>
@@ -253,7 +314,7 @@ export function Admin() {
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Huỷ
                 </Button>
-                <Button onClick={handleAddUser}>Tạo tài khoản</Button>
+                <Button onClick={handleSaveUser}>{editingUser ? "Lưu thay đổi" : "Tạo tài khoản"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -301,7 +362,8 @@ export function Admin() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.4) }}
-                    className="border-b border-border transition-colors hover:bg-primary/5"
+                    className="border-b border-border transition-colors hover:bg-primary/5 cursor-pointer"
+                    onClick={() => setViewUser(u)}
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -321,7 +383,7 @@ export function Admin() {
                       {u.status === "active" ? (
                         <StatusBadge color="green">Hoạt động</StatusBadge>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground ring-1 ring-inset ring-border">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">
                           <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                           Tạm khoá
                         </span>
@@ -335,7 +397,7 @@ export function Admin() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleEdit(u.name)}
+                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(u); }}
                           aria-label={`Chỉnh sửa ${u.name}`}
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -343,7 +405,7 @@ export function Admin() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleDelete(u.name)}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(u.id, u.name); }}
                           aria-label={`Xoá ${u.name}`}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -365,6 +427,51 @@ export function Admin() {
           / {stats.total} tài khoản
         </div>
       </SectionCard>
+
+      {/* User Details Dialog */}
+      <Dialog open={!!viewUser} onOpenChange={(open) => !open && setViewUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Thông tin người dùng</DialogTitle>
+          </DialogHeader>
+          {viewUser && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 border-b border-border pb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-chart-2/20 text-lg font-bold text-primary">
+                  {initials(viewUser.name)}
+                </div>
+                <div>
+                  <div className="text-lg font-semibold">{viewUser.name}</div>
+                  <div className="text-sm text-muted-foreground">{viewUser.email}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Vai trò:</span>
+                  <div>{roleBadge(viewUser.role)}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Trạng thái:</span>
+                  <div>
+                    {viewUser.status === "active" ? (
+                      <StatusBadge color="green">Hoạt động</StatusBadge>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                        Tạm khoá
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <span className="text-muted-foreground">Đăng nhập lần cuối:</span>
+                  <div className="font-medium">{new Date(viewUser.lastLogin).toLocaleString('vi-VN')} ({timeAgo(viewUser.lastLogin)})</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* System config */}
       <SectionCard

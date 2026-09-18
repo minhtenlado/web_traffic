@@ -62,6 +62,7 @@ export function DeviceManagement() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<DeviceItem | null>(null);
+  const [viewDevice, setViewDevice] = useState<DeviceItem | null>(null);
 
   // Form State
   const [formData, setFormData] = useState<Partial<DeviceItem>>({
@@ -254,7 +255,8 @@ export function DeviceManagement() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.4) }}
-                      className="border-b border-border transition-colors hover:bg-primary/5"
+                      className="border-b border-border transition-colors hover:bg-primary/5 cursor-pointer"
+                      onClick={() => setViewDevice(d)}
                     >
                       <TableCell>
                         <div className="flex flex-col">
@@ -282,7 +284,7 @@ export function DeviceManagement() {
                         {d.status === "online" ? (
                           <StatusBadge color="green">Online</StatusBadge>
                         ) : d.status === "offline" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground ring-1 ring-inset ring-border">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">
                             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                             Offline
                           </span>
@@ -298,7 +300,7 @@ export function DeviceManagement() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleOpenEdit(d)}
+                            onClick={(e) => { e.stopPropagation(); handleOpenEdit(d); }}
                             aria-label={`Chỉnh sửa ${d.name}`}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -306,7 +308,7 @@ export function DeviceManagement() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleDelete(d.id, d.name)}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(d.id, d.name); }}
                             aria-label={`Xoá ${d.name}`}
                           >
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -329,6 +331,72 @@ export function DeviceManagement() {
           / {stats.total} thiết bị
         </div>
       </SectionCard>
+
+      {/* Device Details Dialog */}
+      <Dialog open={!!viewDevice} onOpenChange={(open) => !open && setViewDevice(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Thông tin thiết bị</DialogTitle>
+          </DialogHeader>
+          {viewDevice && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 border-b border-border pb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-chart-2/20 text-lg font-bold text-primary">
+                  <Server className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="text-lg font-semibold">{viewDevice.name}</div>
+                  <div className="text-sm font-mono text-muted-foreground">{viewDevice.id}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Loại thiết bị:</span>
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {(() => {
+                      const typeInfo = DEVICE_TYPES[viewDevice.type] || DEVICE_TYPES.camera;
+                      const Icon = typeInfo.icon;
+                      return (
+                        <>
+                          <Icon className={`h-4 w-4 ${typeInfo.color}`} />
+                          {typeInfo.label}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Trạng thái:</span>
+                  <div>
+                    {viewDevice.status === "online" ? (
+                      <StatusBadge color="green">Online</StatusBadge>
+                    ) : viewDevice.status === "offline" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                        Offline
+                      </span>
+                    ) : (
+                      <StatusBadge color="red">Lỗi</StatusBadge>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Địa chỉ IP:</span>
+                  <div className="font-mono text-foreground">{viewDevice.ip}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Vị trí:</span>
+                  <div className="text-foreground">{viewDevice.location}</div>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <span className="text-muted-foreground">Cập nhật cuối:</span>
+                  <div className="font-medium">{new Date(viewDevice.lastSeen).toLocaleString('vi-VN')} ({timeAgo(viewDevice.lastSeen)})</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

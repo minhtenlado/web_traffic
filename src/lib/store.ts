@@ -185,6 +185,9 @@ interface TrafficState {
   addDevice: (device: DeviceItem) => void;
   updateDevice: (id: string, updates: Partial<DeviceItem>) => void;
   deleteDevice: (id: string) => void;
+  addUser: (user: UserItem) => void;
+  updateUser: (id: number, updates: Partial<UserItem>) => void;
+  deleteUser: (id: number) => void;
   refreshRealtime: () => void;
   _lastManualActionTime: number;
   _tickCount: number;
@@ -878,6 +881,9 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   addDevice: (device) => set((s) => ({ devices: [device, ...s.devices] })),
   updateDevice: (id, updates) => set((s) => ({ devices: s.devices.map((d) => (d.id === id ? { ...d, ...updates } : d)) })),
   deleteDevice: (id) => set((s) => ({ devices: s.devices.filter((d) => d.id !== id) })),
+  addUser: (user) => set((s) => ({ users: [user, ...s.users] })),
+  updateUser: (id, updates) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...updates } : u)) })),
+  deleteUser: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
   refreshRealtime: async () => {
     try {
       const data = await firebaseGet("realtime");
