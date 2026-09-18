@@ -590,7 +590,20 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       setTimeout(() => {
         const u = username.trim();
         const p = password.trim();
-        if (u === "admin" && p === "admin") {
+        if (u === "phanhuynh" && p === "phanhuynh") {
+          const userData = {
+            id: "U00",
+            username: "phanhuynh",
+            fullName: "Phan Huỳnh Văn Đô",
+            role: "admin" as const,
+            email: "phanhuynh@skytech.vn",
+            loginAt: Date.now(),
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          };
+          localStorage.setItem("auth_user", JSON.stringify(userData));
+          set({ user: userData, isAuthenticated: true });
+          resolve();
+        } else if (u === "admin" && p === "admin") {
           const userData = {
             id: "U01",
             username: "admin",

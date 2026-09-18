@@ -200,11 +200,12 @@ export function generateModelInfo() {
 
 export function generateUsers() {
   return [
-    { id: 1, name: "Nguyễn Văn An", email: "an.nv@gtvt.gov.vn", role: "operator", status: "active", lastLogin: new Date(Date.now() - rand(0, 86400000)).toISOString() },
-    { id: 2, name: "Trần Thị Bình", email: "binh.tt@gtvt.gov.vn", role: "admin", status: "active", lastLogin: new Date(Date.now() - rand(0, 172800000)).toISOString() },
-    { id: 3, name: "Nguyễn Thanh Nhàn", email: "nhan.nt@gtvt.gov.vn", role: "admin", status: "active", lastLogin: new Date(Date.now() - rand(0, 3600000)).toISOString() },
-    { id: 4, name: "Phạm Đức Dũng", email: "dung.pd@gtvt.gov.vn", role: "operator", status: "active", lastLogin: new Date(Date.now() - rand(0, 604800000)).toISOString() },
-    { id: 5, name: "Hoàng Thị Em", email: "em.ht@gtvt.gov.vn", role: "operator", status: "inactive", lastLogin: new Date(Date.now() - 30 * 86400000).toISOString() },
+    { id: 1, name: "Phan Huỳnh Văn Đô", email: "phanhuynh@skytech.vn", role: "admin", status: "active", lastLogin: new Date().toISOString() },
+    { id: 2, name: "Nguyễn Thanh Nhàn", email: "nhan.nt@gtvt.gov.vn", role: "admin", status: "active", lastLogin: new Date(Date.now() - rand(0, 3600000)).toISOString() },
+    { id: 3, name: "Trần Thị Bình", email: "binh.tt@gtvt.gov.vn", role: "admin", status: "active", lastLogin: new Date(Date.now() - rand(0, 172800000)).toISOString() },
+    { id: 4, name: "Nguyễn Văn An", email: "an.nv@gtvt.gov.vn", role: "operator", status: "active", lastLogin: new Date(Date.now() - rand(0, 86400000)).toISOString() },
+    { id: 5, name: "Phạm Đức Dũng", email: "dung.pd@gtvt.gov.vn", role: "operator", status: "active", lastLogin: new Date(Date.now() - rand(0, 604800000)).toISOString() },
+    { id: 6, name: "Hoàng Thị Em", email: "em.ht@gtvt.gov.vn", role: "operator", status: "inactive", lastLogin: new Date(Date.now() - 30 * 86400000).toISOString() },
   ];
 }
 
