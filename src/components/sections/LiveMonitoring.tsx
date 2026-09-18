@@ -181,7 +181,7 @@ export function LiveMonitoring() {
                 <div className="flex items-center justify-between gap-2 px-4 pt-4">
                   <div className="min-w-0">
                     <div className="truncate text-base font-bold text-foreground">{cam.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">{cam.label}</div>
+                    <div className="truncate text-sm text-muted-foreground">{cam.label}</div>
                   </div>
                   <StatusBadge color={isCamError ? "red" : cls} pulse={!isCamError && cls !== "green"}>
                     {isCamError ? "LỖI" : text}
@@ -217,28 +217,20 @@ export function LiveMonitoring() {
 
 
                   {/* Direction label */}
-                  <div className="absolute left-2 top-2 z-10 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-semibold text-foreground backdrop-blur">
+                  <div className="absolute left-2 top-2 z-10 rounded bg-background/70 px-2 py-1 text-xs font-semibold text-foreground backdrop-blur">
                     {dir?.name}
                   </div>
 
-                  {/* REC indicator */}
-                  {!isCamError && (
-                    <div className="absolute right-2 top-2 flex items-center gap-1 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-bold text-destructive backdrop-blur">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-70" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-destructive" />
-                      </span>
-                    </div>
-                  )}
+
 
                   {/* Timestamp overlay (bottom-left) */}
-                  <div className="absolute bottom-2 left-2 rounded bg-background/70 px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums text-foreground backdrop-blur">
+                  <div className="absolute bottom-2 left-2 rounded bg-background/70 px-2 py-1 font-mono text-xs font-semibold tabular-nums text-foreground backdrop-blur">
                     {ts}
                   </div>
 
                   {/* Vehicle count overlay (bottom-right) */}
-                  <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-foreground backdrop-blur">
-                    <Video className="h-2.5 w-2.5" />
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded bg-background/70 px-2 py-1 text-xs font-bold tabular-nums text-foreground backdrop-blur">
+                    <Video className="h-3 w-3" />
                     {isCamError ? "—" : formatNumber(count)}
                   </div>
 
@@ -279,14 +271,14 @@ export function LiveMonitoring() {
                 {/* Footer info */}
                 <div className="grid grid-cols-2 gap-2 px-4 py-4 text-sm">
                   <div className="bg-muted/40 p-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">Số xe</div>
+                    <div className="text-xs uppercase text-muted-foreground">Số xe</div>
                     <div className="font-bold tabular-nums text-foreground text-base">
                       {isCamError ? "—" : formatNumber(count)}
                     </div>
                   </div>
                   <div className="bg-muted/40 p-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">Hướng</div>
-                    <div className="truncate font-semibold text-foreground text-base">{dir?.short || "—"}</div>
+                    <div className="text-xs uppercase text-muted-foreground">Cập nhật</div>
+                    <div className="truncate font-semibold tabular-nums text-foreground text-base">{ts}</div>
                   </div>
                 </div>
               </motion.div>
