@@ -811,6 +811,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
   setSignalPhase: (phaseId) => {
     const current = get().signalState;
+    if (current.currentPhase === phaseId) {
+      // Đang ở đúng pha này rồi, không ngắt quãng hay reset lại đồng hồ tránh nhảy ngược thời gian
+      return;
+    }
     const defaultDurations = Object.assign({ phase_1: 35, phase_2: 35, phase_3: 20 }, current.phaseDurations);
     const dur = defaultDurations[phaseId as keyof typeof defaultDurations] || 35;
     const newSignal = {

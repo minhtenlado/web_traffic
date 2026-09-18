@@ -638,18 +638,23 @@ export function SignalControl() {
                         return (
                           <button
                             key={p.id}
+                            disabled={isActive}
                             onClick={() => {
-                              setSignalPhase(p.id);
+                              if (!isActive) {
+                                setSignalPhase(p.id);
+                              }
                             }}
                             className={cn(
-                              "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95",
+                              "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all",
                               isActive
-                                ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30"
-                                : "border-border bg-card hover:border-primary/50 hover:bg-muted/50 text-foreground"
+                                ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30 cursor-default opacity-95 ring-2 ring-primary/40"
+                                : "border-border bg-card hover:border-primary/50 hover:bg-muted/50 text-foreground active:scale-95 cursor-pointer"
                             )}
+                            title={isActive ? "Pha này đang hoạt động" : `Bấm để can thiệp chuyển ngay sang ${p.name}`}
                           >
                             {p.id === "phase_3" ? <ArrowUpLeft className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
                             {(p as any).shortName || p.name}
+                            {isActive && <span className="ml-1 text-[10px] font-normal opacity-90">(Đang chạy)</span>}
                           </button>
                         );
                       })}
@@ -834,12 +839,28 @@ export function SignalControl() {
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <Gauge className="h-3.5 w-3.5 text-primary" /> Cài đặt thời lượng pha (giây)
                   </div>
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
-                    isManual ? "bg-amber-500/15 text-amber-500 border border-amber-500/30" : "bg-muted text-muted-foreground border border-border"
-                  )}>
-                    {isManual ? "Thủ công: Mở khóa" : "Tự động: Khóa thanh kéo"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {isManual && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignalDuration("phase_1", 35);
+                          setSignalDuration("phase_2", 35);
+                          setSignalDuration("phase_3", 20);
+                        }}
+                        className="rounded border border-border bg-card/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-foreground transition-colors cursor-pointer"
+                        title="Đặt lại về thời lượng mặc định (P1: 35s, P2: 35s, P3: 20s)"
+                      >
+                        Đặt lại mặc định
+                      </button>
+                    )}
+                    <span className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                      isManual ? "bg-amber-500/15 text-amber-500 border border-amber-500/30" : "bg-muted text-muted-foreground border border-border"
+                    )}>
+                      {isManual ? "Thủ công: Mở khóa" : "Tự động: Khóa thanh kéo"}
+                    </span>
+                  </div>
                 </div>
 
                 {!isManual && (
