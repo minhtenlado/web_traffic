@@ -65,7 +65,7 @@ function initials(name: string) {
 function roleBadge(role: string) {
   if (role === "admin") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
         <span className="h-1.5 w-1.5 rounded-full bg-primary" />
         Admin
       </span>
@@ -341,7 +341,7 @@ export function Admin() {
                 <TableHead>Vai trò</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Đăng nhập cuối</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
+                <TableHead className="text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -389,7 +389,7 @@ export function Admin() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-sm text-muted-foreground">
                       {timeAgo(u.lastLogin)}
                     </TableCell>
                     <TableCell className="text-right">

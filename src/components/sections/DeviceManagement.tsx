@@ -231,7 +231,7 @@ export function DeviceManagement() {
                 <TableHead>Vị trí</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Cập nhật cuối</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
+                <TableHead className="text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -263,7 +263,7 @@ export function DeviceManagement() {
                           <span className="font-medium text-foreground">
                             {d.name}
                           </span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
+                          <span className="text-xs text-muted-foreground font-mono">
                             {d.id}
                           </span>
                         </div>
@@ -271,7 +271,7 @@ export function DeviceManagement() {
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <Icon className={`h-3.5 w-3.5 ${typeInfo.color}`} />
-                          <span className="text-xs font-medium">{typeInfo.label}</span>
+                          <span className="text-sm font-medium">{typeInfo.label}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm font-mono text-muted-foreground">
@@ -292,7 +292,7 @@ export function DeviceManagement() {
                           <StatusBadge color="red">Lỗi</StatusBadge>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
+                      <TableCell className="text-sm text-muted-foreground">
                         {timeAgo(d.lastSeen)}
                       </TableCell>
                       <TableCell className="text-right">
