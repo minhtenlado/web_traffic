@@ -184,11 +184,15 @@ export function Admin() {
         <TabsList className="mb-4">
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" />
-            Người dùng & Cấu hình
+            Quản lý người dùng
           </TabsTrigger>
           <TabsTrigger value="devices" className="gap-2">
             <Server className="h-4 w-4" />
             Quản lý thiết bị
+          </TabsTrigger>
+          <TabsTrigger value="config" className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            Cấu hình hệ thống
           </TabsTrigger>
         </TabsList>
 
@@ -472,7 +476,9 @@ export function Admin() {
           )}
         </DialogContent>
       </Dialog>
+        </TabsContent>
 
+        <TabsContent value="config" className="mt-0">
       {/* System config */}
       <SectionCard
         title="Cấu hình hệ thống"
