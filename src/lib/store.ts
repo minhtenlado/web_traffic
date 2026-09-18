@@ -588,9 +588,13 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   login: (username, password) =>
     new Promise((resolve, reject) => {
       setTimeout(() => {
-        const u = username.trim();
+        const u = username.trim().toLowerCase();
         const p = password.trim();
-        if (u === "phanhuynh" && p === "phanhuynh") {
+        const pLower = p.toLowerCase();
+        if (
+          (u === "phanhuynh" || u === "phanhuynhvando" || u === "phan huynh van do" || u === "phan huỳnh văn đô") &&
+          (p === "phanhuynh" || pLower === "phanhuynh")
+        ) {
           const userData = {
             id: "U00",
             username: "phanhuynh",
@@ -603,7 +607,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           localStorage.setItem("auth_user", JSON.stringify(userData));
           set({ user: userData, isAuthenticated: true });
           resolve();
-        } else if (u === "admin" && p === "admin") {
+        } else if (u === "admin" && (p === "admin" || pLower === "admin")) {
           const userData = {
             id: "U01",
             username: "admin",
@@ -616,7 +620,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           localStorage.setItem("auth_user", JSON.stringify(userData));
           set({ user: userData, isAuthenticated: true });
           resolve();
-        } else if (u === "staff" && p === "staff") {
+        } else if (u === "staff" && (p === "staff" || pLower === "staff")) {
           const userData = {
             id: "U02",
             username: "staff",
