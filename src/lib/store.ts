@@ -503,19 +503,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
               }
             });
           } else {
-            // Nếu picoStatus online → ưu tiên trạng thái từ Pico W thay vì signalState cũ trên Firebase
-            const pico = data.traffic?.picoStatus;
-            if (pico && pico.online === true) {
-              const merged = { ...cur, ...sig };
-              if (pico.mode) merged.mode = pico.mode;
-              if (pico.currentPhase && !String(pico.currentPhase).startsWith("free_")) merged.currentPhase = pico.currentPhase;
-              if (pico.countdown !== undefined && pico.countdown !== null) merged.countdown = Number(pico.countdown);
-              if (pico.manualSubMode) merged.manualSubMode = pico.manualSubMode;
-              if (pico.displaysOff !== undefined) merged.displaysOff = pico.displaysOff;
-              set({ signalState: merged });
-            } else {
-              set({ signalState: { ...cur, ...sig } });
-            }
+            set({ signalState: { ...cur, ...sig } });
           }
         }
         if (data.realtime?.weather) {
@@ -576,22 +564,22 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         }
       } else if (path.startsWith('/traffic/picoStatus')) {
         set({ picoStatus: data });
-        // Đồng bộ trạng thái thực tế từ Pico W vào signalState khi Pico online
-        // Tránh trường hợp signalState trên Firebase bị kẹt ở trạng thái cũ (vd: free mode)
-        // trong khi Pico đã chuyển sang auto
         if (data && data.online === true) {
           const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
           if (!isRecentlyManual) {
             const cur = get().signalState;
-            const picoSync: Record<string, any> = {};
-            if (data.mode) picoSync.mode = data.mode;
-            if (data.currentPhase && !String(data.currentPhase).startsWith("free_")) picoSync.currentPhase = data.currentPhase;
-            if (data.countdown !== undefined && data.countdown !== null) picoSync.countdown = Number(data.countdown);
-            if (data.manualSubMode) picoSync.manualSubMode = data.manualSubMode;
-            if (data.freeFlushTarget) picoSync.freeFlushTarget = data.freeFlushTarget;
-            if (data.displaysOff !== undefined) picoSync.displaysOff = data.displaysOff;
-            if (Object.keys(picoSync).length > 0) {
-              set({ signalState: { ...cur, ...picoSync } });
+            // Chỉ đồng bộ đếm ngược mượt mà khi cả 2 đều ở chế độ tự động
+            if (cur.mode === "auto" && data.mode === "auto") {
+              const picoSync: Record<string, any> = {};
+              if (data.currentPhase && !String(data.currentPhase).startsWith("free_")) {
+                picoSync.currentPhase = data.currentPhase;
+              }
+              if (data.countdown !== undefined && data.countdown !== null) {
+                picoSync.countdown = Number(data.countdown);
+              }
+              if (Object.keys(picoSync).length > 0) {
+                set({ signalState: { ...cur, ...picoSync } });
+              }
             }
           }
         }
@@ -772,8 +760,11 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     };
     const cmd = {
       action: "set_manual_submode",
+      mode: "manual",
       subMode: subMode,
+      manualSubMode: subMode,
       freeFlushTarget: target,
+      target: target,
       displaysOff: isFree,
       phaseDurations: newSignal.phaseDurations,
       timestamp: Date.now(),
@@ -799,8 +790,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     };
     const cmd = {
       action: "set_free_flush",
+      mode: "manual",
+      manualSubMode: "free",
       target: target,
+      freeFlushTarget: target,
       displaysOff: true,
+      phaseDurations: newSignal.phaseDurations,
       timestamp: Date.now(),
     };
     firebaseSet("traffic/command", cmd).catch(() => {});
