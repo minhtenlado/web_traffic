@@ -1,20 +1,19 @@
 "use client";
 
 import { create } from "zustand";
+import { isControllerSignal, sendControllerCommand,
+  type ControllerSignal, type ControllerStatus, type CommandResult, type TimingKey } from "./controller";
 
-import { initUnifiedFirebase, firebaseUpdate, firebaseSet, firebaseGet } from "./firebase";
+import { initUnifiedFirebase, firebaseGet } from "./firebase";
 
 import {
   CAMERAS,
-  SIGNAL_PHASES,
   labelToDensity,
   pickWorstLabel,
   TRAFFIC_LABELS,
   type TrafficLabelKey,
 } from "./constants";
 import {
-  generateRealtimeCams,
-  generateSignalState,
   generateWeather,
   generateHealthMetrics,
   generateAlerts,
@@ -24,10 +23,11 @@ import {
   generateModelInfo,
   generateUsers,
   generateDevices,
-  trafficMultiplier,
 } from "./mockData";
 
 /* Camera → Route mapping at Hàng Xanh intersection */
+let stopRealtime: (() => void) | null = null;
+
 const CAM_TO_ROUTE: Record<string, string> = {
   cam_01: "hang_xanh",
   cam_02: "dien_bien_phu",
@@ -106,32 +106,23 @@ interface TrafficState {
   weather: ReturnType<typeof generateWeather> | null;
   routeStats: RouteStat[];
   metrics: { totalVehicles: number; avgSpeed: number; avgWaitTime: number; activeAlerts: number };
-  signalState: ReturnType<typeof generateSignalState> & {
-    mode: "auto" | "manual";
-    manualSubMode?: "cycle" | "free";
-    freeFlushTarget?: string;
-    displaysOff?: boolean;
-  };
-  picoStatus: {
-    online: boolean;
-    ip?: string;
-    rssi?: number;
-    mode?: string;
-    manualSubMode?: string;
-    freeFlushTarget?: string;
-    displaysOff?: boolean;
-    currentPhase?: string;
-    countdown?: number;
-    uptime?: number;
-    lastSeen?: number;
-  } | null;
+  signalState: ControllerSignal;
+  controllerStatus: ControllerStatus | null;
+  commandResult: CommandResult | null;
+  modelStatus: { buffer_fill?: number; buffer_max?: number; missing_model_inputs?: string[] } | null;
+  isBoardOffline: boolean;
+  lastRealtimeUpdate: number;
   alerts: AlertItem[];
   auditLog: AuditItem[];
   users: UserItem[];
   devices: DeviceItem[];
   healthMetrics: ReturnType<typeof generateHealthMetrics> | null;
   signalRec: ReturnType<typeof generateSignalRecommendations>;
-  aiForecast: ReturnType<typeof generateAIForecast>;
+  aiForecast: Omit<ReturnType<typeof generateAIForecast>, "actual" | "forecast"> & {
+    actual: { hour: string | number; total: number; perRoute: number[] }[];
+    forecast: { hour: string | number; total: number; perRoute: number[]; confidence: number }[];
+    rawHistory?: any[]; rawPredictions?: any[];
+  };
   modelInfo: ReturnType<typeof generateModelInfo>;
 
   // Mamdani Fuzzy Adaptive Control state
@@ -148,6 +139,8 @@ interface TrafficState {
     yellowTime?: number;
     isSimulation?: boolean;
     timestamp?: number;
+    dataValid?: boolean;
+    validUntil?: number;
   } | null;
 
   // Chart history
@@ -172,14 +165,10 @@ interface TrafficState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   tick: () => void;
-  setSignalMode: (mode: "auto" | "manual") => void;
-  setManualSubMode: (subMode: "cycle" | "free") => void;
-  setFreeFlushTarget: (target: string) => void;
-  setSignalDuration: (phase: string, duration: number) => void;
-  setSignalPhase: (phase: string) => void;
-  adjustSignalCountdown: (delta: number) => void;
-  setTestDemands: (demandA: number, demandB: number, leftDemandA?: number, leftDemandB?: number) => void;
-  clearTestDemands: () => void;
+  setSignalMode: (mode: "auto" | "manual") => Promise<string>;
+  setSignalDuration: (phase: TimingKey, duration: number) => Promise<string>;
+  nextSignalPhase: () => Promise<string>;
+  emergencyStop: () => Promise<string>;
   acknowledgeAlert: (id: string) => void;
   acknowledgeAllAlerts: () => void;
   addDevice: (device: DeviceItem) => void;
@@ -189,28 +178,13 @@ interface TrafficState {
   updateUser: (id: number, updates: Partial<UserItem>) => void;
   deleteUser: (id: number) => void;
   refreshRealtime: () => void;
-  _lastManualActionTime: number;
   _tickCount: number;
 
   _firebaseInitialized: boolean;
   initFirebase: () => void;
 }
 
-function getStoredUser() {
-  if (typeof window === "undefined") return null;
-  try {
-    const u = localStorage.getItem("auth_user");
-    if (!u) return null;
-    const parsed = JSON.parse(u);
-    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-      localStorage.removeItem("auth_user");
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
+function getStoredUser() { return null; }
 
 function getStoredTheme(): "dark" | "light" {
   if (typeof window === "undefined") return "dark";
@@ -223,36 +197,20 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   routeStats: buildRouteStats({}),
   metrics: { totalVehicles: 0, avgSpeed: 0, avgWaitTime: 0, activeAlerts: 0 },
   signalState: {
-    currentPhase: "phase_1",
-    mode: "auto",
-    manualSubMode: "cycle",
-    freeFlushTarget: "B1",
-    displaysOff: false,
-    countdown: 35,
-    phaseDurations: { phase_1: 35, phase_2: 35, phase_3: 20 },
-    cycleNumber: 1
+    source: "STM32", currentPhase: "unknown", mode: "auto", hold: false,
+    countdown: 0, phaseDurations: { green: 30, yellow: 3, left: 10, allred: 2 }, timestamp: 0,
   },
-  picoStatus: null,
-  fuzzyStatus: {
-    demandA: 50,
-    demandB: 50,
-    leftDemandA: 35,
-    leftDemandB: 35,
-    situation: "NORMAL",
-    greenStraightA: 30,
-    greenStraightB: 30,
-    greenLeftA: 24,
-    greenLeftB: 24,
-    yellowTime: 5,
-    isSimulation: false,
-  },
+  controllerStatus: null,
+  commandResult: null,
+  modelStatus: null,
+  fuzzyStatus: null,
   alerts: [],
   auditLog: generateAuditLog(12),
   users: generateUsers(),
   devices: generateDevices(),
   healthMetrics: null,
   signalRec: generateSignalRecommendations(),
-  aiForecast: generateAIForecast(),
+  aiForecast: { actual: [], forecast: [], directions: [], daysLearned: 0, rawHistory: [], rawPredictions: [] },
   modelInfo: generateModelInfo(),
   chartHistory: [],
   activeSection: "dashboard",
@@ -263,7 +221,6 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   isAuthenticated: false,
   isBoardOffline: false,
   lastRealtimeUpdate: Date.now(),
-  _lastManualActionTime: 0,
   _tickCount: 0,
 
   _firebaseInitialized: false,
@@ -326,7 +283,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       const p2Density = (routes.find(r => r.id === 'xo_viet_nghe_tinh')?.density || 0) + (routes.find(r => r.id === 'dien_bien_phu')?.density || 0);
 
       let policy = 'Cân bằng luồng';
-      let recs = [];
+      let recs: ReturnType<typeof generateSignalRecommendations>["recommendations"] = [];
       if (p1Density > p2Density + 30) {
         policy = 'Ưu tiên Pha 1';
         recs = [
@@ -451,10 +408,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           cpu: Number(data.cpu_usage) || 0,
           ram: Number(data.ram_percent) || 0,
           temperature: Number(data.cpu_temp) || 0,
-          networkLatency: Number(data.latency) || 15,
-          fps: Number(data.camera_fps) || 24,
-          diskUsage: state.healthMetrics?.diskUsage || 45,
-          uptime: state.healthMetrics?.uptime || 99.9,
+          networkLatency: Number(data.latency) || 0,
+          fps: Number(data.camera_fps) || 0,
+          diskUsage: Number(data.disk_percent) || 0,
+          uptime: state.healthMetrics?.uptime || 0,
         } as any
       }));
     };
@@ -462,23 +419,24 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     // Process helper for system status
     const processStatusData = (data: any) => {
       if (!data) return;
+      set({modelStatus:data});
       set((state) => ({
         healthMetrics: {
           ...(state.healthMetrics || {}),
-          diskUsage: data.buffer_max ? (data.buffer_fill / data.buffer_max) * 100 : 45,
+          diskUsage: state.healthMetrics?.diskUsage || 0,
           uptime: data.uptime_seconds ? (data.uptime_seconds / 3600) : 99.9,
           cpu: state.healthMetrics?.cpu || 0,
           ram: state.healthMetrics?.ram || 0,
           temperature: state.healthMetrics?.temperature || 0,
-          networkLatency: state.healthMetrics?.networkLatency || 15,
-          fps: state.healthMetrics?.fps || 24
+          networkLatency: state.healthMetrics?.networkLatency || 0,
+          fps: state.healthMetrics?.fps || 0
         } as any,
         isBoardOffline: data.online === false
       }));
     };
 
     // Initialize single root SSE listener
-    initUnifiedFirebase((path: string, data: any) => {
+    stopRealtime = initUnifiedFirebase((path: string, data: any) => {
       if (!data) return;
 
       if (path === '/') {
@@ -486,26 +444,10 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.chart_data?.latest) processChartData(data.chart_data.latest);
         if (data.system?.hardware) processHardwareData(data.system.hardware);
         if (data.system?.status) processStatusData(data.system.status);
-        if (data.traffic?.signalState) {
-          const cur = get().signalState;
-          const sig = data.traffic.signalState;
-          const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
-          if (isRecentlyManual) {
-            set({
-              signalState: {
-                ...cur,
-                ...sig,
-                mode: cur.mode,
-                manualSubMode: cur.manualSubMode,
-                freeFlushTarget: cur.freeFlushTarget,
-                displaysOff: cur.displaysOff,
-                phaseDurations: cur.phaseDurations,
-              }
-            });
-          } else {
-            set({ signalState: { ...cur, ...sig } });
-          }
-        }
+        if (isControllerSignal(data.traffic?.signalState)) set({ signalState: data.traffic.signalState });
+        if (data.traffic?.controllerStatus) set({ controllerStatus: data.traffic.controllerStatus });
+        if (data.traffic?.commandResult) set({ commandResult: data.traffic.commandResult });
+        if (data.traffic?.fuzzyStatus) set({ fuzzyStatus: data.traffic.fuzzyStatus });
         if (data.realtime?.weather) {
           set((s) => ({
             weather: {
@@ -543,46 +485,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       } else if (path.startsWith('/system')) {
         if (path.includes('hardware')) processHardwareData(data);
         if (path.includes('status')) processStatusData(data);
-      } else if (path.startsWith('/traffic/signalState')) {
-        const cur = get().signalState;
-        const sig = data;
-        const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
-        if (isRecentlyManual) {
-          set({
-            signalState: {
-              ...cur,
-              ...sig,
-              mode: cur.mode,
-              manualSubMode: cur.manualSubMode,
-              freeFlushTarget: cur.freeFlushTarget,
-              displaysOff: cur.displaysOff,
-              phaseDurations: cur.phaseDurations,
-            }
-          });
-        } else {
-          set({ signalState: { ...cur, ...sig } });
-        }
-      } else if (path.startsWith('/traffic/picoStatus')) {
-        set({ picoStatus: data });
-        if (data && data.online === true) {
-          const isRecentlyManual = (get()._lastManualActionTime || 0) > Date.now() - 15000;
-          if (!isRecentlyManual) {
-            const cur = get().signalState;
-            // Chỉ đồng bộ đếm ngược mượt mà khi cả 2 đều ở chế độ tự động
-            if (cur.mode === "auto" && data.mode === "auto") {
-              const picoSync: Record<string, any> = {};
-              if (data.currentPhase && !String(data.currentPhase).startsWith("free_")) {
-                picoSync.currentPhase = data.currentPhase;
-              }
-              if (data.countdown !== undefined && data.countdown !== null) {
-                picoSync.countdown = Number(data.countdown);
-              }
-              if (Object.keys(picoSync).length > 0) {
-                set({ signalState: { ...cur, ...picoSync } });
-              }
-            }
-          }
-        }
+      } else if (path === '/traffic/signalState') {
+        if (isControllerSignal(data)) set({ signalState: data });
+      } else if (path === '/traffic/controllerStatus') {
+        set({ controllerStatus: data });
+      } else if (path === '/traffic/commandResult') {
+        set({ commandResult: data });
       } else if (path.startsWith('/traffic/fuzzyStatus')) {
         set({ fuzzyStatus: data });
       }
@@ -604,328 +512,29 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     get().setTheme(cur === "dark" ? "light" : "dark");
   },
 
-  login: (username, password) =>
-    new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const u = username.trim().toLowerCase();
-        const p = password.trim();
-        const pLower = p.toLowerCase();
-        if (
-          (u === "phanhuynh" || u === "phanhuynhvando" || u === "phan huynh van do" || u === "phan huỳnh văn đô") &&
-          (p === "phanhuynh" || pLower === "phanhuynh")
-        ) {
-          const userData = {
-            id: "U00",
-            username: "phanhuynh",
-            fullName: "Phan Huỳnh Văn Đô",
-            role: "admin" as const,
-            email: "phanhuynh@skytech.vn",
-            loginAt: Date.now(),
-            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-          };
-          localStorage.setItem("auth_user", JSON.stringify(userData));
-          set({ user: userData, isAuthenticated: true });
-          resolve();
-        } else if (u === "admin" && (p === "admin" || pLower === "admin")) {
-          const userData = {
-            id: "U01",
-            username: "admin",
-            fullName: "Nguyễn Thanh Nhàn",
-            role: "admin" as const,
-            email: "nhan.nt@gtvt.gov.vn",
-            loginAt: Date.now(),
-            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-          };
-          localStorage.setItem("auth_user", JSON.stringify(userData));
-          set({ user: userData, isAuthenticated: true });
-          resolve();
-        } else if (u === "staff" && (p === "staff" || pLower === "staff")) {
-          const userData = {
-            id: "U02",
-            username: "staff",
-            fullName: "Trần Văn Vận Hành",
-            role: "operator" as const,
-            email: "staff.tv@gtvt.gov.vn",
-            loginAt: Date.now(),
-            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-          };
-          localStorage.setItem("auth_user", JSON.stringify(userData));
-          set({ user: userData, isAuthenticated: true });
-          resolve();
-        } else {
-          reject(new Error("Tài khoản hoặc mật khẩu không chính xác"));
-        }
-      }, 500);
-    }),
-
+  login: async (username, password) => {
+    const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Đăng nhập thất bại');
+    set({ user: data.user, isAuthenticated: true });
+    get().initFirebase();
+  },
   logout: () => {
-    localStorage.removeItem("auth_user");
-    set({ user: null, isAuthenticated: false });
+    fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
+    stopRealtime?.(); stopRealtime = null;
+    set({ user: null, isAuthenticated: false, _firebaseInitialized: false, controllerStatus: null });
   },
 
   tick: () => {
+    // Keep STM32 telemetry intact. No browser-generated phase transitions.
     const state = get();
-    const signal = state.signalState;
-    // Increase timeout to 5 minutes for demonstration purposes
-    const isOffline = Date.now() - state.lastRealtimeUpdate > 300000;
-    let newSignal = { ...signal };
-
-    // Nếu đang ở chế độ Thủ công Tự do, không đếm ngược và không tự động chuyển pha
-    if (signal.mode === "manual" && signal.manualSubMode === "free") {
-      set({
-        isBoardOffline: isOffline,
-        _tickCount: state._tickCount + 1,
-      });
-      return;
-    }
-
-    if (isOffline) {
-      // Fallback offline: chỉ đếm lùi nội bộ hiển thị trên Web, KHÔNG ghi đè Firebase
-      const newCountdown = signal.countdown - 1;
-      if (newCountdown <= 0) {
-        const phases = ["phase_1", "phase_2", "phase_3"];
-        const currIdx = phases.indexOf(signal.currentPhase);
-        const nextPhase = phases[(currIdx + 1) % phases.length];
-        const defaultDurations = Object.assign({ phase_1: 35, phase_2: 35, phase_3: 20 }, signal.phaseDurations);
-        const nextDuration = defaultDurations[nextPhase as keyof typeof defaultDurations] || 35;
-        
-        newSignal = {
-          ...signal,
-          currentPhase: nextPhase,
-          countdown: nextDuration,
-          phaseDurations: defaultDurations,
-          cycleNumber: nextPhase === "phase_1" ? (signal.cycleNumber || 100) + 1 : (signal.cycleNumber || 100),
-        };
-      } else {
-        newSignal.countdown = newCountdown;
-      }
-    } else {
-      // Bo mạch đang Online: chỉ đếm lùi mượt mà giữa các nhịp đồng bộ, KHÔNG ghi đè Firebase
-      if (newSignal.countdown > 0) {
-        newSignal.countdown = newSignal.countdown - 1;
-      }
-    }
-
-    const tickCount = state._tickCount + 1;
-
-    set({
-      signalState: newSignal,
-      isBoardOffline: isOffline,
-      _tickCount: tickCount,
-    });
+    set({ isBoardOffline: Date.now() - state.lastRealtimeUpdate > 300000,
+          _tickCount: state._tickCount + 1 });
   },
-
-  setSignalMode: (mode) => {
-    const current = get().signalState;
-    const isMan = mode === "manual";
-    const subMode = isMan ? (current.manualSubMode || "cycle") : "cycle";
-    const isFree = isMan && subMode === "free";
-    const newSignal = {
-      ...current,
-      mode,
-      manualSubMode: subMode,
-      freeFlushTarget: current.freeFlushTarget || "B1",
-      displaysOff: isFree,
-      countdown: isFree ? 0 : (current.countdown > 0 ? current.countdown : 35),
-    };
-    const cmd = {
-      action: "set_mode",
-      mode: mode,
-      manualSubMode: subMode,
-      freeFlushTarget: newSignal.freeFlushTarget,
-      displaysOff: isFree,
-      phaseDurations: newSignal.phaseDurations,
-      timestamp: Date.now(),
-    };
-    firebaseSet("traffic/command", cmd).catch(() => {});
-    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({
-      signalState: newSignal,
-      _lastManualActionTime: isMan ? Date.now() : 0,
-    });
-  },
-
-  setManualSubMode: (subMode) => {
-    const current = get().signalState;
-    const isFree = subMode === "free";
-    const target = current.freeFlushTarget || "B1";
-    const newSignal = {
-      ...current,
-      mode: "manual" as const,
-      manualSubMode: subMode,
-      freeFlushTarget: target,
-      displaysOff: isFree,
-      countdown: isFree ? 0 : (current.countdown > 0 ? current.countdown : 35),
-    };
-    const cmd = {
-      action: "set_manual_submode",
-      mode: "manual",
-      subMode: subMode,
-      manualSubMode: subMode,
-      freeFlushTarget: target,
-      target: target,
-      displaysOff: isFree,
-      phaseDurations: newSignal.phaseDurations,
-      timestamp: Date.now(),
-    };
-    firebaseSet("traffic/command", cmd).catch(() => {});
-    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({
-      signalState: newSignal,
-      _lastManualActionTime: Date.now(),
-    });
-  },
-
-  setFreeFlushTarget: (target) => {
-    const current = get().signalState;
-    const newSignal = {
-      ...current,
-      mode: "manual" as const,
-      manualSubMode: "free" as const,
-      freeFlushTarget: target,
-      displaysOff: true,
-      countdown: 0,
-    };
-    const cmd = {
-      action: "set_free_flush",
-      mode: "manual",
-      manualSubMode: "free",
-      target: target,
-      freeFlushTarget: target,
-      displaysOff: true,
-      phaseDurations: newSignal.phaseDurations,
-      timestamp: Date.now(),
-    };
-    firebaseSet("traffic/command", cmd).catch(() => {});
-    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({
-      signalState: newSignal,
-      _lastManualActionTime: Date.now(),
-    });
-  },
-
-  setSignalDuration: (phase, duration) => {
-    const current = get().signalState;
-    // Chỉ cho phép điều chỉnh thanh kéo thời lượng khi đang ở chế độ thủ công
-    if (current.mode !== "manual") return;
-
-    const isCurrentPhase = current.currentPhase === phase;
-    const newDurations = { ...current.phaseDurations, [phase]: duration };
-    const newSignal = {
-      ...current,
-      phaseDurations: newDurations,
-      countdown: isCurrentPhase ? duration : current.countdown,
-    };
-    const cmd = {
-      action: "set_duration",
-      phase: phase,
-      duration: duration,
-      phaseDurations: newDurations,
-      timestamp: Date.now(),
-    };
-    firebaseSet("traffic/command", cmd).catch(() => {});
-    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({
-      signalState: newSignal,
-      _lastManualActionTime: Date.now(),
-    });
-  },
-
-  setSignalPhase: (phaseId) => {
-    const current = get().signalState;
-    if (current.currentPhase === phaseId) {
-      // Đang ở đúng pha này rồi, không ngắt quãng hay reset lại đồng hồ tránh nhảy ngược thời gian
-      return;
-    }
-    const defaultDurations = Object.assign({ phase_1: 35, phase_2: 35, phase_3: 20 }, current.phaseDurations);
-    const dur = defaultDurations[phaseId as keyof typeof defaultDurations] || 35;
-    const newSignal = {
-      ...current,
-      mode: "manual" as const,
-      currentPhase: phaseId,
-      countdown: dur,
-      phaseDurations: defaultDurations,
-    };
-    const cmd = {
-      action: "override",
-      mode: "manual",
-      currentPhase: phaseId,
-      countdown: dur,
-      phaseDurations: defaultDurations,
-      timestamp: Date.now(),
-    };
-    firebaseSet("traffic/command", cmd).catch(() => {});
-    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({
-      signalState: newSignal,
-      _lastManualActionTime: Date.now(),
-    });
-  },
-
-  adjustSignalCountdown: (delta) => {
-    const current = get().signalState;
-    const newCountdown = Math.max(5, current.countdown + delta);
-    const newSignal = { ...current, mode: "manual" as const, countdown: newCountdown };
-    const cmd = {
-      action: "adjust_countdown",
-      delta: delta,
-      countdown: newCountdown,
-      mode: "manual",
-      timestamp: Date.now(),
-    };
-    firebaseSet("traffic/command", cmd).catch(() => {});
-    firebaseUpdate("traffic/signalState", newSignal).catch(() => {});
-    fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSignal) }).catch(() => {});
-    set({
-      signalState: newSignal,
-      _lastManualActionTime: Date.now(),
-    });
-  },
-
-  setTestDemands: (demandA, demandB, leftDemandA, leftDemandB) => {
-    const lA = leftDemandA !== undefined ? leftDemandA : Math.round(demandA * 0.7);
-    const lB = leftDemandB !== undefined ? leftDemandB : Math.round(demandB * 0.7);
-    const cmd = {
-      action: "set_demands",
-      demandA,
-      demandB,
-      leftDemandA: lA,
-      leftDemandB: lB,
-      isSimulation: true,
-      timestamp: Date.now(),
-    };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
-    set((s) => ({
-      fuzzyStatus: s.fuzzyStatus ? {
-        ...s.fuzzyStatus,
-        demandA,
-        demandB,
-        leftDemandA: lA,
-        leftDemandB: lB,
-        isSimulation: true,
-      } : null,
-    }));
-  },
-
-  clearTestDemands: () => {
-    const cmd = {
-      action: "clear_demands",
-      isSimulation: false,
-      timestamp: Date.now(),
-    };
-    firebaseUpdate("traffic/command", cmd).catch(() => {});
-    set((s) => ({
-      fuzzyStatus: s.fuzzyStatus ? {
-        ...s.fuzzyStatus,
-        isSimulation: false,
-      } : null,
-    }));
-  },
+  setSignalMode: (mode) => sendControllerCommand({ action: "set_mode", mode }),
+  setSignalDuration: (phase, duration) => sendControllerCommand({ action: "set_duration", phase, duration }),
+  nextSignalPhase: () => sendControllerCommand({ action: "next" }),
+  emergencyStop: () => sendControllerCommand({ action: "emergency" }),
   acknowledgeAlert: (id) =>
     set((s) => ({ alerts: s.alerts.map((a) => (a.id === id ? { ...a, acknowledged: true } : a)) })),
   acknowledgeAllAlerts: () => set((s) => ({ alerts: s.alerts.map((a) => ({ ...a, acknowledged: true })) })),

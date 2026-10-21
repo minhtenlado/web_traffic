@@ -26,15 +26,13 @@ export default function Home() {
     // hydrate theme + mark mounted (legitimate client-only init)
     const stored = (localStorage.getItem("theme") as "dark" | "light") || "dark";
     document.documentElement.classList.toggle("dark", stored === "dark");
-    // Hydrate auth + realtime data immediately from localStorage / generators
-    try {
-      const u = localStorage.getItem("auth_user");
-      if (u) useTrafficStore.setState({ user: JSON.parse(u), isAuthenticated: true });
-    } catch {
-      /* ignore */
-    }
     useTrafficStore.setState({ theme: stored });
-    useTrafficStore.getState().initFirebase();
+    fetch('/api/auth').then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json();
+      useTrafficStore.setState({ user: data.user, isAuthenticated: true });
+      useTrafficStore.getState().initFirebase();
+    }).catch(() => {});
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);

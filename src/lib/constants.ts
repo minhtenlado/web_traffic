@@ -84,31 +84,114 @@ export const CAMERAS = [
   },
 ];
 
-export const SIGNAL_PHASES = [
+// Road names below are the existing map display mapping; verify against physical wiring.
+export const SIGNAL_PHASES: { id: string; name: string; shortName: string; directions: string[]; leftTurnDirections: string[]; color: string }[] = [
   {
-    id: "phase_1",
-    name: "Pha 1 — Trục Bạch Đằng & XVNT",
-    shortName: "Pha 1 (Bạch Đằng - XVNT)",
-    directions: ["bach_dang", "xo_viet_nghe_tinh"],
-    leftTurnDirections: ["bach_dang"], // Đèn rẽ trái Bạch Đằng xanh
-    color: "var(--primary)",
+    "id": "boot_allred",
+    "name": "Toàn đỏ khởi động",
+    "shortName": "Toàn đỏ khởi động",
+    "directions": [],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
   },
   {
-    id: "phase_2",
-    name: "Pha 2 — Trục Điện Biên Phủ & Hàng Xanh",
-    shortName: "Pha 2 (ĐBP - Hàng Xanh)",
-    directions: ["dien_bien_phu", "hang_xanh"],
-    leftTurnDirections: ["dien_bien_phu"], // Đèn rẽ trái ĐBP xanh
-    color: "var(--chart-2)",
+    "id": "ns_green",
+    "name": "Bắc–Nam: xanh thẳng",
+    "shortName": "Bắc–Nam: xanh thẳng",
+    "directions": [
+      "bach_dang",
+      "xo_viet_nghe_tinh"
+    ],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
   },
   {
-    id: "phase_3",
-    name: "Pha 3 — Đèn rẽ trái ưu tiên (Left Turn)",
-    shortName: "Pha 3 (Rẽ trái toàn nút)",
-    directions: [],
-    leftTurnDirections: ["bach_dang", "dien_bien_phu", "hang_xanh", "xo_viet_nghe_tinh"], // Tất cả các hướng được rẽ trái
-    color: "var(--chart-4)",
+    "id": "ns_yellow",
+    "name": "Bắc–Nam: vàng",
+    "shortName": "Bắc–Nam: vàng",
+    "directions": [
+      "bach_dang",
+      "xo_viet_nghe_tinh"
+    ],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
   },
+  {
+    "id": "after_ns_allred",
+    "name": "Toàn đỏ sau Bắc–Nam",
+    "shortName": "Toàn đỏ sau Bắc–Nam",
+    "directions": [],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "ns_left",
+    "name": "Bắc–Nam: xanh rẽ trái",
+    "shortName": "Bắc–Nam: xanh rẽ trái",
+    "directions": [],
+    "leftTurnDirections": [
+      "bach_dang",
+      "xo_viet_nghe_tinh"
+    ],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "after_ns_left_allred",
+    "name": "Toàn đỏ sau rẽ Bắc–Nam",
+    "shortName": "Toàn đỏ sau rẽ Bắc–Nam",
+    "directions": [],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "ew_green",
+    "name": "Đông–Tây: xanh thẳng",
+    "shortName": "Đông–Tây: xanh thẳng",
+    "directions": [
+      "dien_bien_phu",
+      "hang_xanh"
+    ],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "ew_yellow",
+    "name": "Đông–Tây: vàng",
+    "shortName": "Đông–Tây: vàng",
+    "directions": [
+      "dien_bien_phu",
+      "hang_xanh"
+    ],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "after_ew_allred",
+    "name": "Toàn đỏ sau Đông–Tây",
+    "shortName": "Toàn đỏ sau Đông–Tây",
+    "directions": [],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "ew_left",
+    "name": "Đông–Tây: xanh rẽ trái",
+    "shortName": "Đông–Tây: xanh rẽ trái",
+    "directions": [],
+    "leftTurnDirections": [
+      "dien_bien_phu",
+      "hang_xanh"
+    ],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "after_ew_left_allred",
+    "name": "Toàn đỏ sau rẽ Đông–Tây",
+    "shortName": "Toàn đỏ sau rẽ Đông–Tây",
+    "directions": [],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  }
 ];
 
 export const ALERT_TYPES = {

@@ -1,28 +1,8 @@
 export const DB_URL = "https://trafic-42620-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 export async function firebaseGet(path: string) {
-  const res = await fetch(`${DB_URL}/${path}.json`, { cache: "no-store" });
+  const res = await fetch(`/api/data?path=${encodeURIComponent(path)}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Firebase GET failed: ${res.status}`);
-  return res.json();
-}
-
-export async function firebaseSet(path: string, data: any) {
-  const res = await fetch(`${DB_URL}/${path}.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error(`Firebase SET failed: ${res.status}`);
-  return res.json();
-}
-
-export async function firebaseUpdate(path: string, data: any) {
-  const res = await fetch(`${DB_URL}/${path}.json`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error(`Firebase UPDATE failed: ${res.status}`);
   return res.json();
 }
 
@@ -36,6 +16,29 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
   let eventSource: EventSource | null = null;
   let isClosed = false;
   let lastMessageTime = Date.now();
+  let tree: any = {};
+  const receive = (path: string, data: any, patch: boolean) => {
+    const assign = (target: string, value: any) => {
+      const segments = target.split('/').filter(Boolean);
+      if (!segments.length) { tree = value || {}; return; }
+      let node = tree;
+      for (const segment of segments.slice(0, -1)) {
+        if (!node[segment] || typeof node[segment] !== 'object') node[segment] = {};
+        node = node[segment];
+      }
+      const key = segments[segments.length - 1];
+      if (value === null) delete node[key]; else node[key] = value;
+    };
+    if (patch && data && typeof data === 'object') {
+      Object.entries(data).forEach(([key, value]) => assign(`${path}/${key}`, value));
+    } else assign(path, data);
+    if (path === '/') onEvent('/', tree);
+    else if (path === '/traffic' || path.startsWith('/traffic/')) {
+      for (const key of ['signalState', 'controllerStatus', 'commandResult', 'fuzzyStatus']) {
+        if (tree.traffic?.[key]) onEvent(`/traffic/${key}`, structuredClone(tree.traffic[key]));
+      }
+    } else onEvent(path, data);
+  };
 
   const connect = () => {
     if (isClosed) return;
@@ -46,14 +49,14 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
     }
 
     try {
-      const url = `${DB_URL}/.json`;
+      const url = "/api/events";
       eventSource = new EventSource(url);
 
       eventSource.addEventListener('put', (event) => {
         lastMessageTime = Date.now();
         try {
           const parsed = JSON.parse(event.data);
-          onEvent(parsed.path, parsed.data);
+          receive(parsed.path, parsed.data, false);
         } catch (e) {
           console.error('[Firebase SSE] Parse error:', e);
         }
@@ -63,7 +66,7 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
         lastMessageTime = Date.now();
         try {
           const parsed = JSON.parse(event.data);
-          onEvent(parsed.path, parsed.data);
+          receive(parsed.path, parsed.data, true);
         } catch (e) {
           console.error('[Firebase SSE] Parse error:', e);
         }
@@ -102,12 +105,12 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
   // Fallback Polling every 8 seconds to ensure data NEVER goes stale even if SSE drops
   const polling = setInterval(async () => {
     try {
-      const [realtimeRes, statusRes, signalRes, picoRes, fuzzyRes] = await Promise.allSettled([
-        fetch(`${DB_URL}/realtime.json`, { cache: "no-store" }),
-        fetch(`${DB_URL}/system.json`, { cache: "no-store" }),
-        fetch(`${DB_URL}/traffic/signalState.json`, { cache: "no-store" }),
-        fetch(`${DB_URL}/traffic/picoStatus.json`, { cache: "no-store" }),
-        fetch(`${DB_URL}/traffic/fuzzyStatus.json`, { cache: "no-store" }),
+      const [realtimeRes, statusRes, signalRes, controllerRes, fuzzyRes] = await Promise.allSettled([
+        fetch(`/api/data?path=realtime`, { cache: "no-store" }),
+        fetch(`/api/data?path=system`, { cache: "no-store" }),
+        fetch(`/api/data?path=traffic/signalState`, { cache: "no-store" }),
+        fetch(`/api/data?path=traffic/controllerStatus`, { cache: "no-store" }),
+        fetch(`/api/data?path=traffic/fuzzyStatus`, { cache: "no-store" }),
       ]);
       if (realtimeRes.status === "fulfilled" && realtimeRes.value.ok) {
         const rData = await realtimeRes.value.json();
@@ -121,9 +124,9 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
         const sigData = await signalRes.value.json();
         if (sigData) onEvent('/traffic/signalState', sigData);
       }
-      if (picoRes.status === "fulfilled" && picoRes.value.ok) {
-        const pData = await picoRes.value.json();
-        if (pData) onEvent('/traffic/picoStatus', pData);
+      if (controllerRes.status === "fulfilled" && controllerRes.value.ok) {
+        const pData = await controllerRes.value.json();
+        if (pData) onEvent('/traffic/controllerStatus', pData);
       }
       if (fuzzyRes.status === "fulfilled" && fuzzyRes.value.ok) {
         const fData = await fuzzyRes.value.json();

@@ -1,37 +1,50 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { session, sameOrigin } from "@/lib/server/auth";
+import { database } from "@/lib/server/firebase";
+import { TIMING_LIMITS, type TimingKey } from "@/lib/controller";
 
-const DB_URL = "https://trafic-42620-default-rtdb.asia-southeast1.firebasedatabase.app";
-
+// This endpoint accepts requests only; actual signalState is written by the UART bridge.
 export async function POST(request: Request) {
+  const user = await session();
+  if (!user) return NextResponse.json({ error: "Cần đăng nhập" }, { status: 401 });
+  if (!["admin", "operator"].includes(user.role) || !sameOrigin(request)) return new Response(null, { status: 403 });
   try {
     const body = await request.json();
-    
-    // Direct REST API PATCH to Firebase RTDB
-    const res = await fetch(`${DB_URL}/traffic/signalState.json`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Firebase REST update failed: ${res.status}`);
+    const { id, timestamp, action } = body;
+    if (typeof id !== "string" || !/^[a-zA-Z0-9-]{1,128}$/.test(id) ||
+        !Number.isSafeInteger(timestamp) || Math.abs(Date.now() - timestamp) > 10000) {
+      return NextResponse.json({ error: "Yêu cầu không hợp lệ hoặc hết hạn" }, { status: 400 });
     }
-
-    const data = await res.json();
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    console.error('Failed to update signal state:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    let command: Record<string, unknown> = { id, timestamp, action };
+    if (action === "set_mode" && ["auto", "manual"].includes(body.mode)) {
+      command.mode = body.mode;
+    } else if (action === "set_duration" && Object.hasOwn(TIMING_LIMITS, body.phase)) {
+      const [lo, hi] = TIMING_LIMITS[body.phase as TimingKey];
+      if (!Number.isInteger(body.duration) || body.duration < lo || body.duration > hi) {
+        return NextResponse.json({ error: "Thời lượng ngoài giới hạn STM32" }, { status: 400 });
+      }
+      command = { ...command, phase: body.phase, duration: body.duration };
+    } else if (action === "set_plan") {
+      if (user.role !== "admin") return new Response(null, { status: 403 });
+      const keys = ["greenNS","greenEW","leftNS","leftEW","yellow","allred"];
+      const ranges = [[5,90],[5,90],[5,30],[5,30],[2,9],[1,9]];
+      const valid = body.plan && keys.every((key,i) => Number.isInteger(body.plan[key]) && body.plan[key]>=ranges[i][0] && body.plan[key]<=ranges[i][1]);
+      const remaining = body.validUntil-Math.floor(Date.now()/1000);
+      if (!valid || !Number.isInteger(body.planId) || body.planId<1 || body.planId>0xFFFFFF || !Number.isInteger(remaining) || remaining<1 || remaining>300) return new Response(null, { status: 400 });
+      command = { ...command, plan: Object.fromEntries(keys.map((key) => [key,body.plan[key]])), planId: body.planId, validUntil: body.validUntil };
+    } else if (action !== "next" && action !== "emergency") {
+      return NextResponse.json({ error: "Lệnh không được STM32 hỗ trợ" }, { status: 400 });
+    }
+    command = { ...command, status: "PENDING", actor: user.id, queueKey: `${action === "emergency" ? 0 : 1}:${timestamp}:${id}`, expiresAt: timestamp+10000 };
+    const transaction = await database().ref(`traffic/commands/${id}`).transaction((existing) => existing === null ? command : undefined);
+    if (!transaction.committed) return NextResponse.json({ error: "ID đã tồn tại" }, { status: 409 });
+    return NextResponse.json({ id, status: "PENDING" }, { status: 202 });
+  } catch {
+    return NextResponse.json({ error: "Không ghi được yêu cầu điều khiển" }, { status: 500 });
   }
 }
-
 export async function GET() {
-  try {
-    const res = await fetch(`${DB_URL}/traffic/signalState.json`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`Firebase GET failed: ${res.status}`);
-    const data = await res.json();
-    return NextResponse.json(data);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (!await session()) return new Response(null, { status: 401 });
+  try { return NextResponse.json((await database().ref('traffic/signalState').get()).val()); }
+  catch { return new Response(null, { status: 502 }); }
 }

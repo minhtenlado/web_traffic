@@ -82,20 +82,6 @@ export function generateWeeklyHeatmap() {
   return data;
 }
 
-export function generateSignalState(currentPhaseId?: string) {
-  const phases = ["phase_1", "phase_2", "phase_3"];
-  const currentIdx = currentPhaseId ? phases.indexOf(currentPhaseId) : -1;
-  const nextIdx = (currentIdx + 1) % phases.length;
-  const phaseDurations = { phase_1: 35, phase_2: 35, phase_3: 20 };
-  const phase = phases[nextIdx];
-  return {
-    currentPhase: phase,
-    mode: "auto" as "auto" | "manual",
-    countdown: phaseDurations[phase as keyof typeof phaseDurations] || 35,
-    phaseDurations,
-    cycleNumber: rand(100, 999),
-  };
-}
 
 function generateAlertMessage(type: string): string {
   const msgs: Record<string, string[]> = {

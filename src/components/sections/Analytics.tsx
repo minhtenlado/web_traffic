@@ -124,11 +124,11 @@ export function Analytics() {
   // Vehicle distribution data (mock counts weighted realistically — HCMC: motorbike dominant)
   const vehicleData = useMemo(() => {
     let totalCar = 0, totalMotor = 0, totalBus = 0, totalTruck = 0, totalContainer = 0;
-    const cams = Object.keys(realtimeCams).filter(k => k.startsWith('cam_'));
+    const cams = Object.keys(realtimeCams || {}).filter(k => k.startsWith('cam_'));
     
     if (cams.length > 0) {
       cams.forEach(c => {
-        const det = realtimeCams[c]?.details;
+        const det = realtimeCams?.[c]?.details;
         if (det) {
           totalCar += det.car || 0;
           totalMotor += det.motorcycle || 0;
@@ -179,6 +179,7 @@ export function Analytics() {
 
   return (
     <div className="space-y-5">
+      <p className="rounded-lg border border-amber-500/30 p-3 text-sm text-amber-600">Một số biểu đồ tổng hợp dùng dữ liệu mẫu khi chưa có dữ liệu đo. Không dùng các biểu đồ này để kết luận hiệu quả điều khiển đèn.</p>
       {/* Top stat cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard

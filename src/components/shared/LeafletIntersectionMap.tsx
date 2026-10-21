@@ -22,42 +22,19 @@ const TRAFFIC_LIGHT_POSITIONS = [
   { id: "hang_xanh", name: "Hàng Xanh", position: [10.80166, 106.7117] },
 ];
 
-function getLightState(dirId: string, signalState: any) {
-  const currentPhase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase);
-  const isStraightActive = currentPhase?.directions?.includes(dirId);
-  const isLeftTurnActive = (currentPhase as any)?.leftTurnDirections?.includes(dirId);
-
-  let straightColor: "green" | "yellow" | "red" = "red";
-  let straightCountdown = signalState.countdown;
-  if (isStraightActive) {
-    if (signalState.countdown > 5) {
-      straightColor = "green";
-      straightCountdown = signalState.countdown - 5;
-    } else {
-      straightColor = "yellow";
-      straightCountdown = signalState.countdown;
-    }
-  }
-
-  let leftTurnColor: "green" | "yellow" | "red" = "red";
-  let leftTurnCountdown = signalState.countdown;
-  if (isLeftTurnActive) {
-    if (signalState.countdown > 5) {
-      leftTurnColor = "green";
-      leftTurnCountdown = signalState.countdown - 5;
-    } else {
-      leftTurnColor = "yellow";
-      leftTurnCountdown = signalState.countdown;
-    }
-  }
-
+function getLightState(dirId: string, signalState: any): {
+  color: "green" | "yellow" | "red" | "unknown"; countdown: number | string;
+  leftTurn: { color: "green" | "yellow" | "red" | "unknown"; countdown: number | string };
+} {
+  const phase = SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase);
+  const fresh = signalState.source === "STM32" && Date.now() - signalState.timestamp * 1000 < 3000;
+  const straight = fresh && phase?.directions.includes(dirId);
+  const left = fresh && phase?.leftTurnDirections.includes(dirId);
+  const color: "green" | "yellow" | "red" | "unknown" = !fresh ? "unknown" : straight ? (signalState.currentPhase.endsWith("_yellow") ? "yellow" : "green") : "red";
   return {
-    color: straightColor,
-    countdown: straightCountdown,
-    leftTurn: {
-      color: leftTurnColor,
-      countdown: leftTurnCountdown,
-    },
+    color, countdown: fresh && !signalState.hold ? signalState.countdown : "—",
+    leftTurn: { color: !fresh ? "unknown" : left ? "green" : "red",
+      countdown: fresh && !signalState.hold ? signalState.countdown : "—" },
   };
 }
 
@@ -139,7 +116,7 @@ function createTrafficLightIcon(light: ReturnType<typeof getLightState>) {
           light.color === "red" && light.leftTurn.color === "red" && "bg-destructive/20 text-destructive"
         )}
       >
-        {Math.max(light.countdown, light.leftTurn.countdown)}
+        {light.countdown}
       </div>
     </div>
   );
@@ -323,6 +300,7 @@ function CameraPopup({
 export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selectedArea?: string }) {
   const { resolvedTheme } = useTheme();
   const signalState = useTrafficStore((s) => s.signalState);
+  useTrafficStore((s) => s._tickCount);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
   const isOffline = useTrafficStore((s) => s.isBoardOffline);
 

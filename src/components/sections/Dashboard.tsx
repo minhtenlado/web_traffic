@@ -16,7 +16,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
-import { CAMERAS, TRAFFIC_LABELS, type TrafficLabelKey } from "@/lib/constants";
+import { CAMERAS, SIGNAL_PHASES, TRAFFIC_LABELS, type TrafficLabelKey } from "@/lib/constants";
 import { formatNumber } from "@/lib/formatters";
 import { StatCard, StatusBadge, SectionCard } from "@/components/shared/ui";
 import { IntersectionMap } from "@/components/shared/IntersectionMap";
@@ -230,7 +230,7 @@ export function Dashboard() {
         <div className="col-span-1">
           <SectionCard
             title="Bản đồ ngã tư Hàng Xanh"
-            subtitle={`Pha hiện tại: ${signalState.currentPhase === "phase_1" ? "Bạch Đằng & XVNT" : "ĐBP & Hàng Xanh"} · Đếm ngược ${signalState.countdown}s`}
+            subtitle={`Pha hiện tại: ${SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase)?.name || "Chưa có telemetry STM32"} · Đếm ngược ${signalState.countdown}s`}
             icon={Radar}
             noPadding
             bodyClassName="p-4 relative flex flex-col lg:block"

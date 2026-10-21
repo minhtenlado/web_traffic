@@ -51,6 +51,7 @@ export function ModelManagement() {
 
   return (
     <div className="space-y-5">
+      <p className="rounded-lg border border-amber-500/30 p-3 text-sm text-amber-600">Các thông số đánh giá mô hình bên dưới là dữ liệu mẫu của giao diện; chưa phải kết quả kiểm định model đang chạy trên Genio.</p>
       {/* Current model — hero card */}
       <SectionCard
         title="Mô hình AI hiện tại"

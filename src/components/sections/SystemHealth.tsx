@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AreaChart,
@@ -33,20 +33,18 @@ import { useTrafficStore } from "@/lib/store";
 import { StatCard, StatusBadge, SectionCard } from "@/components/shared/ui";
 import { cn } from "@/lib/utils";
 
-/* Mock services list */
+/* Unmeasured service latencies remain unavailable. */
 const SERVICES = [
-  { id: "camera", name: "Camera Service", desc: "Đọc frame từ 7 camera realtime", icon: Video, status: "online", latency: 42 },
-  { id: "ai", name: "AI Inference", desc: "Mô hình LSTM+CNN v2.3.1", icon: Cpu, status: "online", latency: 38 },
-  { id: "firebase", name: "Firebase Sync", desc: "Đồng bộ dữ liệu realtime", icon: Cloud, status: "online", latency: 65 },
-  { id: "websocket", name: "WebSocket Gateway", desc: "Phát sói dữ liệu tới client", icon: Radio, status: "degraded", latency: 118 },
-  { id: "database", name: "Database (SQLite)", desc: "Lưu lịch sử & cấu hình", icon: Database, status: "online", latency: 12 },
+  { id: "camera", name: "Camera HTTP", desc: "4 camera; xem trạng thái từng nguồn ở giám sát", icon: Video, status: "unknown", latency: null },
+  { id: "ai", name: "AI/TCN", desc: "Tiến trình riêng; cần telemetry để xác nhận", icon: Cpu, status: "unknown", latency: null },
+  { id: "firebase", name: "Firebase", desc: "Trạng thái kết nối được phản ánh qua tuổi dữ liệu", icon: Cloud, status: "unknown", latency: null },
 ];
 
 function serviceColor(s: string): "green" | "amber" | "red" {
   return s === "online" ? "green" : s === "degraded" ? "amber" : "red";
 }
 function serviceLabel(s: string) {
-  return s === "online" ? "Online" : s === "degraded" ? "Chậm" : "Offline";
+  return s === "online" ? "Online" : s === "degraded" ? "Chậm" : s === "unknown" ? "Chưa đo" : "Offline";
 }
 
 /* Thresholds: green < 60, amber 60-80, red > 80 */
@@ -61,37 +59,16 @@ function thresholdStroke(v: number): string {
   return "var(--success)";
 }
 
-/* Generate mock historical CPU/RAM series — stable across renders */
 function useHistory() {
-  return useMemo(() => {
-    const now = new Date();
-    const points: { time: string; cpu: number; ram: number }[] = [];
-    for (let i = 19; i >= 0; i--) {
-      const t = new Date(now.getTime() - i * 30 * 1000);
-      points.push({
-        time: t.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false }),
-        cpu: Math.round(28 + Math.sin(i / 2) * 12 + Math.random() * 8),
-        ram: Math.round(54 + Math.cos(i / 3) * 8 + Math.random() * 5),
-      });
-    }
-    return points;
-  }, []);
+  const health = useTrafficStore((s) => s.healthMetrics);
+  const [points, setPoints] = useState<{time: string; cpu: number; ram: number}[]>([]);
+  useEffect(() => {
+    if (!health) return;
+    setPoints((old) => [...old.slice(-59), {time: new Date().toLocaleTimeString("vi-VN"), cpu: health.cpu, ram: health.ram}]);
+  }, [health]);
+  return points;
 }
-
-function useLatencyHistory() {
-  return useMemo(() => {
-    const now = new Date();
-    const points: { time: string; latency: number }[] = [];
-    for (let i = 19; i >= 0; i--) {
-      const t = new Date(now.getTime() - i * 30 * 1000);
-      points.push({
-        time: t.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false }),
-        latency: Math.round(18 + Math.sin(i / 1.8) * 10 + Math.random() * 6),
-      });
-    }
-    return points;
-  }, []);
-}
+function useLatencyHistory() { return [] as {time: string; latency: number}[]; }
 
 export function SystemHealth() {
   const health = useTrafficStore((s) => s.healthMetrics);
@@ -152,7 +129,7 @@ export function SystemHealth() {
         <StatCard
           icon={Wifi}
           label="Độ trễ mạng"
-          value={health.networkLatency.toFixed(0)}
+          value={health.networkLatency > 0 ? health.networkLatency.toFixed(0) : "—"}
           unit="ms"
           color={health.networkLatency > 80 ? "red" : health.networkLatency > 40 ? "amber" : "green"}
           trend={health.networkLatency > 60 ? "up" : "down"}
@@ -230,7 +207,7 @@ export function SystemHealth() {
         {/* Service status */}
         <SectionCard
           title="Trạng thái dịch vụ"
-          subtitle="5 dịch vụ đang vận hành"
+          subtitle="Trạng thái chưa đo được sẽ không giả lập Online"
           icon={CircleDot}
           bodyClassName="p-0"
           noPadding
@@ -319,7 +296,7 @@ export function SystemHealth() {
       {/* Network latency chart */}
       <SectionCard
         title="Độ trễ mạng theo thời gian"
-        subtitle="Mili giây — 10 phút gần nhất"
+        subtitle="Chưa có chuỗi số đo độ trễ mạng"
         icon={Wifi}
       >
         <div className="h-56 w-full">
@@ -462,7 +439,7 @@ function ServiceRow({
         <StatusBadge color={color} pulse={color !== "green"}>
           {serviceLabel(service.status)}
         </StatusBadge>
-        <span className="text-[10px] tabular-nums text-muted-foreground">{service.latency}ms</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground">{service.latency === null ? "—" : `${service.latency}ms`}</span>
       </div>
     </motion.div>
   );
