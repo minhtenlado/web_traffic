@@ -32,7 +32,8 @@ export function SignalControl() {
   const online = isControllerOnline(status) && Date.now() - signal.timestamp * 1000 < 3000;
   void tick;
   const phase = SIGNAL_PHASES.find((p) => p.id === signal.currentPhase);
-  const disabled = !online || !!pending;
+  const localControl = signal.localControl === true;
+  const disabled = !online || !!pending || localControl;
   useEffect(() => { setValues(signal.phaseDurations); }, [signal.phaseDurations.green, signal.phaseDurations.yellow, signal.phaseDurations.left, signal.phaseDurations.allred]);
   useEffect(() => {
     if (!pending || pending === "sending") return;
@@ -67,6 +68,7 @@ export function SignalControl() {
       <SectionCard title="Bộ điều khiển đèn STM32F105RCT6" subtitle="Genio ↔ UART ↔ STM32" icon={Cpu}
         action={<StatusBadge color={online ? "green" : "amber"} pulse={online}>{online ? "STM32: Online" : "STM32: Chưa có kết nối mới"}</StatusBadge>}>
         <div className="space-y-4">
+          {localControl && <p className="rounded-lg border border-amber-500 p-3 text-sm text-amber-600">Điều khiển tại mạch — nhấn TỰ ĐỘNG (PC11) trên bo để trả quyền điều khiển cho Web. Dừng khẩn cấp vẫn có hiệu lực.</p>}
           <p className="text-lg font-semibold">{signal.timestamp ? MODE_LABELS[signal.mode] : "Chờ telemetry STM32"}</p>
           <p className="text-2xl font-bold">{phase?.name || "Chưa xác định pha"}</p>
           <p className="text-4xl font-mono">{!online ? "—" : signal.mode === "emergency" ? "STOP" : signal.hold ? "GIỮ PHA" : `${signal.countdown} s`}</p>
@@ -115,7 +117,19 @@ export function SignalControl() {
       <SectionCard title="Khẩn cấp" subtitle="STM32 đưa tất cả tín hiệu về đỏ" icon={ShieldAlert}>
         <button className={`${button} bg-destructive text-destructive-foreground`} disabled={!online}
           onClick={() => run(emergency)}>DỪNG KHẨN CẤP</button>
-        <p className="mt-3 text-sm text-muted-foreground">Để xóa khẩn cấp, nhấn giữ nút SET trên mạch trong 3 giây. Nút EMERGENCY tại mạch hoạt động độc lập với Web.</p>
+        <p className="mt-3 text-sm text-muted-foreground">Nhả nút KHẨN CẤP, sau đó nhấn giữ KHÔI PHỤC (PB3) đủ 3 giây. STM32 giữ toàn đỏ rồi về AUTO. Nút KHẨN CẤP tại mạch hoạt động độc lập với Web.</p>
+      </SectionCard>
+      <SectionCard title="5 nút vận hành tại mạch" subtitle="Bố trí mới, giữ nguyên chân và dây nối" icon={Settings2}>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Nút</th><th className="p-2">Chân</th><th className="p-2">Thao tác</th></tr></thead><tbody>
+          {[
+            ["TỰ ĐỘNG", "PC11", "Trả quyền cho Web, chuyển tiếp an toàn rồi chạy AUTO"],
+            ["THỦ CÔNG", "PC12", "Tiếp quản tại mạch, giữ pha xanh đang chạy"],
+            ["CHUYỂN PHA", "PD2", "Nhấn một lần để chuyển pha trong thủ công tại mạch; xanh tối thiểu 5 giây"],
+            ["KHÔI PHỤC", "PB3", "Nhả KHẨN CẤP rồi giữ nút này 3 giây để thoát khẩn cấp"],
+            ["KHẨN CẤP", "PB4", "Đưa tất cả tín hiệu về đỏ; ưu tiên cao nhất"],
+          ].map(([label,pin,help]) => <tr key={pin} className="border-t"><td className="p-2 font-medium">{label}</td><td className="p-2 font-mono">{pin}</td><td className="p-2">{help}</td></tr>)}
+        </tbody></table></div>
+        <p className="mt-3 text-sm text-muted-foreground">Không giữ CHUYỂN PHA để lặp. Chỉnh thời lượng trên Web khi đã trả quyền điều khiển. AUTO không xóa trạng thái khẩn cấp.</p>
       </SectionCard>
       <SectionCard title="Gợi ý AI Fuzzy" subtitle="Chế độ đánh giá, chưa tự áp dụng vào đèn" icon={Timer}>
         <p className="text-sm">{fuzzy ? `Xanh thẳng A/B: ${fuzzy.greenStraightA}/${fuzzy.greenStraightB} s · Xanh rẽ A/B: ${fuzzy.greenLeftA}/${fuzzy.greenLeftB} s` : "Chờ dữ liệu AI"}</p>

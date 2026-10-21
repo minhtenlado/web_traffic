@@ -17,6 +17,7 @@ export interface ControllerSignal {
   phaseDurations: Record<TimingKey, number>;
   hold: boolean;
   timestamp: number;
+  localControl?: boolean; buttonLayout?: number;
   greenEW?: number; leftEW?: number; planId?: number; protocol?: number;
 }
 export interface ControllerStatus {
@@ -40,7 +41,7 @@ export function isControllerSignal(value: unknown): value is ControllerSignal {
     (CONTROLLER_PHASES as readonly string[]).includes(s.currentPhase) &&
     Number.isInteger(s.countdown) && s.countdown >= 0 && s.countdown <= 99 &&
     Number.isFinite(s.timestamp) && s.timestamp > 0 &&
-    typeof s.hold === "boolean" && !!s.phaseDurations &&
+    typeof s.hold === "boolean" && (s.localControl === undefined || typeof s.localControl === "boolean") && !!s.phaseDurations &&
     Object.entries(TIMING_LIMITS).every(([key, [lo, hi]]) => {
       const n = s.phaseDurations[key as TimingKey];
       return Number.isInteger(n) && n >= lo && n <= hi;
