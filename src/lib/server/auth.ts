@@ -4,9 +4,16 @@ import { cookies } from "next/headers";
 export interface User { id: string; username: string; fullName: string; email: string; role: "admin" | "operator" }
 interface Account extends User { salt: string; hash: string }
 function settings(): { secret: string; users: Account[] } {
+  const inline = process.env.TRAFFIC_AUTH_JSON;
   const path = process.env.TRAFFIC_AUTH_FILE;
-  if (!path) throw new Error("TRAFFIC_AUTH_FILE is required");
-  return JSON.parse(readFileSync(path, "utf8"));
+  if (!inline && !path) throw new Error("TRAFFIC_AUTH_JSON or TRAFFIC_AUTH_FILE is required");
+  const config = JSON.parse(inline || readFileSync(path!, "utf8"));
+  if (typeof config.secret !== "string" || config.secret.length < 32 || !Array.isArray(config.users) || !config.users.length ||
+      config.users.some((u: Account) => !u || typeof u.username !== "string" || typeof u.salt !== "string" ||
+        !u.salt || typeof u.hash !== "string" || !/^[a-f0-9]{128}$/i.test(u.hash) || !["admin", "operator"].includes(u.role))) {
+    throw new Error("Invalid traffic auth configuration");
+  }
+  return config;
 }
 function sign(payload: string) { return createHmac("sha256", settings().secret).update(payload).digest("base64url"); }
 export function authenticate(username: string, password: string): User | null {

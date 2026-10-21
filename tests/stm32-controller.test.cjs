@@ -83,3 +83,31 @@ test('Firebase nested put/patch events produce complete telemetry snapshots', ()
   assert.equal(update.data.countdown, 2); // previous store snapshot is immutable
   cleanup();
 });
+test('cloud auth uses inline configuration without accessing local files', () => {
+  const crypto = require('node:crypto');
+  const salt = 'test-salt';
+  const account = { id: 'test', username: 'test', fullName: 'Test', email: '', role: 'admin', salt,
+    hash: crypto.scryptSync('test-password', salt, 64).toString('hex') };
+  const env = { TRAFFIC_AUTH_JSON: JSON.stringify({ secret: 'x'.repeat(32), users: [account] }) };
+  const auth = load('src/lib/server/auth.ts', { Buffer, process: { env }, require: (name) =>
+    name === 'next/headers' ? { cookies: async () => ({ get: () => null }) } :
+    name === 'node:fs' ? { readFileSync: () => { throw new Error('Cloud must not read local files'); } } : require(name) });
+  assert.equal(auth.authenticate('test', 'test-password').id, 'test');
+  assert.equal(auth.authenticate('test', 'wrong-password'), null);
+  assert.equal(auth.authenticate('unknown', 'test-password'), null);
+  assert.equal('hash' in auth.authenticate('test', 'test-password'), false);
+  assert.ok(auth.sessionToken(auth.authenticate('test', 'test-password')).includes('.'));
+});
+test('cloud Firebase uses inline credentials without accessing local files', () => {
+  let options;
+  const firebase = load('src/lib/server/firebase.ts', {
+    process: { env: { FIREBASE_ADMIN_KEY_JSON: JSON.stringify({ project_id: 'test-project' }) } },
+    require: (name) => name === 'firebase-admin/app' ? {
+      getApps: () => [], cert: (value) => value, initializeApp: (value) => { options = value; return 'test-app'; },
+    } : name === 'firebase-admin/database' ? { getDatabase: (app) => app } : {
+      readFileSync: () => { throw new Error('Cloud must not read local files'); },
+    },
+  });
+  assert.equal(firebase.database(), 'test-app');
+  assert.equal(options.credential.project_id, 'test-project');
+});
