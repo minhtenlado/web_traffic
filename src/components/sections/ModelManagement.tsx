@@ -9,6 +9,7 @@ export function ModelManagement() {
   const offline = useTrafficStore(s => s.isBoardOffline);
   const models = status?.model_artifacts || {};
   const missing = status?.missing_model_inputs || [];
+  const tcnIsLive = status?.tcn_status === "AVAILABLE" && !offline;
   return <div className="space-y-5">
     <SectionCard title="Mô hình đang chạy trên Genio 350" subtitle="Thông tin do bo báo về; chưa có phép đo độ chính xác thực địa." icon={Brain}>
       <p className="mb-4 text-sm text-muted-foreground">Runtime: {status?.runtime_version || "Chưa nhận được"} · <StatusBadge color={offline ? "amber" : "green"}>{offline ? "Telemetry hết hạn" : "Đã kết nối"}</StatusBadge></p>
@@ -24,8 +25,9 @@ export function ModelManagement() {
       })}</div>
     </SectionCard>
     <SectionCard title="TCN — dự báo 30 phút" icon={Package}>
-      <StatusBadge color={status?.tcn_status === "AVAILABLE" && !offline ? "green" : "amber"}>{!offline && status?.tcn_status === "AVAILABLE" ? "Model sẵn sàng, chờ đủ lịch sử" : "Chưa sẵn sàng"}</StatusBadge>
+      <StatusBadge color={tcnIsLive ? "green" : "amber"}>{tcnIsLive ? "Model sẵn sàng, chờ đủ lịch sử" : status?.tcn_status === "DISABLED" ? "Đã khóa dự báo live" : "Chưa sẵn sàng"}</StatusBadge>
       <p className="mt-3 text-sm text-muted-foreground">Bộ đệm: {status?.buffer_fill ?? 0}/{status?.buffer_max ?? "—"} bước. {missing.length > 0 ? `Thiếu camera đầu vào: ${missing.join(", ")}. Không phát dự báo khi thiếu đầu vào.` : "Chỉ công bố khi dữ liệu mới, đủ lịch sử và đúng schema của model."}</p>
+      {status?.tcn_reason && <p className="mt-2 text-sm text-warning">Lý do: {status.tcn_reason}</p>}
       <p className="mt-2 text-sm text-muted-foreground">Gói TCN V3 đang lưu riêng để kiểm thử. Chưa kết nối vào luồng trực tiếp; model đếm xe không tự cung cấp nhãn ùn tắc.</p>
     </SectionCard>
     <SectionCard title="Thay model sau này" icon={ShieldCheck}>

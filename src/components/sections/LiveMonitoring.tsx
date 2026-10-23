@@ -1,7 +1,8 @@
 "use client";
 
-import { cameraView } from "@/lib/traffic-status";
+import { ACTIVE_CAMERA_IDS, cameraView } from "@/lib/traffic-status";
 import { TrafficVotes } from "@/components/shared/TrafficVotes";
+import { CameraSnapshot } from "@/components/shared/CameraSnapshot";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -18,7 +19,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
-import { CAMERAS, DIRECTIONS, TRAFFIC_LABELS, type TrafficLabelKey } from "@/lib/constants";
+import { CAMERAS, DIRECTIONS } from "@/lib/constants";
 import { formatNumber, formatClockTime } from "@/lib/formatters";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,6 @@ export function LiveMonitoring() {
 
   const [expandedCam, setExpandedCam] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [iframeError, setIframeError] = useState(false);
 
   const expandedCamInfo = useMemo(
     () => CAMERAS.find((c) => c.id === expandedCam) || null,
@@ -75,8 +75,8 @@ export function LiveMonitoring() {
     let offline = 0;
     let totalVehicles = 0;
     if (realtimeCams) {
-      for (const cam of CAMERAS) {
-        const d = realtimeCams[cam.id] as any;
+      for (const id of ACTIVE_CAMERA_IDS) {
+        const d = realtimeCams[id] as any;
         if (!cameraView(d).fresh) offline++;
         else {
           online++;
@@ -87,14 +87,12 @@ export function LiveMonitoring() {
     return { online, offline, totalVehicles };
   }, [realtimeCams, isOffline, tickCount]);
 
-  const handleIframeError = () => setIframeError(true);
-
   return (
     <div className="space-y-5">
       {/* Header bar */}
       <SectionCard
-        title="Lưới camera trực tiếp"
-        subtitle="7 camera — ngã tư Hàng Xanh"
+        title="Lưới ảnh camera"
+        subtitle="5 camera có AI · 2 camera chỉ xem tham chiếu · ảnh làm mới mỗi 10 giây"
         icon={Video}
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -109,10 +107,9 @@ export function LiveMonitoring() {
                 {offline} lỗi
               </div>
             )}
-            {/* LIVE indicator */}
-            <span className="flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-bold text-destructive">
-              <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-current" />
-              LIVE
+            <span className="flex items-center gap-1.5 rounded-full border border-chart-2/30 bg-chart-2/10 px-2.5 py-1 text-[11px] font-bold text-chart-2">
+              <Camera className="h-3 w-3" />
+              ẢNH CẬP NHẬT
             </span>
             {/* Refresh */}
             <Button
@@ -158,11 +155,14 @@ export function LiveMonitoring() {
           {CAMERAS.map((cam, i) => {
             const camData = realtimeCams[cam.id] as any;
             const view = cameraView(camData);
-            const isCamError = camData?.status === "ERROR";
+            const isAiInput = cam.aiInput;
+            const isCamError = isAiInput && camData?.status === "ERROR";
             const dir = DIRECTIONS.find((d) => d.id === cam.direction);
             const { text, cls } = view;
             const count = camData?.count || 0;
-            const ts = camData?.timestamp?.split(" ")[1] || "—";
+            const ts = isAiInput ? camData?.timestamp?.split(" ")[1] || "—" : "—";
+            const statusText = isAiInput ? text : "Chỉ xem ảnh tham chiếu";
+            const statusColor = isAiInput ? (isCamError ? "red" : cls) : "cyan";
 
             return (
               <motion.div
@@ -179,42 +179,29 @@ export function LiveMonitoring() {
                     <div className="truncate text-base font-bold text-foreground">{cam.name}</div>
                     <div className="truncate text-sm text-muted-foreground">{cam.label}</div>
                   </div>
-                  <StatusBadge color={isCamError ? "red" : cls} pulse={!isCamError && cls !== "green"}>
-                    {text}
+                  <StatusBadge color={statusColor} pulse={isAiInput && !isCamError && cls !== "green"}>
+                    {statusText}
                   </StatusBadge>
                 </div>
 
-                {/* Actual video feed */}
+                {/* HTGT provides refreshed still images rather than an embeddable video stream. */}
                 <div
                   className={cn(
                     "relative mx-4 mt-3 aspect-video overflow-hidden border",
-                    (!cam.url || isCamError) ? ("bg-gradient-to-br " + (FEED_BG[cls] || FEED_BG.cyan)) : "bg-black",
+                    !cam.url ? ("bg-gradient-to-br " + (FEED_BG[cls] || FEED_BG.cyan)) : "bg-black",
                     isCamError ? "border-destructive/30" : cls === "red" ? "border-destructive/30" : cls === "amber" ? "border-warning/30" : "border-border",
                   )}
                 >
-                  {!isCamError && cam.url && (
-                    <iframe
-                      src={cam.url}
-                      title={cam.name}
-                      className="absolute inset-0 z-0 h-full w-full border-0 pointer-events-none"
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                      referrerPolicy="no-referrer"
-                      loading="lazy"
-                    />
-                  )}
-
-
-                  {/* Noise / shimmer when error */}
-                  {isCamError && (
-                    <div className="absolute inset-0 shimmer opacity-50" />
-                  )}
-
+                  {cam.url && <CameraSnapshot src={cam.url} alt={`${cam.name} — ${cam.label}`} />}
 
 
                   {/* Direction label */}
                   <div className="absolute left-2 top-2 z-10 rounded bg-background/70 px-2 py-1 text-xs font-semibold text-foreground backdrop-blur">
                     {dir?.name}
+                  </div>
+
+                  <div className="absolute right-2 top-2 z-10 rounded bg-background/80 px-2 py-1 text-[10px] font-semibold text-foreground backdrop-blur">
+                    {isAiInput ? "AI nhận diện" : "Chỉ ảnh tham chiếu"}
                   </div>
 
 
@@ -230,28 +217,12 @@ export function LiveMonitoring() {
                     {view.count === null ? "—" : formatNumber(view.count)}
                   </div>
 
-                  {/* Error overlay */}
-                  {isCamError && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-destructive/10 backdrop-blur-[2px]">
-                      <CameraOff className="h-7 w-7 text-destructive" />
-                      <span className="rounded bg-destructive/20 px-2 py-0.5 text-[10px] font-semibold text-destructive">
-                        Mất tín hiệu
-                      </span>
-                      {camData?.error_message && camData.error_message !== "OK" && camData.error_message !== "None" && (
-                        <span className="px-2 text-center text-[9px] text-destructive/80">
-                          {camData.error_message}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
                   {/* Expand button on hover */}
-                  {!isCamError && (
+                  {cam.url && (
                     <button
                       type="button"
                       onClick={() => {
                         setExpandedCam(cam.id);
-                        setIframeError(false);
                       }}
                       className="absolute inset-0 flex items-center justify-center bg-background/40 opacity-0 backdrop-blur-[1px] transition-opacity duration-200 group-hover:opacity-100"
                       aria-label={`Mở rộng ${cam.name}`}
@@ -264,7 +235,11 @@ export function LiveMonitoring() {
                   )}
                 </div>
 
-                <div className="px-4"><TrafficVotes record={camData} /></div>
+                <div className="px-4">
+                  {isAiInput ? <TrafficVotes record={camData} /> : (
+                    <p className="py-2 text-xs text-muted-foreground">Camera này chưa được đưa vào luồng AI.</p>
+                  )}
+                </div>
                 {/* Footer info */}
                 <div className="grid grid-cols-2 gap-2 px-4 py-4 text-sm">
                   <div className="bg-muted/40 p-2">
@@ -287,7 +262,7 @@ export function LiveMonitoring() {
       {/* External link hint */}
       <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
         <AlertCircle className="h-3.5 w-3.5" />
-        Nguồn dữ liệu: HTGT TP.HCM — làm mới 5s/lần
+        Nguồn ảnh: HTGT TP.HCM — mỗi ảnh được tải mới sau 10 giây; đây không phải video live.
       </div>
 
       {/* Expanded camera dialog */}
@@ -300,7 +275,7 @@ export function LiveMonitoring() {
               <span className="font-normal text-muted-foreground">— {expandedCamInfo?.label}</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {expandedCamData?.timestamp ? `Cập nhật: ${expandedCamData.timestamp}` : "Đang tải..."}
+              {expandedCamInfo?.aiInput && expandedCamData?.timestamp ? `Cập nhật AI: ${expandedCamData.timestamp}` : "Ảnh camera được làm mới khoảng 10 giây/lần."}
               {expandedCamInfo?.url && (
                 <a
                   href={expandedCamInfo.url}
@@ -315,26 +290,8 @@ export function LiveMonitoring() {
           </DialogHeader>
 
           <div className="relative aspect-video w-full overflow-hidden rounded-b-lg bg-black">
-            {expandedCamInfo?.url && !iframeError ? (
-              <iframe
-                key={expandedCamInfo.url}
-                src={expandedCamInfo.url}
-                title={expandedCamInfo.name}
-                className="h-full w-full border-0"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                referrerPolicy="no-referrer"
-                onError={handleIframeError}
-                onLoad={(e) => {
-                  // Try detecting blank/blocked iframes via timeout fallback
-                  try {
-                    const f = e.currentTarget as HTMLIFrameElement;
-                    if (!f.contentWindow) setIframeError(true);
-                  } catch {
-                    // Cross-origin access throws — assume OK
-                  }
-                }}
-              />
+            {expandedCamInfo?.url ? (
+              <CameraSnapshot src={expandedCamInfo.url} alt={`${expandedCamInfo.name} — ${expandedCamInfo.label}`} />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-muted/40 to-background p-6 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-warning/15 text-warning">
@@ -342,20 +299,12 @@ export function LiveMonitoring() {
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-foreground">
-                    {iframeError ? "Không tải được luồng trực tiếp" : "Đang chuẩn bị luồng..."}
+                    Không có nguồn ảnh
                   </div>
                   <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                    Trang camera của TP.HCM có thể chặn nhúng. Bạn có thể mở liên kết trực tiếp trong tab mới.
+                    Camera chưa có URL ảnh snapshot.
                   </p>
                 </div>
-                {expandedCamInfo?.url && (
-                  <Button asChild size="sm">
-                    <a href={expandedCamInfo.url} target="_blank" rel="noopener noreferrer" className="gap-1.5">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Mở liên kết gốc
-                    </a>
-                  </Button>
-                )}
               </div>
             )}
             {/* Overlay info pill */}
@@ -364,16 +313,10 @@ export function LiveMonitoring() {
               <span className="font-mono tabular-nums text-foreground">
                 {formatClockTime(new Date())}
               </span>
-              <span className="flex items-center gap-1 text-destructive">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-70" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-destructive" />
-                </span>
-                LIVE
-              </span>
+              <span className="text-chart-2">Ảnh tự làm mới</span>
             </div>
             {/* Camera status pill */}
-            {expandedCamData && (
+            {expandedCamData && expandedCamInfo?.aiInput && (
               <div className="pointer-events-none absolute right-3 top-3">
                 <StatusBadge
                   color={cameraView(expandedCamData).cls}
@@ -381,6 +324,11 @@ export function LiveMonitoring() {
                 >
                   {cameraView(expandedCamData).text}
                 </StatusBadge>
+              </div>
+            )}
+            {expandedCamInfo && !expandedCamInfo.aiInput && (
+              <div className="pointer-events-none absolute right-3 top-3">
+                <StatusBadge color="cyan">Chỉ ảnh tham chiếu</StatusBadge>
               </div>
             )}
           </div>

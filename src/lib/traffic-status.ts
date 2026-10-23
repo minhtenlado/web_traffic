@@ -1,7 +1,7 @@
 import { CAMERAS, DIRECTIONS, TRAFFIC_LABELS, LABEL_SEVERITY, type TrafficLabelKey } from "./constants";
 
 export const CAMERA_TTL_SECONDS = 45;
-export const ACTIVE_CAMERA_IDS = CAMERAS.filter(c => !c.isReference).map(c => c.id);
+export const ACTIVE_CAMERA_IDS = CAMERAS.filter(c => c.aiInput).map(c => c.id);
 
 export function cameraView(record: any, nowMs = Date.now()) {
   const now = nowMs / 1000;
@@ -29,7 +29,7 @@ export function cameraView(record: any, nowMs = Date.now()) {
 
 export function buildRouteStats(records: Record<string, any>, nowMs = Date.now()) {
   return DIRECTIONS.map(direction => {
-    const cameras = CAMERAS.filter(c => c.direction === direction.id && !c.isReference);
+    const cameras = CAMERAS.filter(c => c.direction === direction.id && c.aiInput);
     const views = cameras.map(c => cameraView(records[c.id], nowMs));
     const labels = views.flatMap(v => v.label ? [v.label] : []);
     const worst = labels.sort((a, b) => LABEL_SEVERITY[b] - LABEL_SEVERITY[a])[0];

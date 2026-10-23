@@ -15,6 +15,7 @@ function load(file, overrides = {}) {
   return exports;
 }
 const status = load('src/lib/traffic-status.ts');
+const constants = load('src/lib/constants.ts');
 const now = 1000000;
 function record(label = 'Ket_xe') {
   const counts = { Duong_vang: 0, Binh_thuong: 0, Dong_xe: 0, Sap_ket: 0, Ket_xe: 0 };
@@ -50,10 +51,18 @@ test('routes agree with stabilized cameras and absent XVNT is unknown', () => {
   const absent = routes.find(r => r.id === 'xo_viet_nghe_tinh');
   assert.equal(absent.hasData, false); assert.equal(absent.status, 'Chưa đủ dữ liệu');
 });
-test('reference camera is never added to route totals or active AI set', () => {
+test('camera 5 is an active AI input and contributes to the XVNT route', () => {
   const routes = status.buildRouteStats({ cam_05: record() }, now);
-  assert.equal(routes.reduce((s, r) => s + r.vehicleCount, 0), 0);
-  assert.equal(status.ACTIVE_CAMERA_IDS.length, 4);
+  const xvnt = routes.find(r => r.id === 'xo_viet_nghe_tinh');
+  assert.equal(xvnt.vehicleCount, 12);
+  assert.equal(xvnt.status, 'Kẹt xe');
+  assert.equal(status.ACTIVE_CAMERA_IDS.length, 5);
+  assert.ok(status.ACTIVE_CAMERA_IDS.includes('cam_05'));
+  assert.ok(!status.ACTIVE_CAMERA_IDS.includes('cam_06'));
+  assert.ok(!status.ACTIVE_CAMERA_IDS.includes('cam_07'));
+  const camera5 = constants.CAMERAS.find(c => c.id === 'cam_05');
+  assert.match(camera5.url, /ImageHandler\.ashx\?id=5d9ddd49766c880017188c94/);
+  assert.ok(!camera5.url.includes('expandcameraplayer'));
 });
 test('alerts use stabilized state, persist acknowledgement and resolve with condition', () => {
   const alerts = status.buildCameraAlerts({ cam_01: record() }, [], now);

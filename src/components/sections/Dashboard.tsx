@@ -155,9 +155,12 @@ export function Dashboard() {
         subtitle="10 ảnh mới nhất cho từng camera · ảnh trùng không cộng phiếu"
         icon={Video}
         action={
-          <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success">
+          <span className={cn(
+            "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+            isOffline ? "border-warning/30 bg-warning/10 text-warning" : "border-success/30 bg-success/10 text-success",
+          )}>
             <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-current" />
-            LIVE
+            {isOffline ? "DỮ LIỆU CŨ" : "LIVE"}
           </span>
         }
       >
@@ -171,10 +174,13 @@ export function Dashboard() {
             {CAMERAS.map((cam, i) => {
               const camData = realtimeCams[cam.id] as any;
               const view = cameraView(camData);
-              const isError = !view.fresh;
+              const isAiInput = cam.aiInput;
+              const isError = isAiInput && !view.fresh;
               const info = CAM_INFO[cam.id] || { name: cam.id, location: "" };
               const { text, cls } = view;
-              const ts = camData?.timestamp?.split(" ")[1] || "—";
+              const ts = isAiInput ? camData?.timestamp?.split(" ")[1] || "—" : "—";
+              const statusText = isAiInput ? text : "Chỉ xem ảnh tham chiếu";
+              const statusColor = isAiInput ? cls : "cyan";
 
               return (
                 <motion.div
@@ -193,12 +199,15 @@ export function Dashboard() {
                 >
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-sm font-semibold text-foreground">{info.name}</span>
-                    <StatusBadge color={cls} pulse={!isError && cls !== "green"}>
-                      {text}
+                    <StatusBadge color={statusColor} pulse={isAiInput && !isError && cls !== "green"}>
+                      {statusText}
                     </StatusBadge>
                   </div>
                   <div className="mb-2 truncate text-xs text-muted-foreground" title={info.location}>
                     {info.location}
+                  </div>
+                  <div className="mb-2 text-[10px] font-medium text-muted-foreground">
+                    {isAiInput ? "AI nhận diện từ ảnh" : "Ảnh tham khảo, chưa phân tích AI"}
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg bg-muted/40 p-2">
@@ -212,7 +221,9 @@ export function Dashboard() {
                       <div className="font-mono font-semibold tabular-nums text-foreground">{ts}</div>
                     </div>
                   </div>
-                  <TrafficVotes record={camData} />
+                  {isAiInput ? <TrafficVotes record={camData} /> : (
+                    <p className="pt-2 text-xs text-muted-foreground">Chưa có phiếu AI cho camera này.</p>
+                  )}
                 </motion.div>
               );
             })}

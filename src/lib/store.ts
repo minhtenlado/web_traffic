@@ -57,7 +57,7 @@ interface TrafficState {
   signalState: ControllerSignal;
   controllerStatus: ControllerStatus | null;
   commandResult: CommandResult | null;
-  modelStatus: { buffer_fill?: number; buffer_max?: number; missing_model_inputs?: string[]; last_heartbeat?: number; online?: boolean; tcn_status?: string; runtime_version?: string; active_camera_ids?: string[]; model_artifacts?: Record<string, any> } | null;
+  modelStatus: { buffer_fill?: number; buffer_max?: number; missing_model_inputs?: string[]; last_heartbeat?: number; online?: boolean; tcn_status?: string; tcn_reason?: string; runtime_version?: string; active_camera_ids?: string[]; model_artifacts?: Record<string, any> } | null;
   isBoardOffline: boolean;
   lastRealtimeUpdate: number;
   alerts: AlertItem[];

@@ -2,6 +2,7 @@
 
 import { cameraView } from "@/lib/traffic-status";
 import { TrafficVotes } from "@/components/shared/TrafficVotes";
+import { CameraSnapshot } from "@/components/shared/CameraSnapshot";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -11,7 +12,7 @@ import { useTheme } from "next-themes";
 import { CAMERAS, SIGNAL_PHASES, DIRECTIONS, AREA_CONFIGS } from "@/lib/constants";
 import { useTrafficStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { formatNumber, formatClockTime } from "@/lib/formatters";
+import { formatNumber } from "@/lib/formatters";
 
 import "leaflet/dist/leaflet.css";
 
@@ -166,10 +167,13 @@ function CameraPopup({
   onClose: () => void;
 }) {
   const dir = DIRECTIONS.find((d) => d.id === cam.direction);
-  const { text, cls } = cameraView(camData);
+  const view = cameraView(camData);
+  const { text, cls } = view;
+  const displayText = cam.aiInput ? text : "Chỉ xem ảnh tham chiếu";
+  const displayCls = cam.aiInput ? cls : "cyan";
   const count = camData?.count || 0;
   const ts = camData?.timestamp?.split(" ")[1] || "—";
-  const colors = STATUS_COLORS[cls] || STATUS_COLORS.cyan;
+  const colors = STATUS_COLORS[displayCls] || STATUS_COLORS.cyan;
 
   return (
     <div className="absolute inset-0 z-[1000] flex items-center justify-center p-4 sm:p-8" onClick={onClose}>
@@ -202,8 +206,8 @@ function CameraPopup({
               "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold",
               colors.bg, colors.border, colors.text
             )}>
-              <span className={cn("h-1.5 w-1.5 rounded-full bg-current", cls !== "green" && "animate-pulse")} />
-              {text}
+              <span className={cn("h-1.5 w-1.5 rounded-full bg-current", cam.aiInput && cls !== "green" && "animate-pulse")} />
+              {displayText}
             </span>
             {/* Close button */}
             <button
@@ -216,37 +220,14 @@ function CameraPopup({
           </div>
         </div>
 
-        {/* Video feed */}
+        {/* Refreshed snapshot, not a live video stream. */}
         <div className="relative aspect-video w-full bg-black">
-          {!isError && cam.url ? (
+          {cam.url ? (
             <>
-              <iframe
-                src={cam.url}
-                title={cam.name}
-                className="absolute inset-0 h-full w-full border-0"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                referrerPolicy="no-referrer"
-                loading="eager"
-              />
-              {/* REC indicator */}
-              <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-red-400 backdrop-blur-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-400" />
-                </span>
-              </div>
-              {/* Time indicator */}
+              <CameraSnapshot src={cam.url} alt={`${cam.name} — ${cam.label}`} />
               <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 backdrop-blur-sm">
                 <Clock className="h-3 w-3 text-blue-400" />
-                <span className="font-mono text-[10px] font-bold tabular-nums text-white/90">{formatClockTime(new Date())}</span>
-                <span className="flex items-center gap-1 text-[10px] font-bold text-red-400">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-70" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-400" />
-                  </span>
-                  LIVE
-                </span>
+                <span className="text-[10px] font-bold text-white/90">Ảnh snapshot · tự làm mới 10 giây</span>
               </div>
             </>
           ) : (
@@ -256,10 +237,10 @@ function CameraPopup({
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {isError ? "Mất tín hiệu camera" : "Đang tải luồng video..."}
+                  {isError ? "Chưa có dữ liệu AI mới" : "Không có nguồn ảnh"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {isError ? "Camera hiện không khả dụng" : "Vui lòng đợi hoặc mở trong tab mới"}
+                  {isError ? "Ảnh AI đang lỗi hoặc đã cũ" : "Camera chưa có URL snapshot"}
                 </p>
               </div>
             </div>
