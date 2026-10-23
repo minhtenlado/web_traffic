@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Shared local project knowledge is not a web asset or deployment dependency.
+/.traffic-context
+
 
 # typescript
 *.tsbuildinfo

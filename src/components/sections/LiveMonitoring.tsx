@@ -1,5 +1,7 @@
 "use client";
 
+import { cameraView } from "@/lib/traffic-status";
+import { TrafficVotes } from "@/components/shared/TrafficVotes";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -29,13 +31,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-function labelDisplay(mappedLabel?: string | null, isCamError?: boolean) {
-  if (isCamError) return { text: "MẤT KẾT NỐI", cls: "red" as const };
-  const entry = mappedLabel ? TRAFFIC_LABELS[mappedLabel as TrafficLabelKey] : null;
-  if (!entry) return { text: "Đang chờ", cls: "cyan" as const };
-  return { text: entry.text, cls: entry.cls as "green" | "amber" | "red" };
-}
-
 const FEED_BG: Record<string, string> = {
   green: "from-success/20 via-success/5 to-background",
   amber: "from-warning/20 via-warning/5 to-background",
@@ -51,6 +46,7 @@ const SCANLINE_COLOR: Record<string, string> = {
 };
 
 export function LiveMonitoring() {
+  const tickCount = useTrafficStore((s) => s._tickCount);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
   const isOffline = useTrafficStore((s) => s.isBoardOffline);
   const refreshRealtime = useTrafficStore((s) => s.refreshRealtime);
@@ -81,8 +77,7 @@ export function LiveMonitoring() {
     if (realtimeCams) {
       for (const cam of CAMERAS) {
         const d = realtimeCams[cam.id] as any;
-        if (!d) continue;
-        if (d.status === "ERROR" || isOffline) offline++;
+        if (!cameraView(d).fresh) offline++;
         else {
           online++;
           totalVehicles += d.count || 0;
@@ -90,7 +85,7 @@ export function LiveMonitoring() {
       }
     }
     return { online, offline, totalVehicles };
-  }, [realtimeCams, isOffline]);
+  }, [realtimeCams, isOffline, tickCount]);
 
   const handleIframeError = () => setIframeError(true);
 
@@ -162,9 +157,10 @@ export function LiveMonitoring() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CAMERAS.map((cam, i) => {
             const camData = realtimeCams[cam.id] as any;
-            const isCamError = isBoardOffline || camData?.status === "ERROR" || (camData?.error_message && camData.error_message !== "OK" && camData.error_message !== "None");
+            const view = cameraView(camData);
+            const isCamError = camData?.status === "ERROR";
             const dir = DIRECTIONS.find((d) => d.id === cam.direction);
-            const { text, cls } = labelDisplay(camData?.mapped_label, isCamError);
+            const { text, cls } = view;
             const count = camData?.count || 0;
             const ts = camData?.timestamp?.split(" ")[1] || "—";
 
@@ -184,7 +180,7 @@ export function LiveMonitoring() {
                     <div className="truncate text-sm text-muted-foreground">{cam.label}</div>
                   </div>
                   <StatusBadge color={isCamError ? "red" : cls} pulse={!isCamError && cls !== "green"}>
-                    {isCamError ? "LỖI" : text}
+                    {text}
                   </StatusBadge>
                 </div>
 
@@ -231,7 +227,7 @@ export function LiveMonitoring() {
                   {/* Vehicle count overlay (bottom-right) */}
                   <div className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded bg-background/70 px-2 py-1 text-xs font-bold tabular-nums text-foreground backdrop-blur">
                     <Video className="h-3 w-3" />
-                    {isCamError ? "—" : formatNumber(count)}
+                    {view.count === null ? "—" : formatNumber(view.count)}
                   </div>
 
                   {/* Error overlay */}
@@ -268,12 +264,13 @@ export function LiveMonitoring() {
                   )}
                 </div>
 
+                <div className="px-4"><TrafficVotes record={camData} /></div>
                 {/* Footer info */}
                 <div className="grid grid-cols-2 gap-2 px-4 py-4 text-sm">
                   <div className="bg-muted/40 p-2">
                     <div className="text-xs uppercase text-muted-foreground">Số xe</div>
                     <div className="font-bold tabular-nums text-foreground text-base">
-                      {isCamError ? "—" : formatNumber(count)}
+                      {view.count === null ? "—" : formatNumber(view.count)}
                     </div>
                   </div>
                   <div className="bg-muted/40 p-2">
@@ -379,12 +376,10 @@ export function LiveMonitoring() {
             {expandedCamData && (
               <div className="pointer-events-none absolute right-3 top-3">
                 <StatusBadge
-                  color={expandedCamData.status === "ERROR" ? "red" : labelDisplay(expandedCamData.mapped_label).cls}
+                  color={cameraView(expandedCamData).cls}
                   pulse
                 >
-                  {expandedCamData.status === "ERROR"
-                    ? "LỖI"
-                    : labelDisplay(expandedCamData.mapped_label).text}
+                  {cameraView(expandedCamData).text}
                 </StatusBadge>
               </div>
             )}

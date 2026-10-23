@@ -1,4 +1,5 @@
-@import "tailwindcss";
+/* Scan UI source only; the shared Codex context symlink is outside this project. */
+@import "tailwindcss" source("../");
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));

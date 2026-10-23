@@ -1,5 +1,6 @@
 "use client";
 
+import { cameraView } from "@/lib/traffic-status";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Bell, Radio, MapPin, LogOut, Menu } from "lucide-react";
@@ -45,7 +46,6 @@ export function Header() {
   const setSelectedArea = useTrafficStore((s) => s.setSelectedArea);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTime(new Date());
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
@@ -53,7 +53,7 @@ export function Header() {
 
   const meta = SECTION_TITLES[activeSection] || SECTION_TITLES.dashboard;
   const onlineCameras = realtimeCams
-    ? ['cam_01', 'cam_02', 'cam_03', 'cam_04', 'cam_05', 'cam_06', 'cam_07'].filter((id) => realtimeCams[id]?.status === "ONLINE").length
+    ? ['cam_01', 'cam_02', 'cam_03', 'cam_04', 'cam_05', 'cam_06', 'cam_07'].filter((id) => cameraView(realtimeCams[id], time?.getTime() ?? Date.now()).fresh).length
     : 0;
 
   return (
@@ -101,7 +101,7 @@ export function Header() {
         >
           <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-current" />
           <Radio className="h-3.5 w-3.5" />
-          <span>{isBoardOffline ? "Bo mạch offline" : `${onlineCameras}/7 camera online`}</span>
+          <span>{isBoardOffline ? "Bo mạch offline" : `${onlineCameras}/7 camera có dữ liệu AI mới`}</span>
         </div>
 
         {/* Location Selector */}

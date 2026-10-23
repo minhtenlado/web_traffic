@@ -32,11 +32,17 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
     if (patch && data && typeof data === 'object') {
       Object.entries(data).forEach(([key, value]) => assign(`${path}/${key}`, value));
     } else assign(path, data);
-    if (path === '/') onEvent('/', tree);
+    if (path === '/') onEvent('/', structuredClone(tree));
     else if (path === '/traffic' || path.startsWith('/traffic/')) {
       for (const key of ['signalState', 'controllerStatus', 'commandResult', 'fuzzyStatus']) {
         if (tree.traffic?.[key]) onEvent(`/traffic/${key}`, structuredClone(tree.traffic[key]));
       }
+    } else if (path === '/realtime' || path.startsWith('/realtime/')) {
+      onEvent('/realtime', structuredClone(tree.realtime || {}));
+    } else if (path === '/chart_data' || path.startsWith('/chart_data/')) {
+      onEvent('/chart_data/latest', structuredClone(tree.chart_data?.latest || {}));
+    } else if (path === '/system' || path.startsWith('/system/')) {
+      onEvent('/system', structuredClone(tree.system || {}));
     } else onEvent(path, data);
   };
 
@@ -114,23 +120,23 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
       ]);
       if (realtimeRes.status === "fulfilled" && realtimeRes.value.ok) {
         const rData = await realtimeRes.value.json();
-        if (rData) onEvent('/realtime', rData);
+        if (!isClosed) receive('/realtime', rData, false);
       }
       if (statusRes.status === "fulfilled" && statusRes.value.ok) {
         const sData = await statusRes.value.json();
-        if (sData) onEvent('/system', sData);
+        if (!isClosed) receive('/system', sData, false);
       }
       if (signalRes.status === "fulfilled" && signalRes.value.ok) {
         const sigData = await signalRes.value.json();
-        if (sigData) onEvent('/traffic/signalState', sigData);
+        if (!isClosed) receive('/traffic/signalState', sigData, false);
       }
       if (controllerRes.status === "fulfilled" && controllerRes.value.ok) {
         const pData = await controllerRes.value.json();
-        if (pData) onEvent('/traffic/controllerStatus', pData);
+        if (!isClosed) receive('/traffic/controllerStatus', pData, false);
       }
       if (fuzzyRes.status === "fulfilled" && fuzzyRes.value.ok) {
         const fData = await fuzzyRes.value.json();
-        if (fData) onEvent('/traffic/fuzzyStatus', fData);
+        if (!isClosed) receive('/traffic/fuzzyStatus', fData, false);
       }
     } catch {}
   }, 8000);

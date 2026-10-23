@@ -1,5 +1,7 @@
 "use client";
 
+import { cameraView } from "@/lib/traffic-status";
+import { TrafficVotes } from "@/components/shared/TrafficVotes";
 import { motion } from "framer-motion";
 import {
   Car,
@@ -32,14 +34,6 @@ const CAM_INFO: Record<string, { name: string; location: string }> = {
   cam_07: { name: "Camera 7", location: "Hàng Xanh - Cầu Văn Thánh" },
 };
 
-function labelDisplay(mappedLabel?: string | null, isError?: boolean) {
-  if (isError) return { text: "MẤT KẾT NỐI", cls: "red", emoji: "⚠️" };
-  const entry = mappedLabel ? TRAFFIC_LABELS[mappedLabel as TrafficLabelKey] : null;
-  if (!entry) return { text: "Đang chờ", cls: "cyan", emoji: "⏳" };
-  const emoji = entry.cls === "red" ? "🔴" : entry.cls === "amber" ? "🟠" : "🟢";
-  return { text: entry.text, cls: entry.cls, emoji };
-}
-
 export function Dashboard() {
   const metrics = useTrafficStore((s) => s.metrics);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
@@ -55,21 +49,21 @@ export function Dashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={Car}
-          label="Tổng số xe"
+          label="Số xe trong ảnh mới"
           value={formatNumber(metrics.totalVehicles)}
           unit="xe"
           trend="up"
-          trendValue="realtime"
+          trendValue="ước lượng từ detector"
           color="primary"
           delay={0}
         />
         <StatCard
           icon={Timer}
           label="Thời gian chờ TB"
-          value={metrics.avgWaitTime}
+          value="—"
           unit="giây"
           trend="down"
-          trendValue="ổn định"
+          trendValue="chưa có phép đo thời gian chờ"
           trendColor="success"
           color="amber"
           delay={0.05}
@@ -91,7 +85,7 @@ export function Dashboard() {
       {/* Route summary */}
       <SectionCard
         title="Tình trạng các hướng"
-        subtitle="Tổng hợp từ 7 camera thời gian thực"
+        subtitle="Nhãn đã tổng hợp 10 ảnh mới; mỗi hướng dùng mức cao nhất từ camera có dữ liệu hợp lệ"
         icon={Radar}
         action={
           <button
@@ -124,14 +118,14 @@ export function Dashboard() {
                 </StatusBadge>
               </div>
               <div className="mb-2 flex items-baseline gap-1">
-                <span className="text-xl font-bold tabular-nums text-foreground">{formatNumber(route.vehicleCount)}</span>
+                <span className="text-xl font-bold tabular-nums text-foreground">{route.hasData ? formatNumber(route.vehicleCount) : "—"}</span>
                 <span className="text-xs text-muted-foreground">xe</span>
               </div>
               {/* Density bar */}
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${route.density}%` }}
+                  animate={{ width: `${route.severity === null ? "—" : `Mức ${route.severity}/4`}` }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                   className={cn(
                     "h-full rounded-full",
@@ -142,8 +136,8 @@ export function Dashboard() {
                 />
               </div>
               <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>{route.cameras.join(", ")}</span>
-                <span className="tabular-nums">{route.density}%</span>
+                <span>{route.cameras.length ? route.cameras.join(", ") : "Chưa có camera AI"}</span>
+                <span className="tabular-nums">{route.severity === null ? "—" : `Mức ${route.severity}/4`}</span>
               </div>
               {route.isReference && (
                 <span className="mt-1.5 inline-block rounded bg-chart-5/10 px-1.5 py-0.5 text-[9px] font-medium text-chart-5">
@@ -158,7 +152,7 @@ export function Dashboard() {
       {/* Camera status grid */}
       <SectionCard
         title="Trạng thái Camera — Realtime"
-        subtitle="Cập nhật mỗi 5 giây"
+        subtitle="10 ảnh mới nhất cho từng camera · ảnh trùng không cộng phiếu"
         icon={Video}
         action={
           <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success">
@@ -176,9 +170,10 @@ export function Dashboard() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {CAMERAS.map((cam, i) => {
               const camData = realtimeCams[cam.id] as any;
-              const isError = isOffline || camData?.status === "ERROR" || camData?.status === "OFFLINE";
+              const view = cameraView(camData);
+              const isError = !view.fresh;
               const info = CAM_INFO[cam.id] || { name: cam.id, location: "" };
-              const { text, cls } = labelDisplay(camData?.mapped_label, isError);
+              const { text, cls } = view;
               const ts = camData?.timestamp?.split(" ")[1] || "—";
 
               return (
@@ -199,7 +194,7 @@ export function Dashboard() {
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-sm font-semibold text-foreground">{info.name}</span>
                     <StatusBadge color={cls} pulse={!isError && cls !== "green"}>
-                      {isError ? "⚠️" : cls === "red" ? "🔴" : cls === "amber" ? "🟠" : "🟢"} {text}
+                      {text}
                     </StatusBadge>
                   </div>
                   <div className="mb-2 truncate text-xs text-muted-foreground" title={info.location}>
@@ -209,7 +204,7 @@ export function Dashboard() {
                     <div className="rounded-lg bg-muted/40 p-2">
                       <div className="text-[10px] uppercase text-muted-foreground">Số xe</div>
                       <div className="font-semibold tabular-nums text-foreground">
-                        {isError ? "—" : formatNumber(camData?.count || 0)}
+                        {view.count === null ? "—" : formatNumber(view.count)}
                       </div>
                     </div>
                     <div className="rounded-lg bg-muted/40 p-2">
@@ -217,6 +212,7 @@ export function Dashboard() {
                       <div className="font-mono font-semibold tabular-nums text-foreground">{ts}</div>
                     </div>
                   </div>
+                  <TrafficVotes record={camData} />
                 </motion.div>
               );
             })}

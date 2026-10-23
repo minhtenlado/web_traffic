@@ -1,5 +1,7 @@
 "use client";
 
+import { cameraView } from "@/lib/traffic-status";
+import { TrafficVotes } from "@/components/shared/TrafficVotes";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -64,12 +66,12 @@ function getStatusInfo(mappedLabel?: string, isError?: boolean) {
 }
 
 function createCameraIcon(cam: any, camData: any, isError: boolean) {
-  const label = camData?.mapped_label;
+  const label = cameraView(camData).label;
   let dotColor = "bg-muted-foreground";
   if (isError) dotColor = "bg-destructive";
   else if (label === "Ket_xe" || label === "Sap_ket") dotColor = "bg-warning";
   else if (label === "Dong_xe") dotColor = "bg-warning";
-  else dotColor = "bg-success";
+  else if (label) dotColor = "bg-success";
 
   const html = renderToStaticMarkup(
     <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card shadow-md cursor-pointer hover:scale-110 transition-transform">
@@ -164,7 +166,7 @@ function CameraPopup({
   onClose: () => void;
 }) {
   const dir = DIRECTIONS.find((d) => d.id === cam.direction);
-  const { text, cls } = getStatusInfo(camData?.mapped_label, isError);
+  const { text, cls } = cameraView(camData);
   const count = camData?.count || 0;
   const ts = camData?.timestamp?.split(" ")[1] || "—";
   const colors = STATUS_COLORS[cls] || STATUS_COLORS.cyan;
@@ -272,7 +274,7 @@ function CameraPopup({
           </div>
           <div className="flex flex-col items-center justify-center bg-card/95 p-3">
             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Số xe</span>
-            <span className="mt-0.5 text-sm font-bold tabular-nums text-foreground">{isError ? "—" : formatNumber(count)}</span>
+            <span className="mt-0.5 text-sm font-bold tabular-nums text-foreground">{cameraView(camData).count === null ? "—" : formatNumber(count)}</span>
           </div>
           <div className="flex flex-col items-center justify-center bg-card/95 p-3">
             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Cập nhật</span>
@@ -300,7 +302,7 @@ function CameraPopup({
 export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selectedArea?: string }) {
   const { resolvedTheme } = useTheme();
   const signalState = useTrafficStore((s) => s.signalState);
-  useTrafficStore((s) => s._tickCount);
+  const tickCount = useTrafficStore((s) => s._tickCount);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
   const isOffline = useTrafficStore((s) => s.isBoardOffline);
 
@@ -311,18 +313,18 @@ export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selecte
     [activeCam],
   );
   const activeCamData = activeCam ? realtimeCams?.[activeCam] : null;
-  const activeCamError = isOffline || activeCamData?.status === "ERROR";
+  const activeCamError = activeCamData?.status === "ERROR";
 
   const camIcons = useMemo(() => {
     return CAMERAS.map((cam) => {
       const camData = realtimeCams?.[cam.id] as any;
-      const isError = isOffline || camData?.status === "ERROR";
+      const isError = camData?.status === "ERROR";
       return {
         id: cam.id,
         icon: createCameraIcon(cam, camData, isError),
       };
     });
-  }, [realtimeCams, isOffline]);
+  }, [realtimeCams, isOffline, tickCount]);
 
   return (
     <div className="h-full w-full relative z-0">
