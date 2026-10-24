@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { readTCNChart } from "./tcn-forecast";
 import { buildRouteStats, buildCameraAlerts, cameraView, ACTIVE_CAMERA_IDS } from "./traffic-status";
 import { isControllerSignal, sendControllerCommand,
   type ControllerSignal, type ControllerStatus, type CommandResult, type TimingKey } from "./controller";
@@ -69,7 +70,7 @@ interface TrafficState {
   aiForecast: Omit<ReturnType<typeof generateAIForecast>, "actual" | "forecast"> & {
     actual: { hour: string | number; total: number; perRoute: number[] }[];
     forecast: { hour: string | number; total: number; perRoute: number[]; confidence: number }[];
-    rawHistory?: any[]; rawPredictions?: any[]; validUntil?: number; status?: string;
+    rawHistory?: any[]; rawPredictions?: any[]; validUntil?: number; status?: string; kind?: string; experimental?: boolean; reason?: string; modelVersion?: string;
   };
   modelInfo: ReturnType<typeof generateModelInfo>;
 
@@ -207,29 +208,9 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
 
     // Process helper for chart_data
     const processChartData = (data: any) => {
-      if (!data) return;
-      let history = Array.isArray(data.history) ? data.history : Object.values(data.history || {});
-      let predictionsRaw = data.predictions || {};
-      let predictions: any[] = [];
-      if (Array.isArray(predictionsRaw)) {
-        predictions = predictionsRaw;
-      } else {
-        predictions = Object.keys(predictionsRaw)
-          .filter(k => k !== 'latest')
-          .sort((a, b) => Number(a) - Number(b))
-          .map(k => predictionsRaw[k]);
-      }
-      
-      history = history.filter(Boolean);
-      predictions = predictions.filter(Boolean);
-
-      const valid = Number(data.valid_until) > Date.now() / 1000 && data.experimental === false;
-      // Legacy chart points are label indices, NOT vehicle counts.
+      const forecast = readTCNChart(data);
       set(state => ({ aiForecast: { ...state.aiForecast,
-        actual: [], forecast: [], directions: [], daysLearned: 0,
-        rawHistory: valid ? history : [], rawPredictions: valid ? predictions : [],
-        validUntil: Number(data.valid_until) || 0,
-        status: valid ? "READY" : (data.status || "UNAVAILABLE"),
+        actual: [], forecast: [], directions: [], daysLearned: 0, ...forecast,
       }}));
     };
 
