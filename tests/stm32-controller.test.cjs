@@ -96,7 +96,7 @@ test('Firebase nested put/patch events produce complete telemetry snapshots', ()
   assert.equal(events.at(-1).data.source, 'genio350-production-edge');
   cleanup();
 });
-test('cloud auth uses inline configuration without accessing local files', () => {
+test('cloud auth uses inline configuration without accessing local files', async () => {
   const crypto = require('node:crypto');
   const salt = 'test-salt';
   const account = { id: 'test', username: 'test', fullName: 'Test', email: '', role: 'admin', salt,
@@ -104,12 +104,14 @@ test('cloud auth uses inline configuration without accessing local files', () =>
   const env = { TRAFFIC_AUTH_JSON: JSON.stringify({ secret: 'x'.repeat(32), users: [account] }) };
   const auth = load('src/lib/server/auth.ts', { Buffer, process: { env }, require: (name) =>
     name === 'next/headers' ? { cookies: async () => ({ get: () => null }) } :
+    name === './firebase' ? { database: () => ({ ref: () => ({ get: async () => ({ val: () => null }) }) }) } :
     name === 'node:fs' ? { readFileSync: () => { throw new Error('Cloud must not read local files'); } } : require(name) });
-  assert.equal(auth.authenticate('test', 'test-password').id, 'test');
-  assert.equal(auth.authenticate('test', 'wrong-password'), null);
-  assert.equal(auth.authenticate('unknown', 'test-password'), null);
-  assert.equal('hash' in auth.authenticate('test', 'test-password'), false);
-  assert.ok(auth.sessionToken(auth.authenticate('test', 'test-password')).includes('.'));
+  const authenticated = await auth.authenticate('test', 'test-password');
+  assert.equal(authenticated.id, 'test');
+  assert.equal(await auth.authenticate('test', 'wrong-password'), null);
+  assert.equal(await auth.authenticate('unknown', 'test-password'), null);
+  assert.equal('hash' in authenticated, false);
+  assert.ok(auth.sessionToken(authenticated).includes('.'));
 });
 test('cloud Firebase uses inline credentials without accessing local files', () => {
   let options;

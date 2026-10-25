@@ -29,6 +29,10 @@ export function Admin() {
   const [createError, setCreateError] = useState("");
   const [createMessage, setCreateMessage] = useState("");
   const [accountForm, setAccountForm] = useState(emptyAccountForm);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", passwordConfirm: "" });
+  const [passwordState, setPasswordState] = useState<"idle" | "saving">("idle");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
   const refreshAccounts = async () => {
     setAccountState("loading"); setAccountError("");
     try {
@@ -66,6 +70,32 @@ export function Admin() {
       setCreateError(error instanceof Error ? error.message : "Không tạo được tài khoản");
     } finally {
       setCreateState("idle");
+    }
+  };
+  const changeAdminPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPasswordError(""); setPasswordMessage("");
+    if (passwordForm.newPassword !== passwordForm.passwordConfirm) {
+      setPasswordError("Mật khẩu xác nhận không khớp"); return;
+    }
+    if (passwordForm.newPassword === passwordForm.currentPassword) {
+      setPasswordError("Mật khẩu mới phải khác mật khẩu hiện tại"); return;
+    }
+    setPasswordState("saving");
+    try {
+      const response = await fetch("/api/admin/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(passwordForm),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không đổi được mật khẩu");
+      setPasswordForm({ currentPassword: "", newPassword: "", passwordConfirm: "" });
+      setPasswordMessage(data.message || "Đã đổi mật khẩu Admin.");
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : "Không đổi được mật khẩu");
+    } finally {
+      setPasswordState("idle");
     }
   };
   useEffect(() => { void refreshAccounts(); }, []);
@@ -108,6 +138,19 @@ export function Admin() {
           {user && <div className="mt-4 grid gap-3 sm:grid-cols-2"><Info label="Phiên hiện tại" value={`${user.fullName} · ${user.username}`} /><Info label="Quyền hiện tại" value={user.role === "admin" ? "Quản trị viên" : "Vận hành viên"} /></div>}
           <div className="mt-5 flex items-start gap-3 rounded-lg border border-border bg-background/35 p-4"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div><p className="text-sm font-medium">Tài khoản mới có quyền Vận hành viên</p><p className="mt-1 text-xs text-muted-foreground">Mật khẩu được băm bằng scrypt trước khi lưu. Việc tạo tài khoản được ghi vào nhật ký hoạt động; không gửi mật khẩu qua email.</p></div><StatusBadge color="green">Lưu trên máy chủ</StatusBadge></div>
         </SectionCard>
+        {user?.role === "admin" && <SectionCard title="Mật khẩu quản trị" subtitle="Đổi mật khẩu của tài khoản Admin đang đăng nhập" icon={LockKeyhole}>
+          <form onSubmit={changeAdminPassword} className="space-y-4">
+            <p className="text-sm text-muted-foreground">Mật khẩu mới được lưu dưới dạng băm an toàn. Sau khi đổi, các phiên Admin khác sẽ phải đăng nhập lại.</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm sm:col-span-2">Mật khẩu hiện tại<input className={inputClass} autoComplete="current-password" maxLength={256} required type="password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })} /></label>
+              <label className="text-sm">Mật khẩu mới<input className={inputClass} autoComplete="new-password" minLength={12} maxLength={128} required type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} /><span className="mt-1 block text-xs text-muted-foreground">Từ 12 đến 128 ký tự.</span></label>
+              <label className="text-sm">Nhập lại mật khẩu mới<input className={inputClass} autoComplete="new-password" minLength={12} maxLength={128} required type="password" value={passwordForm.passwordConfirm} onChange={(event) => setPasswordForm({ ...passwordForm, passwordConfirm: event.target.value })} /></label>
+            </div>
+            {passwordError && <p className="text-sm text-destructive" role="alert">{passwordError}</p>}
+            {passwordMessage && <p className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary" role="status">{passwordMessage}</p>}
+            <Button type="submit" disabled={passwordState === "saving"}>{passwordState === "saving" ? "Đang cập nhật…" : "Đổi mật khẩu Admin"}</Button>
+          </form>
+        </SectionCard>}
       </TabsContent>
       <TabsContent value="devices"><DeviceManagement /></TabsContent>
       <TabsContent value="config">

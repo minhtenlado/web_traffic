@@ -11,7 +11,9 @@ export interface User {
   role: "admin" | "operator";
 }
 interface Account extends User { salt: string; hash: string; active?: boolean }
+interface PasswordOverride { salt: string; hash: string; changedAt: number }
 const accountPath = "system/webAdminUsers";
+const passwordOverridePath = "system/webAdminPasswordOverrides";
 
 export class AccountExistsError extends Error {
   constructor() { super("Tài khoản đã tồn tại"); this.name = "AccountExistsError"; }
@@ -36,6 +38,31 @@ function toUser(account: Account): User {
 
 function accountKey(username: string) {
   return `u_${Buffer.from(username, "utf8").toString("hex")}`;
+}
+
+function isPasswordOverride(value: unknown): value is PasswordOverride {
+  if (!value || typeof value !== "object") return false;
+  const override = value as Partial<PasswordOverride>;
+  return typeof override.salt === "string" && /^[a-f0-9]{128}$/i.test(String(override.hash || "")) &&
+    Number.isFinite(Number(override.changedAt));
+}
+
+async function passwordCredential(account: Account): Promise<Pick<Account, "salt" | "hash">> {
+  const snapshot = await database().ref(`${passwordOverridePath}/${accountKey(account.username.toLowerCase())}`).get();
+  const override = snapshot.val();
+  return isPasswordOverride(override) ? override : account;
+}
+
+export async function setAdminPasswordOverride(user: User, password: string): Promise<number> {
+  if (user.role !== "admin") throw new Error("Chỉ Admin mới được đổi mật khẩu quản trị");
+  if (typeof password !== "string" || password.length < 12 || password.length > 128) {
+    throw new Error("Mật khẩu phải dài từ 12 đến 128 ký tự");
+  }
+  const salt = randomBytes(16).toString("hex");
+  const changedAt = Date.now();
+  const override: PasswordOverride = { salt, hash: scryptSync(password, salt, 64).toString("hex"), changedAt };
+  await database().ref(`${passwordOverridePath}/${accountKey(user.username.toLowerCase())}`).set(override);
+  return changedAt;
 }
 
 function isAccount(value: unknown): value is Account {
@@ -93,15 +120,16 @@ export async function authenticate(username: string, password: string): Promise<
   const snapshot = configured ? null : await database().ref(`${accountPath}/${accountKey(normalized)}`).get();
   const dynamic = snapshot?.val();
   const account = configured || (isAccount(dynamic) && dynamic.username.toLowerCase() === normalized ? dynamic : undefined);
-  const salt = account?.salt || "invalid-account";
+  const credential = account ? await passwordCredential(account) : undefined;
+  const salt = credential?.salt || "invalid-account";
   const actual = scryptSync(password, salt, 64);
-  const expected = Buffer.from(account?.hash || "00".repeat(64), "hex");
+  const expected = Buffer.from(credential?.hash || "00".repeat(64), "hex");
   if (!account || expected.length !== actual.length || !timingSafeEqual(actual, expected)) return null;
   return toUser(account);
 }
 
-export function sessionToken(user: User) {
-  const payload = Buffer.from(JSON.stringify({ user, expires: Date.now()+8*3600_000 })).toString("base64url");
+export function sessionToken(user: User, issuedAt = Date.now()) {
+  const payload = Buffer.from(JSON.stringify({ user, issuedAt, expires: issuedAt+8*3600_000 })).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
@@ -113,7 +141,12 @@ export async function session(): Promise<User | null> {
     const expected = Buffer.from(sign(payload)); const actual = Buffer.from(signature);
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
     const data = JSON.parse(Buffer.from(payload,"base64url").toString());
-    return data.expires > Date.now() ? data.user : null;
+    if (data.expires <= Date.now()) return null;
+    if (data.user?.role === "admin") {
+      const override = (await database().ref(`${passwordOverridePath}/${accountKey(String(data.user.username || "").toLowerCase())}`).get()).val();
+      if (isPasswordOverride(override) && Number(data.issuedAt || 0) <= override.changedAt) return null;
+    }
+    return data.user;
   } catch { return null; }
 }
 

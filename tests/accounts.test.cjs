@@ -7,6 +7,8 @@ const ts = require('typescript');
 
 function loadAuth() {
   const records = {};
+  const values = {};
+  let cookieValue;
   const salt = 'static-account-salt';
   const password = 'correct horse battery staple';
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -24,9 +26,11 @@ function loadAuth() {
     },
   });
   const database = () => ({ ref(path) {
-    const getValue = () => path === rootPath ? records : records[path.slice(`${rootPath}/`.length)];
+    const getValue = () => path === rootPath ? records : path.startsWith(`${rootPath}/`)
+      ? records[path.slice(`${rootPath}/`.length)] : values[path];
     return {
       get: async () => snapshot(getValue()),
+      set: async (value) => { values[path] = value; },
       transaction: async (update) => {
         const current = getValue() ?? null;
         const next = update(current);
@@ -45,13 +49,13 @@ function loadAuth() {
     exports: module.exports,
     require: (name) => {
       if (name === './firebase') return { database };
-      if (name === 'next/headers') return { cookies: async () => ({ get: () => undefined }) };
+      if (name === 'next/headers') return { cookies: async () => ({ get: () => ({ value: cookieValue }) }) };
       return require(name);
     },
     process: { env: { TRAFFIC_AUTH_JSON: JSON.stringify(config) } },
     Buffer, Date, JSON, Map, Number, Object, Promise, String, Uint8Array,
   }, { filename: 'src/lib/server/auth.ts' });
-  return { api: module.exports, records, password };
+  return { api: module.exports, records, values, password, setCookie: (value) => { cookieValue = value; } };
 }
 
 test('admin-created operator is stored hashed, listed, and can log in', async () => {
@@ -88,4 +92,24 @@ test('existing server-configured admin credentials remain valid', async () => {
   const user = await api.authenticate('admin', password);
   assert.equal(user.id, 'admin-1');
   assert.equal(user.role, 'admin');
+});
+
+test('admin password can be changed and invalidates older admin sessions', async () => {
+  const { api, password, values, setCookie } = loadAuth();
+  const admin = await api.authenticate('admin', password);
+  const oldSession = api.sessionToken(admin);
+  setCookie(oldSession);
+  assert.equal((await api.session()).id, 'admin-1');
+
+  const changedAt = await api.setAdminPasswordOverride(admin, 'a different secure password');
+  const stored = Object.values(values)[0];
+  assert.equal(stored.password, undefined);
+  assert.match(stored.hash, /^[a-f0-9]{128}$/);
+  assert.notEqual(stored.hash, 'a different secure password');
+  assert.equal(await api.authenticate('admin', password), null);
+  assert.equal((await api.authenticate('admin', 'a different secure password')).id, 'admin-1');
+  assert.equal(await api.session(), null);
+
+  setCookie(api.sessionToken(admin, changedAt + 1));
+  assert.equal((await api.session()).id, 'admin-1');
 });
