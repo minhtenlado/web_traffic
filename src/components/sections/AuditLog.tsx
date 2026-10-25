@@ -33,7 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 type RoleFilter = "all" | "admin" | "operator" | "auto";
@@ -114,10 +113,15 @@ export function AuditLog() {
   const toggleSort = () => setSortDir((d) => (d === "desc" ? "asc" : "desc"));
 
   const handleExport = () => {
-    toast({
-      title: "Xuất báo cáo nhật ký",
-      description: `Đã xuất ${filtered.length} bản ghi ra CSV (mô phỏng).`,
-    });
+    if (!filtered.length) return;
+    const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = [["Thời gian", "Người dùng", "Vai trò", "Hành động", "Địa chỉ IP"],
+      ...filtered.map((log) => [log.timestamp, log.user, log.role, log.action, log.ip || ""])];
+    const csv = `\uFEFF${rows.map((row) => row.map(escape).join(",")).join("\r\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url; link.download = `nhat-ky-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click(); URL.revokeObjectURL(url);
   };
 
   const handleClearFilters = () => {
@@ -136,7 +140,7 @@ export function AuditLog() {
           value={stats.total}
           unit="lượt"
           trend="up"
-          trendValue="realtime"
+          trendValue={stats.total ? "bản ghi đã nạp" : "chưa nhận dữ liệu nhật ký"}
           color="primary"
           delay={0}
         />
@@ -165,10 +169,10 @@ export function AuditLog() {
       {/* Audit log table */}
       <SectionCard
         title="Nhật ký hoạt động hệ thống"
-        subtitle="Theo dõi thao tác của người dùng và hệ thống AI"
+        subtitle="Lịch sử thao tác đã nhận từ máy chủ"
         icon={ShieldCheck}
         action={
-          <Button size="sm" variant="outline" onClick={handleExport}>
+          <Button size="sm" variant="outline" onClick={handleExport} disabled={!filtered.length}>
             <Download className="h-3.5 w-3.5" />
             Xuất CSV
           </Button>
@@ -247,7 +251,7 @@ export function AuditLog() {
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     <FileText className="mx-auto mb-2 h-6 w-6 opacity-40" />
-                    Không tìm thấy bản ghi phù hợp.
+                    {auditLog.length ? "Không tìm thấy bản ghi phù hợp." : "Chưa có nguồn nhật ký được kết nối; không có bản ghi để hiển thị."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -302,7 +306,7 @@ export function AuditLog() {
             )}
             <span className="inline-flex items-center gap-1.5">
               <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-success" />
-              Cập nhật theo thời gian thực
+              {stats.total ? "Dữ liệu nhật ký đã tải" : "Chưa nhận được dữ liệu nhật ký"}
             </span>
           </div>
         </div>

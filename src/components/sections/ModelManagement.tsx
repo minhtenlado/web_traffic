@@ -1,121 +1,100 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AICameraCharts } from "./AICameraCharts";
-import { Brain, Package, ShieldCheck } from "lucide-react";
+import { Brain, Camera, CloudRain, Cpu, ShieldCheck } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
+import { CAMERAS } from "@/lib/constants";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { edgeHistoryProgress, groupEdgeForecasts } from "@/lib/edge-forecast";
 
+const TRAFFIC_LABELS: Record<string, string> = {
+  Khong_ket: "Thông thoáng", Dong: "Đông xe", Ket_nhe: "Kẹt nhẹ", Ket_nang: "Kẹt nặng",
+};
+function validationText(value: unknown) {
+  if (value === "validated") return "Đã kiểm định";
+  if (value === "experimental_unvalidated" || value === "EXPERIMENTAL") return "Đang kiểm định";
+  return "Chưa xác nhận";
+}
+function forecastText(value: unknown) {
+  if (value === "EXPERIMENTAL") return "Dự báo thử nghiệm";
+  if (["WAITING", "NOT_READY", "UNAVAILABLE"].includes(String(value))) return "Đang chờ dữ liệu";
+  if (value === "DISABLED") return "Tạm dừng";
+  return "Chưa có dự báo";
+}
+
 export function ModelManagement() {
-  const status = useTrafficStore(s => s.modelStatus);
-  const edgeAI = useTrafficStore(s => s.edgeAI);
-  const offline = useTrafficStore(s => s.isBoardOffline);
+  const status = useTrafficStore((state) => state.modelStatus);
+  const edgeAI = useTrafficStore((state) => state.edgeAI);
+  const edgeStatus = edgeAI?.status || {};
+  const edgeWeather = edgeAI?.weather;
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now() / 1000), 5000); return () => clearInterval(timer); }, []);
-  const models = status?.model_artifacts || {};
-  const missing = status?.missing_model_inputs || [];
-  const tcnIsLive = status?.tcn_status === "EXPERIMENTAL" && !offline;
-  const edgeStatus = edgeAI?.status || {};
-  const edgeGeneratedAt = Number(edgeAI?.generated_at);
-  const edgeAge = Number.isFinite(edgeGeneratedAt) ? Math.max(0, now - edgeGeneratedAt) : Infinity;
-  const edgeLive = edgeStatus.online === true && edgeAge <= 30;
-  const edgeWeather = edgeAI?.weather;
-  const historyProgress = edgeHistoryProgress(edgeStatus);
-  const edgeRainRate = typeof edgeWeather?.precipitation === "number" && Number.isFinite(edgeWeather.precipitation) ? edgeWeather.precipitation : null;
-  const edgeRainAmount = typeof edgeWeather?.raw_precipitation_mm === "number" && Number.isFinite(edgeWeather.raw_precipitation_mm) ? edgeWeather.raw_precipitation_mm : null;
-  const edgeRainInterval = typeof edgeWeather?.interval_seconds === "number" && Number.isFinite(edgeWeather.interval_seconds) ? edgeWeather.interval_seconds : null;
-  const edgeRainIntensity = typeof edgeWeather?.rain_intensity === "number" && Number.isFinite(edgeWeather.rain_intensity) ? edgeWeather.rain_intensity : null;
-  const edgeForecasts = groupEdgeForecasts(edgeAI?.forecasts);
-  const edgeForecastReady = edgeStatus.forecast_status === "EXPERIMENTAL" && edgeLive;
-  const forecastWaitingReason = !edgeAI
-    ? "Chưa nhận telemetry của Genio; chưa thể xác nhận model hoặc dự báo."
-    : !edgeLive
-      ? "Telemetry Genio đã cũ; website ẩn dự báo để không hiển thị kết quả hết hạn."
-      : edgeStatus.weather_status !== "AVAILABLE"
-        ? "Thời tiết hiện không khả dụng; không tạo hoặc điền giả đặc trưng thời tiết."
-        : historyProgress.remaining > 0
-          ? `TCN đang tích lũy lịch sử liên tục: ${historyProgress.steps}/${historyProgress.required} bước, còn ${historyProgress.remaining} bước trước dự báo đầu tiên.`
-          : "Đã đủ lịch sử đầu vào; đang chờ chu kỳ TCN phát bản dự báo mới.";
-  return <div className="space-y-5">
-    <SectionCard title="Mô hình đang chạy trên Genio 350" subtitle="Trạng thái runtime và mã phiên bản được đọc trực tiếp từ telemetry Genio." icon={Brain}>
-      <p className="mb-4 text-sm text-muted-foreground">Runtime: {status?.runtime_version || "Chưa nhận được"} · <StatusBadge color={offline ? "amber" : "green"}>{offline ? "Telemetry hết hạn" : "Đã kết nối"}</StatusBadge></p>
-      <div className="grid gap-4 md:grid-cols-2">{["detection", "classification"].map(role => {
-        const model = models[role];
-        return <div key={role} className="min-w-0 rounded-xl border border-border p-4">
-          <h3 className="mb-2 font-semibold">YOLO {role === "detection" ? "Detection" : "Classification"}</h3>
-          <p className="text-sm">{model?.file || "Chưa có thông tin model"}</p>
-          <p className="mt-2 text-xs text-muted-foreground">Input: {model?.input_shape?.join(" × ") || "—"} · Output: {model?.output_shape?.join(" × ") || "—"}</p>
-          <p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">SHA256: {model?.sha256 || "—"}</p>
-          <p className="mt-3 text-sm text-muted-foreground">Accuracy / mAP / F1: chưa đo trên tập kiểm thử được duyệt.</p>
-        </div>;
-      })}</div>
-    </SectionCard>
-    <SectionCard title="Genio Edge — nhận dạng và dự báo trạng thái" subtitle="Dữ liệu do Genio ghi trực tiếp vào Firebase; không lấy từ Windows." icon={Brain}>
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <StatusBadge color={edgeLive ? "green" : "amber"}>{edgeLive ? "Heartbeat mới" : edgeAI ? "Telemetry hết hạn" : "Chưa nhận telemetry"}</StatusBadge>
-        <span className="text-muted-foreground">{Number.isFinite(edgeAge) ? `Cập nhật ${Math.round(edgeAge)} giây trước` : "Chưa có thời điểm cập nhật"}</span>
-        <span className="text-muted-foreground">TCN: {edgeStatus.validation_status || "—"}</span>
-        <span className="break-all font-mono text-xs text-muted-foreground">Model: {edgeStatus.model_version || "chưa có mã phiên bản"}</span>
-      </div>
-      <p className="mt-3 text-sm">
-        Thời tiết (ước lượng mô hình, không phải trạm đo): {edgeStatus.weather_status === "AVAILABLE" && edgeWeather
-          ? `${edgeWeather.is_raining ? "Có mưa" : "Không ghi nhận mưa"} · ${edgeRainAmount !== null && edgeRainInterval !== null ? `API ${edgeRainAmount.toFixed(2)} mm/${edgeRainInterval}s → ` : ""}${edgeRainRate !== null ? `${edgeRainRate.toFixed(2)} mm/giờ` : "tốc độ mưa không có dữ liệu"} · rain_intensity ${edgeRainIntensity !== null ? edgeRainIntensity.toFixed(2) : "không có dữ liệu"} · ${edgeWeather.rain_group || "chưa phân nhóm"}`
-          : "Không có dữ liệu thời tiết mới; hệ thống không tự điền lượng mưa."}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Nguồn: {edgeWeather?.source || "chưa nhận"} · Mã thời tiết {edgeWeather?.weather_code ?? "—"} · {edgeWeather?.validation_status || ""}
-      </p>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {Object.entries(edgeAI?.cameras || {}).map(([camera, value]: [string, any]) => (
-          <div key={camera} className="rounded-xl border border-border p-3 text-sm">
-            <div className="flex justify-between gap-2"><strong>{camera}</strong><span className="text-muted-foreground">{value.status}</span></div>
-            <p className="mt-2">Lớp classifier: <strong>{value.label || "—"}</strong></p>
-            <p className="text-muted-foreground">Xe trong ảnh: {value.vehicle_count ?? "—"} · confidence {Number.isFinite(value.classification_confidence) ? Number(value.classification_confidence).toFixed(2) : "—"}</p>
-            <p className="text-xs text-muted-foreground">Tuổi ảnh: {Number.isFinite(value.image_age_seconds) ? `${Number(value.image_age_seconds).toFixed(1)} giây` : "—"} · nguồn nhãn {value.label_source || "—"}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 rounded-xl border border-border p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold">Dự báo 5 / 15 / 30 phút</h3>
-          <StatusBadge color={edgeForecastReady ? "green" : "amber"}>{edgeForecastReady ? "Có dự báo · kết quả thử nghiệm" : edgeStatus.forecast_status || "Chờ dữ liệu"}</StatusBadge>
+  const generatedAt = Number(edgeAI?.generated_at);
+  const age = Number.isFinite(generatedAt) ? Math.max(0, now - generatedAt) : null;
+  const edgeLive = edgeStatus.online === true && age !== null && age <= 30 && now >= generatedAt;
+  const validation = validationText(edgeStatus.validation_status);
+  const models = status?.model_artifacts || edgeStatus.model_artifacts || {};
+  const progress = edgeHistoryProgress(edgeStatus);
+  const forecasts = groupEdgeForecasts(edgeAI?.forecasts);
+  const forecastReady = edgeLive && edgeStatus.weather_status === "AVAILABLE" && edgeStatus.forecast_status === "EXPERIMENTAL";
+  const cameras = Object.entries(edgeAI?.cameras || {}).sort(([a], [b]) => a.localeCompare(b));
+  const rainRate = typeof edgeWeather?.precipitation === "number" ? edgeWeather.precipitation : null;
+  const rainAmount = typeof edgeWeather?.raw_precipitation_mm === "number" ? edgeWeather.raw_precipitation_mm : null;
+  const rainInterval = typeof edgeWeather?.interval_seconds === "number" ? edgeWeather.interval_seconds : null;
+
+  return <div className="space-y-6">
+    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Nhận dạng & dự báo</p><h2 className="mt-1 text-2xl font-semibold">AI tại Hàng Xanh</h2><p className="mt-1 text-sm text-muted-foreground">Kết quả mới nhất từ camera và mô hình trên Genio 350.</p></div>
+      <StatusBadge color={edgeLive ? "green" : edgeAI ? "amber" : "cyan"}>{edgeLive ? "Genio có tín hiệu mới" : edgeAI ? "Đang chờ tín hiệu mới" : "Chưa nhận dữ liệu AI"}</StatusBadge>
+    </div>
+
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+      <SectionCard title="Phiên bản đang hoạt động" subtitle="Thông tin model được hiển thị khi thiết bị gửi dữ liệu" icon={Cpu}>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          {(["detection", "classification"] as const).map((role) => {
+            const model = models[role];
+            return <article key={role} className="rounded-lg border border-border/80 bg-background/35 p-4">
+              <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">YOLO {role === "detection" ? "Detection" : "Classification"}</h3><StatusBadge color={model ? "green" : "cyan"}>{model ? "Đang hoạt động" : "Chưa có metadata"}</StatusBadge></div>
+              <p className="mt-3 text-sm">{model?.file || "Thiết bị chưa gửi tên tệp model."}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Chỉ số đánh giá độc lập: chưa có trong bản tin hiện tại.</p>
+              {model?.sha256 && <details className="mt-3 text-xs text-muted-foreground"><summary className="cursor-pointer">Thông tin kỹ thuật</summary><p className="mt-2 break-all font-mono">SHA-256: {model.sha256}</p><p className="mt-1">Input: {model.input_shape?.join(" × ") || "—"} · Output: {model.output_shape?.join(" × ") || "—"}</p></details>}
+            </article>;
+          })}
         </div>
-        {edgeForecastReady ? (
-          <div className="mt-3 grid gap-4 md:grid-cols-3">
-            {([5, 15, 30] as const).map(horizon => <div key={horizon}>
-              <h4 className="mb-2 text-sm font-medium">{horizon} phút</h4>
-              <div className="space-y-1 text-sm">
-                {edgeForecasts[horizon].length ? edgeForecasts[horizon].map(row => (
-                  <p key={`${row.camera_id}-${horizon}`} className="flex justify-between gap-2"><span>{row.camera_id}</span><span>{row.predicted_class} · độ tin cậy {row.confidence.toFixed(2)}</span></p>
-                )) : <p className="text-muted-foreground">Chưa có bản ghi dự báo hợp lệ cho mốc này.</p>}
-              </div>
-            </div>)}
-          </div>
-        ) : <div className="mt-3 space-y-2">
-          <p className="text-sm text-muted-foreground">{forecastWaitingReason}</p>
-          {historyProgress.required > 0 && edgeLive && <div aria-label="Tiến độ lịch sử TCN">
-            <div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Lịch sử đầu vào liên tục</span><span>{historyProgress.steps}/{historyProgress.required} bước · còn {historyProgress.remaining}</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${historyProgress.percent}%` }} /></div>
-          </div>}
-        </div>}
-        <p className="mt-3 text-xs text-muted-foreground">Độ tin cậy là xác suất đầu ra của model, không phải độ chính xác đã đo. Dự báo không điều khiển đèn.</p>
-      </div>
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-sm"><span>TCN: <strong>{validation}</strong></span><span className="text-muted-foreground">{age === null ? "Chưa có thời điểm cập nhật" : `Cập nhật ${Math.round(age)} giây trước`}</span></div>
+        {edgeStatus.model_version && <details className="mt-3 text-xs text-muted-foreground"><summary className="cursor-pointer">Mã phiên bản và trạng thái kiểm định</summary><p className="mt-2 break-all font-mono">Model: {edgeStatus.model_version}</p><p>Mã trạng thái: {String(edgeStatus.validation_status || "chưa có")}</p><p>Runtime: {status?.runtime_version || edgeStatus.runtime_version || "chưa có telemetry"}</p></details>}
+      </SectionCard>
+
+      <SectionCard title="Thời tiết hiện tại" subtitle="Ước tính API tại khu vực; không phải số đo từ trạm tại chỗ" icon={CloudRain}>
+        {edgeStatus.weather_status === "AVAILABLE" && edgeWeather ? <>
+          <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Điều kiện</p><p className="mt-1 text-2xl font-semibold">{edgeWeather.is_raining === true ? "Có mưa" : edgeWeather.is_raining === false ? "Không ghi nhận mưa" : "Chưa xác định"}</p></div>{typeof edgeWeather.temperature === "number" && <p className="text-3xl font-semibold tabular-nums">{edgeWeather.temperature.toFixed(1)} °C</p>}</div>
+          <div className="mt-4 grid gap-3 border-y border-border py-3 sm:grid-cols-3"><WeatherValue label="Cường độ theo API" value={rainRate === null ? "—" : `${rainRate.toFixed(2)} mm/giờ`} /><WeatherValue label={rainInterval === 900 ? "Lượng mưa / 15 phút" : "Lượng mưa theo kỳ"} value={rainAmount === null ? "—" : `${rainAmount.toFixed(2)} mm${rainInterval === null ? "" : ` / ${rainInterval}s`}`} /><WeatherValue label="Nguồn" value={String(edgeWeather.source || "Không rõ")} /></div>
+          <p className="mt-3 text-xs text-muted-foreground">Nếu API không có dữ liệu mưa, hệ thống để trống đặc trưng thời tiết thay vì tự tạo giá trị.</p>
+        </> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Thời tiết hiện không khả dụng; dự báo không được điền giả dữ liệu mưa.</div>}
+      </SectionCard>
+    </div>
+
+    <SectionCard title="Nhận dạng từ camera" subtitle={`${cameras.length} nguồn camera có bản tin trong payload gần nhất`} icon={Camera}>
+      {cameras.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {cameras.map(([id, value]: [string, any]) => <article key={id} className="rounded-lg border border-border/80 bg-background/35 p-4">
+            <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{CAMERAS.find((camera) => camera.id === id)?.name || id.replace("_", " ")}</h3><p className="text-xs text-muted-foreground">{CAMERAS.find((camera) => camera.id === id)?.label || ""}</p></div><StatusBadge color={["OK", "FRESH"].includes(String(value.status).toUpperCase()) ? "green" : "amber"}>{["OK", "FRESH"].includes(String(value.status).toUpperCase()) ? "Ảnh mới" : "Đang chờ"}</StatusBadge></div>
+          <div className="mt-4 flex items-end justify-between border-t border-border/70 pt-3"><div><p className="text-xs text-muted-foreground">Tình trạng</p><p className="mt-1 text-lg font-semibold">{TRAFFIC_LABELS[value.label] || "Chưa phân loại"}</p></div><p className="text-right text-sm tabular-nums">{value.vehicle_count ?? "—"}<span className="ml-1 text-xs text-muted-foreground">xe trong ảnh</span></p></div>
+          <p className="mt-2 text-xs text-muted-foreground">Độ tin cậy đầu ra: {Number.isFinite(value.classification_confidence) ? `${(Number(value.classification_confidence) * 100).toFixed(0)}%` : "—"} · ảnh {Number.isFinite(value.image_age_seconds) ? `${Number(value.image_age_seconds).toFixed(0)} giây trước` : "chưa rõ thời điểm"}</p>
+          {value.label_source && <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Nguồn và nhãn kỹ thuật</summary><p className="mt-1">Nguồn: {value.label_source}</p><p>Nhãn gốc: {value.label || "—"}</p></details>}
+        </article>)}
+      </div> : <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa nhận được kết quả nhận dạng mới.</p>}
     </SectionCard>
-    <SectionCard title="TCN — dự báo 30 phút" icon={Package}>
-      <StatusBadge color={tcnIsLive ? "green" : "amber"}>{tcnIsLive ? "Đang dự báo thử nghiệm" : status?.tcn_status === "DISABLED" ? "Đã khóa dự báo live" : "Chưa sẵn sàng"}</StatusBadge>
-      <p className="mt-3 text-sm text-muted-foreground">Bộ đệm: {status?.buffer_fill ?? 0}/{status?.buffer_max ?? "—"} bước. {missing.length > 0 ? `Thiếu camera đầu vào: ${missing.join(", ")}. Không phát dự báo khi thiếu đầu vào.` : "Chỉ công bố khi dữ liệu mới, đủ lịch sử và đúng schema của model."}</p>
-      {status?.tcn_reason && <p className="mt-2 text-sm text-warning">Lý do: {status.tcn_reason}</p>}
-      <p className="mt-2 text-sm text-muted-foreground">TCN V3 dự báo số lượng quan sát trong ảnh cho 30 phút tới, dùng lịch sử 120 phút của 5 camera. Kết quả thử nghiệm chưa được kiểm định thực địa và không điều khiển đèn. Model này chưa dự báo nhãn ùn tắc.</p>
-      <AICameraCharts />
+
+    <SectionCard title="Dự báo ùn tắc" subtitle="Dự báo 5, 15 và 30 phút; kết quả vẫn được gắn trạng thái kiểm định" icon={Brain}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Dự báo từ lịch sử camera và đặc trưng thời tiết có sẵn.</p><StatusBadge color={forecastReady ? "amber" : "cyan"}>{forecastReady ? "Thử nghiệm · chưa kiểm định thực địa" : forecastText(edgeStatus.forecast_status)}</StatusBadge></div>
+      {forecastReady ? <div className="grid gap-3 md:grid-cols-3">
+        {([5, 15, 30] as const).map((horizon) => <article key={horizon} className="rounded-lg border border-border/80 bg-background/35 p-4"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Sau {horizon} phút</p><div className="mt-3 space-y-3">{forecasts[horizon].length ? forecasts[horizon].map((row) => <div key={`${row.camera_id}-${horizon}`} className="flex items-center justify-between gap-2 border-b border-border/70 pb-2 last:border-0 last:pb-0"><div><p className="text-sm font-medium">{CAMERAS.find((camera) => camera.id === row.camera_id)?.name || row.camera_id}</p><p className="text-xs text-muted-foreground">{TRAFFIC_LABELS[row.predicted_class] || "Chưa rõ"}</p></div><span className="text-xs tabular-nums text-muted-foreground">{(row.confidence * 100).toFixed(0)}%</span></div>) : <p className="text-sm text-muted-foreground">Chưa có kết quả hợp lệ ở mốc này.</p>}</div></article>)}
+      </div> : <div className="rounded-lg border border-dashed border-border p-5"><p className="text-sm text-muted-foreground">{!edgeLive ? "Đang chờ bản tin mới từ Genio." : edgeStatus.weather_status !== "AVAILABLE" ? "Thời tiết chưa có dữ liệu; chưa tạo dự báo mới." : progress.remaining > 0 ? `Đang tích lũy lịch sử liên tục: ${progress.steps}/${progress.required} bước.` : "Đã đủ đầu vào; đang chờ chu kỳ dự báo tiếp theo."}</p>{progress.required > 0 && edgeLive && <div className="mt-3"><div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Lịch sử đầu vào</span><span>{progress.steps}/{progress.required}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${progress.percent}%` }} /></div></div>}</div>}
+      <p className="mt-4 text-xs text-muted-foreground">Phần trăm là độ tin cậy của đầu ra, không phải độ chính xác đã đo. Dự báo không tự điều khiển đèn.</p>
     </SectionCard>
-    <SectionCard title="Thay model sau này" icon={ShieldCheck}>
-      <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-        <li>Chuẩn bị file model và manifest: SHA256, thứ tự nhãn/camera, tensor I/O, chuẩn hóa và chu kỳ lấy mẫu.</li>
-        <li>Kiểm tra adapter và đối chiếu output với tập mẫu chuẩn trên Genio trước khi kích hoạt.</li>
-        <li>Khởi động lại cửa sổ phiếu/bộ đệm sau khi thay model; giữ phiên bản cũ để khôi phục.</li>
-      </ol>
-      <p className="mt-4 text-sm">Bỏ phiếu giúp ổn định hiển thị. Tỷ lệ 8/10 phiếu không có nghĩa model chính xác 80%.</p>
-    </SectionCard>
+
+    <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Trạng thái TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p></div></details>
   </div>;
 }
+
+function WeatherValue({ label, value }: { label: string; value: string }) { return <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-1 text-sm font-medium tabular-nums">{value}</p></div>; }

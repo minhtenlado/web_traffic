@@ -15,27 +15,39 @@ import {
   TRAFFIC_LABELS,
   type TrafficLabelKey,
 } from "./constants";
-import {
-  generateWeather,
-  generateHealthMetrics,
-  generateAlerts,
-  generateAuditLog,
-  generateSignalRecommendations,
-  generateAIForecast,
-  generateModelInfo,
-  generateUsers,
-  generateDevices,
-} from "./mockData";
+
+export interface AlertItem {
+  id: string; type: string; label: string; color: string;
+  severity: "critical" | "warning" | "info"; message: string;
+  timestamp: string; acknowledged: boolean; camera?: string;
+}
+export interface AuditItem {
+  id: string; user: string; role: string; action: string; timestamp: string; ip?: string;
+}
+export interface UserItem {
+  id: number; name: string; email: string; role: "admin" | "operator";
+  status: "active" | "inactive"; lastLogin?: string;
+}
+export interface DeviceItem {
+  id: string; name: string; type: string; ip: string; location: string;
+  status: "online" | "offline" | "error"; lastSeen?: string;
+}
+export interface HealthMetrics {
+  cpu: number | null; ram: number | null; temperature: number | null;
+  networkLatency: number | null; fps: number | null; diskUsage: number | null;
+  uptime: number | null; observedAt: number | null;
+}
+type ForecastPoint = { hour: string | number; total: number; perRoute: number[]; confidence?: number };
+type ForecastState = {
+  actual: ForecastPoint[]; forecast: ForecastPoint[]; directions: string[]; daysLearned: number;
+  rawHistory: any[]; rawPredictions: any[]; validUntil?: number; status?: string;
+  kind?: string; experimental?: boolean; reason?: string; modelVersion?: string;
+};
 
 /* Camera → Route mapping at Hàng Xanh intersection */
 let stopRealtime: (() => void) | null = null;
 
 export type RouteStat = ReturnType<typeof buildRouteStats>[number];
-export type AlertItem = ReturnType<typeof generateAlerts>[number];
-export type AuditItem = ReturnType<typeof generateAuditLog>[number];
-export type UserItem = ReturnType<typeof generateUsers>[number];
-export type DeviceItem = ReturnType<typeof generateDevices>[number];
-
 export type SectionId =
   | "dashboard"
   | "camera"
@@ -52,9 +64,9 @@ export type SectionId =
 interface TrafficState {
   // Real-time data
   realtimeCams: Record<string, any> | null;
-  weather: ReturnType<typeof generateWeather> | null;
+  weather: Record<string, any> | null;
   routeStats: RouteStat[];
-  metrics: { totalVehicles: number; avgSpeed: number; avgWaitTime: number; activeAlerts: number };
+  metrics: { totalVehicles: number | null; avgSpeed: number | null; avgWaitTime: number | null; activeAlerts: number };
   signalState: ControllerSignal;
   controllerStatus: ControllerStatus | null;
   commandResult: CommandResult | null;
@@ -66,14 +78,10 @@ interface TrafficState {
   auditLog: AuditItem[];
   users: UserItem[];
   devices: DeviceItem[];
-  healthMetrics: ReturnType<typeof generateHealthMetrics> | null;
-  signalRec: ReturnType<typeof generateSignalRecommendations>;
-  aiForecast: Omit<ReturnType<typeof generateAIForecast>, "actual" | "forecast"> & {
-    actual: { hour: string | number; total: number; perRoute: number[] }[];
-    forecast: { hour: string | number; total: number; perRoute: number[]; confidence: number }[];
-    rawHistory?: any[]; rawPredictions?: any[]; validUntil?: number; status?: string; kind?: string; experimental?: boolean; reason?: string; modelVersion?: string;
-  };
-  modelInfo: ReturnType<typeof generateModelInfo>;
+  healthMetrics: HealthMetrics | null;
+  signalRec: { policy: string; lastAdjusted: string; nextReview: string; recommendations: any[] };
+  aiForecast: ForecastState;
+  modelInfo: null;
 
   // Mamdani Fuzzy Adaptive Control state
   fuzzyStatus: {
@@ -94,7 +102,7 @@ interface TrafficState {
   } | null;
 
   // Chart history
-  chartHistory: { time: string; [camId: string]: number | string }[];
+  chartHistory: ({ timestamp: number; time: string; total?: number } & Record<string, number | string | undefined>)[];
 
   // UI state
   activeSection: SectionId;
@@ -136,6 +144,17 @@ interface TrafficState {
 
 function getStoredUser() { return null; }
 
+function observedNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(parsed) ? parsed : null;
+}
+
+function edgeIsFresh(data: any, now = Date.now() / 1000) {
+  const generatedAt = Number(data?.generated_at);
+  return data?.status?.online === true && Number.isFinite(generatedAt) &&
+    now >= generatedAt && now - generatedAt <= 30;
+}
+
 function getStoredTheme(): "dark" | "light" {
   if (typeof window === "undefined") return "dark";
   return (localStorage.getItem("theme") as "dark" | "light") || "dark";
@@ -145,7 +164,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   realtimeCams: null,
   weather: null,
   routeStats: buildRouteStats({}),
-  metrics: { totalVehicles: 0, avgSpeed: 0, avgWaitTime: 0, activeAlerts: 0 },
+  metrics: { totalVehicles: null, avgSpeed: null, avgWaitTime: null, activeAlerts: 0 },
   signalState: {
     source: "STM32", currentPhase: "unknown", mode: "auto", hold: false,
     countdown: 0, phaseDurations: { green: 30, yellow: 3, left: 10, allred: 2 }, timestamp: 0,
@@ -156,13 +175,13 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   modelStatus: null,
   fuzzyStatus: null,
   alerts: [],
-  auditLog: generateAuditLog(12),
-  users: generateUsers(),
-  devices: generateDevices(),
+  auditLog: [],
+  users: [],
+  devices: [],
   healthMetrics: null,
-  signalRec: { policy: "Chờ dữ liệu được xác minh", lastAdjusted: "", nextReview: "", recommendations: [] },
+  signalRec: { policy: "Chưa có dữ liệu đề xuất", lastAdjusted: "", nextReview: "", recommendations: [] },
   aiForecast: { actual: [], forecast: [], directions: [], daysLearned: 0, rawHistory: [], rawPredictions: [] },
-  modelInfo: generateModelInfo(),
+  modelInfo: null,
   chartHistory: [],
   activeSection: "dashboard",
   sidebarOpen: true,
@@ -191,19 +210,25 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       const alerts = buildCameraAlerts(data, get().alerts) as AlertItem[];
       const observationTime = Math.max(0, ...ACTIVE_CAMERA_IDS.map(id => Number(data[id]?.last_update) || 0));
       const changed = observationTime * 1000 > get().lastRealtimeUpdate;
-      const chartPoint: { time: string; [key: string]: number | string } = {
+      const chartPoint: { timestamp: number; time: string; [key: string]: number | string } = {
+        timestamp: observationTime,
         time: new Date(observationTime * 1000).toLocaleTimeString("vi-VN", { hour12: false }),
       };
       ACTIVE_CAMERA_IDS.forEach(id => {
         const view = cameraView(data[id]);
-        // Missing labels are omitted, not rendered as free-flow zeroes.
-        if (view.ready) chartPoint[id] = Number(data[id].mapped_idx);
+        if (view.fresh && view.count !== null) chartPoint[id] = view.count;
       });
+      routes.forEach(route => { if (route.hasData) chartPoint[route.id] = route.vehicleCount; });
+      const sampledCount = ACTIVE_CAMERA_IDS.some(id => typeof chartPoint[id] === "number");
+      const total = ACTIVE_CAMERA_IDS.reduce((sum, id) => sum + (typeof chartPoint[id] === "number" ? Number(chartPoint[id]) : 0), 0);
+      if (sampledCount) chartPoint.total = total;
+      const previousSampleAt = get().chartHistory.at(-1)?.timestamp ?? 0;
+      const appendChartPoint = changed && sampledCount && observationTime > previousSampleAt;
       set(state => ({
         realtimeCams: data, routeStats: routes, alerts,
-        chartHistory: changed ? [...state.chartHistory, chartPoint].slice(-60) : state.chartHistory,
+        chartHistory: appendChartPoint ? [...state.chartHistory, chartPoint].slice(-360) : state.chartHistory,
         lastRealtimeUpdate: observationTime * 1000,
-        metrics: { ...state.metrics, totalVehicles: routes.reduce((sum, r) => sum + r.vehicleCount, 0),
+        metrics: { ...state.metrics, totalVehicles: routes.some(route => route.hasData) ? routes.reduce((sum, r) => sum + r.vehicleCount, 0) : null,
           activeAlerts: alerts.filter(a => !a.acknowledged).length },
       }));
     };
@@ -222,14 +247,15 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       set((state) => ({
         healthMetrics: {
           ...(state.healthMetrics || {}),
-          cpu: Number(data.cpu_usage) || 0,
-          ram: Number(data.ram_percent) || 0,
-          temperature: Number(data.cpu_temp) || 0,
-          networkLatency: Number(data.latency) || 0,
-          fps: Number(data.camera_fps) || 0,
-          diskUsage: Number(data.disk_percent) || 0,
-          uptime: state.healthMetrics?.uptime || 0,
-        } as any
+          cpu: observedNumber(data.cpu_usage),
+          ram: observedNumber(data.ram_percent),
+          temperature: observedNumber(data.cpu_temp),
+          networkLatency: observedNumber(data.latency),
+          fps: observedNumber(data.camera_fps),
+          diskUsage: observedNumber(data.disk_percent),
+          uptime: state.healthMetrics?.uptime ?? null,
+          observedAt: Date.now(),
+        }
       }));
     };
 
@@ -240,15 +266,15 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       set((state) => ({
         healthMetrics: {
           ...(state.healthMetrics || {}),
-          diskUsage: state.healthMetrics?.diskUsage || 0,
-          uptime: Number(data.uptime_seconds || 0) / 3600,
-          cpu: state.healthMetrics?.cpu || 0,
-          ram: state.healthMetrics?.ram || 0,
-          temperature: state.healthMetrics?.temperature || 0,
-          networkLatency: state.healthMetrics?.networkLatency || 0,
-          fps: state.healthMetrics?.fps || 0
-        } as any,
-        isBoardOffline: data.online !== true || Date.now() / 1000 - Number(data.last_heartbeat || 0) > 90
+          diskUsage: state.healthMetrics?.diskUsage ?? null,
+          uptime: observedNumber(data.uptime_seconds) ?? state.healthMetrics?.uptime ?? null,
+          cpu: state.healthMetrics?.cpu ?? null,
+          ram: state.healthMetrics?.ram ?? null,
+          temperature: state.healthMetrics?.temperature ?? null,
+          networkLatency: state.healthMetrics?.networkLatency ?? null,
+          fps: state.healthMetrics?.fps ?? null,
+          observedAt: state.healthMetrics?.observedAt ?? null,
+        },
       }));
     };
 
@@ -263,16 +289,12 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.traffic?.controllerStatus) set({ controllerStatus: data.traffic.controllerStatus });
         if (data.traffic?.commandResult) set({ commandResult: data.traffic.commandResult });
         if (data.traffic?.fuzzyStatus) set({ fuzzyStatus: data.traffic.fuzzyStatus });
-        if (data.traffic?.edgeAI) set({ edgeAI: data.traffic.edgeAI });
+        if (data.traffic?.edgeAI) set({ edgeAI: data.traffic.edgeAI, isBoardOffline: !edgeIsFresh(data.traffic.edgeAI) });
         if (data.realtime?.weather) {
           set((s) => ({
             weather: {
               ...s.weather,
-              is_raining: Boolean(data.realtime.weather.is_raining),
-              rain_intensity: Number(data.realtime.weather.rain_intensity) || 0,
-              temperature: Number(data.realtime.weather.temperature) || 0,
-              humidity: Number(data.realtime.weather.humidity) || 0,
-              wind_speed: Number(data.realtime.weather.wind_speed) || 12
+              ...data.realtime.weather,
             } as any
           }));
         }
@@ -286,11 +308,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
           set((s) => ({
             weather: {
               ...s.weather,
-              is_raining: Boolean(data.is_raining),
-              rain_intensity: Number(data.rain_intensity) || 0,
-              temperature: Number(data.temperature) || 0,
-              humidity: Number(data.humidity) || 0,
-              wind_speed: Number(data.wind_speed) || 12
+              ...data,
             } as any
           }));
         }
@@ -311,7 +329,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       } else if (path === '/traffic/commandResult') {
         set({ commandResult: data });
       } else if (path === '/traffic/edgeAI') {
-        set({ edgeAI: data });
+        set({ edgeAI: data, isBoardOffline: !edgeIsFresh(data) });
       } else if (path.startsWith('/traffic/fuzzyStatus')) {
         set({ fuzzyStatus: data });
       }
@@ -351,10 +369,9 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     const state = get();
     const routes = buildRouteStats(state.realtimeCams || {});
     const alerts = buildCameraAlerts(state.realtimeCams || {}, state.alerts) as AlertItem[];
-    set({ isBoardOffline: state.modelStatus?.online !== true ||
-            Date.now() / 1000 - Number(state.modelStatus?.last_heartbeat || 0) > 90,
+    set({ isBoardOffline: !edgeIsFresh(state.edgeAI),
           routeStats: routes, alerts,
-          metrics: { ...state.metrics, totalVehicles: routes.reduce((sum, r) => sum + r.vehicleCount, 0),
+          metrics: { ...state.metrics, totalVehicles: routes.some(route => route.hasData) ? routes.reduce((sum, r) => sum + r.vehicleCount, 0) : null,
             activeAlerts: alerts.filter(a => !a.acknowledged).length },
           aiForecast: Number(state.aiForecast.validUntil) > Date.now() / 1000 ? state.aiForecast :
             { ...state.aiForecast, actual: [], forecast: [], rawHistory: [], rawPredictions: [], status: "UNAVAILABLE" },

@@ -50,7 +50,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-4">
         {NAV_ITEMS.map((item) => {
           if (item.adminOnly && !isAdmin) return null;
           const isActive = activeSection === item.id;
@@ -63,26 +63,26 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
                 onNavigate?.();
               }}
               className={cn(
-                "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-                isActive ? "text-primary" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
               )}
             >
               {isActive && (
                 <motion.div
                   layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-xl bg-primary/10"
+                  className="absolute inset-0 rounded-lg bg-primary/5"
                   transition={{ type: "spring", stiffness: 380, damping: 32 }}
                 />
               )}
               {isActive && (
                 <motion.div
                   layoutId="sidebar-active-bar"
-                  className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary"
                 />
               )}
               <Icon
                 className={cn(
-                  "relative h-5 w-5 shrink-0 transition-transform group-hover:scale-110",
+                  "relative h-[18px] w-[18px] shrink-0 transition-colors",
                   isActive && "text-primary",
                 )}
                 strokeWidth={2}
@@ -189,9 +189,9 @@ export function Sidebar() {
   return (
     <motion.aside
       initial={false}
-      animate={{ width: open ? 264 : 76 }}
+      animate={{ width: open ? 244 : 72 }}
       transition={{ type: "spring", stiffness: 260, damping: 30 }}
-      className="relative z-30 flex h-full flex-col border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl"
+      className="relative z-30 flex h-full flex-col border-r border-sidebar-border bg-sidebar"
     >
       <div className="flex h-20 items-center justify-center px-4 py-4">
         {open ? (

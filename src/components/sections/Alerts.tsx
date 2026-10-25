@@ -17,11 +17,11 @@ import {
   Inbox,
 } from "lucide-react";
 import { useTrafficStore, type AlertItem } from "@/lib/store";
-import { ALERT_TYPES } from "@/lib/constants";
 import { timeAgo } from "@/lib/formatters";
 import { StatCard, StatusBadge, SectionCard } from "@/components/shared/ui";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ACTIVE_CAMERA_IDS } from "@/lib/traffic-status";
 
 const TYPE_ICON: Record<string, typeof AlertTriangle> = {
   congestion: AlertTriangle,
@@ -43,11 +43,13 @@ const SEVERITY_TEXT: Record<string, string> = {
   info: "Thông tin",
 };
 
-type TypeFilter = "all" | keyof typeof ALERT_TYPES;
+type TypeFilter = "all" | "congestion" | "camera_error";
 
 
 export function Alerts() {
   const alerts = useTrafficStore((s) => s.alerts);
+  const realtimeCams = useTrafficStore((s) => s.realtimeCams);
+  const hasCameraData = Boolean(realtimeCams && ACTIVE_CAMERA_IDS.some((id) => realtimeCams[id]));
   const acknowledgeAlert = useTrafficStore((s) => s.acknowledgeAlert);
   const acknowledgeAllAlerts = useTrafficStore((s) => s.acknowledgeAllAlerts);
 
@@ -84,17 +86,17 @@ export function Alerts() {
         <StatCard
           icon={BellRing}
           label="Đang hoạt động"
-          value={stats.active}
+          value={hasCameraData ? stats.active : "—"}
           unit="cảnh báo"
           trend={stats.active > 3 ? "up" : "neutral"}
-          trendValue={stats.active > 3 ? "cần xử lý" : "ổn định"}
+          trendValue={hasCameraData ? stats.active ? "cần theo dõi" : "không có cảnh báo mới" : "chưa nhận dữ liệu camera"}
           color="red"
           delay={0}
         />
         <StatCard
           icon={AlertOctagon}
           label="Nghiêm trọng"
-          value={stats.critical}
+          value={hasCameraData ? stats.critical : "—"}
           unit="sự kiện"
           trend={stats.critical > 0 ? "up" : "neutral"}
           trendValue={stats.critical > 0 ? "ưu tiên" : "không có"}
@@ -104,7 +106,7 @@ export function Alerts() {
         <StatCard
           icon={ShieldAlert}
           label="Cảnh báo"
-          value={stats.warnings}
+          value={hasCameraData ? stats.warnings : "—"}
           unit="sự kiện"
           trend="neutral"
           trendValue="theo dõi"
@@ -117,7 +119,7 @@ export function Alerts() {
       {/* Filter bar + bulk action */}
       <SectionCard
         title="Danh sách cảnh báo"
-        subtitle={`${filtered.length} / ${alerts.length} cảnh báo`}
+        subtitle={hasCameraData ? `${filtered.length} cảnh báo đang mở` : "Chưa nhận dữ liệu camera để xác định cảnh báo"}
         icon={Bell}
         action={
           <Button
@@ -128,7 +130,7 @@ export function Alerts() {
             className="gap-1.5"
           >
             <CheckCheck className="h-3.5 w-3.5" />
-            Xác nhận tất cả
+            Ẩn tất cả trong phiên
           </Button>
         }
       >
@@ -142,10 +144,7 @@ export function Alerts() {
               {[
                 { id: "all", label: "Tất cả" },
                 { id: "congestion", label: "Ùn tắc" },
-                { id: "accident", label: "Tai nạn" },
-                { id: "camera_error", label: "Camera lỗi" },
-                { id: "signal_error", label: "Đèn lỗi" },
-                { id: "weather", label: "Thời tiết" },
+                { id: "camera_error", label: "Camera" },
               ].map((opt) => (
                 <button
                   key={opt.id}
@@ -167,7 +166,7 @@ export function Alerts() {
 
           {/* Alert list */}
           {filtered.length === 0 ? (
-            <EmptyState />
+            <EmptyState hasData={hasCameraData} />
           ) : (
             <div className="max-h-[640px] space-y-2.5 overflow-y-auto pr-1">
               <AnimatePresence initial={false}>
@@ -238,10 +237,10 @@ function AlertRow({
           </span>
           {isActive ? (
             <StatusBadge color={alert.severity === "critical" ? "red" : alert.severity === "warning" ? "amber" : "cyan"} pulse>
-              Đang hoạt động
+              Đang mở
             </StatusBadge>
           ) : (
-            <StatusBadge color="green">Đã xử lý</StatusBadge>
+            <StatusBadge color="green">Đã ẩn</StatusBadge>
           )}
         </div>
         <p className="mt-1 text-sm text-foreground/90">{alert.message}</p>
@@ -267,12 +266,12 @@ function AlertRow({
             className="gap-1.5 border-success/40 text-success hover:bg-success/10 hover:text-success"
           >
             <CheckCheck className="h-3.5 w-3.5" />
-            Xác nhận
+            Ẩn cảnh báo
           </Button>
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Đã xử lý
+            Đã ẩn trong phiên
           </span>
         )}
       </div>
@@ -280,7 +279,7 @@ function AlertRow({
   );
 }
 
-function EmptyState() {
+function EmptyState({ hasData }: { hasData: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
@@ -293,9 +292,9 @@ function EmptyState() {
         <Inbox className="h-8 w-8 text-success" strokeWidth={1.8} />
       </div>
       <div>
-        <h4 className="text-sm font-semibold text-foreground">Không có cảnh báo nào</h4>
+        <h4 className="text-sm font-semibold text-foreground">{hasData ? "Không có cảnh báo đang mở" : "Chưa có dữ liệu cảnh báo"}</h4>
         <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-          Hệ thống đang vận hành ổn định. Mọi cảnh báo mới sẽ xuất hiện tại đây để bạn xử lý kịp thời.
+          {hasData ? "Chưa phát hiện cảnh báo từ dữ liệu camera hiện nhận được." : "Cảnh báo sẽ cập nhật sau khi có bản tin camera mới."}
         </p>
       </div>
     </motion.div>

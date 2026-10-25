@@ -1,446 +1,103 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import {
-  AreaChart,
-  Area,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  Cpu,
-  MemoryStick,
-  Thermometer,
-  Wifi,
-  HardDrive,
-  ServerCog,
-  Activity,
-  Clock,
-  Video,
-  Database,
-  Cloud,
-  Radio,
-  RefreshCw,
-  CircleDot,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, Camera, Cloud, Cpu, HardDrive, MemoryStick, Radio, ServerCog, Thermometer, Wifi } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
-import { StatCard, StatusBadge, SectionCard } from "@/components/shared/ui";
-import { cn } from "@/lib/utils";
+import { CAMERAS } from "@/lib/constants";
+import { cameraView } from "@/lib/traffic-status";
+import { isControllerOnline } from "@/lib/controller";
+import { SectionCard, StatusBadge } from "@/components/shared/ui";
 
-/* Unmeasured service latencies remain unavailable. */
-const SERVICES = [
-  { id: "camera", name: "Camera HTTP", desc: "4 camera; xem trạng thái từng nguồn ở giám sát", icon: Video, status: "unknown", latency: null },
-  { id: "ai", name: "AI/TCN", desc: "Tiến trình riêng; cần telemetry để xác nhận", icon: Cpu, status: "unknown", latency: null },
-  { id: "firebase", name: "Firebase", desc: "Trạng thái kết nối được phản ánh qua tuổi dữ liệu", icon: Cloud, status: "unknown", latency: null },
-];
-
-function serviceColor(s: string): "green" | "amber" | "red" {
-  return s === "online" ? "green" : s === "degraded" ? "amber" : "red";
+type Point = { timestamp: number; cpu: number | null; ram: number | null; time: string };
+function display(value: number | null | undefined, unit: string) {
+  return value === null || value === undefined || !Number.isFinite(value) ? "—" : `${value.toFixed(value < 10 && unit !== "%" ? 1 : 0)}${unit}`;
 }
-function serviceLabel(s: string) {
-  return s === "online" ? "Online" : s === "degraded" ? "Chậm" : s === "unknown" ? "Chưa đo" : "Offline";
+function duration(seconds: number | null | undefined) {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) return "—";
+  const days = Math.floor(seconds / 86400), hours = Math.floor(seconds % 86400 / 3600), minutes = Math.floor(seconds % 3600 / 60);
+  return days ? `${days} ngày ${hours} giờ` : hours ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
 }
-
-/* Thresholds: green < 60, amber 60-80, red > 80 */
-function thresholdColor(v: number): "green" | "amber" | "red" {
-  if (v >= 80) return "red";
-  if (v >= 60) return "amber";
-  return "green";
-}
-function thresholdStroke(v: number): string {
-  if (v >= 80) return "var(--destructive)";
-  if (v >= 60) return "var(--warning)";
-  return "var(--success)";
-}
-
-function useHistory() {
-  const health = useTrafficStore((s) => s.healthMetrics);
-  const [points, setPoints] = useState<{time: string; cpu: number; ram: number}[]>([]);
-  useEffect(() => {
-    if (!health) return;
-    setPoints((old) => [...old.slice(-59), {time: new Date().toLocaleTimeString("vi-VN"), cpu: health.cpu, ram: health.ram}]);
-  }, [health]);
-  return points;
-}
-function useLatencyHistory() { return [] as {time: string; latency: number}[]; }
 
 export function SystemHealth() {
-  const health = useTrafficStore((s) => s.healthMetrics);
-  const tickCount = useTrafficStore((s) => s._tickCount);
-  const history = useHistory();
-  const latencyHistory = useLatencyHistory();
+  const health = useTrafficStore((state) => state.healthMetrics);
+  const edgeAI = useTrafficStore((state) => state.edgeAI);
+  const modelStatus = useTrafficStore((state) => state.modelStatus);
+  const realtimeCams = useTrafficStore((state) => state.realtimeCams);
+  const controller = useTrafficStore((state) => state.controllerStatus);
+  const lastRealtimeUpdate = useTrafficStore((state) => state.lastRealtimeUpdate);
+  const tick = useTrafficStore((state) => state._tickCount);
+  void tick;
+  const [points, setPoints] = useState<Point[]>([]);
 
-  if (!health) {
-    return (
-      <div className="flex items-center gap-3 py-12 text-sm text-muted-foreground">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        Đang tải dữ liệu hệ thống...
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!health?.observedAt) return;
+    setPoints((old) => {
+      if (old.at(-1)?.timestamp === health.observedAt) return old;
+      return [...old, { timestamp: health.observedAt!, cpu: health.cpu, ram: health.ram,
+        time: new Date(health.observedAt!).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) }].slice(-60);
+    });
+  }, [health]);
 
-  const gauges = [
-    { id: "cpu", label: "CPU", value: health.cpu, unit: "%", icon: Cpu },
-    { id: "ram", label: "RAM", value: health.ram, unit: "%", icon: MemoryStick },
-    { id: "temp", label: "Nhiệt độ", value: health.temperature, unit: "°C", icon: Thermometer },
-    { id: "disk", label: "Ổ đĩa", value: health.diskUsage, unit: "%", icon: HardDrive },
+  const edgeAt = Number(edgeAI?.generated_at);
+  const nowSeconds = Date.now() / 1000;
+  const genioFresh = edgeAI?.status?.online === true && Number.isFinite(edgeAt) && nowSeconds >= edgeAt && nowSeconds - edgeAt <= 30;
+  const freshCameras = CAMERAS.filter((camera) => camera.aiInput && cameraView(realtimeCams?.[camera.id]).fresh).length;
+  const firebaseFresh = lastRealtimeUpdate > 0 && Date.now() - lastRealtimeUpdate < 45000;
+  const statuses = [
+    { name: "Genio 350", detail: "Heartbeat của dịch vụ AI", icon: Cpu, ok: genioFresh, known: Boolean(edgeAI) },
+    { name: "Camera AI", detail: `${freshCameras}/5 camera có ảnh trong 45 giây gần nhất`, icon: Camera, ok: freshCameras > 0, known: Boolean(realtimeCams) },
+    { name: "STM32", detail: "Telemetry từ bộ điều khiển đèn", icon: Radio, ok: isControllerOnline(controller), known: Boolean(controller) },
+    { name: "Bản tin giao thông", detail: "Dữ liệu mới từ Firebase", icon: Cloud, ok: firebaseFresh, known: lastRealtimeUpdate > 0 },
+  ];
+  const cards = [
+    { label: "CPU", value: display(health?.cpu, "%"), icon: Cpu },
+    { label: "RAM", value: display(health?.ram, "%"), icon: MemoryStick },
+    { label: "Nhiệt độ", value: display(health?.temperature, " °C"), icon: Thermometer },
+    { label: "Ổ đĩa", value: display(health?.diskUsage, "%"), icon: HardDrive },
+    { label: "Độ trễ", value: display(health?.networkLatency, " ms"), icon: Wifi },
+    { label: "FPS camera", value: display(health?.fps, " FPS"), icon: Activity },
   ];
 
-  return (
-    <div className="space-y-5">
-      {/* Top stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          icon={Cpu}
-          label="CPU"
-          value={health.cpu.toFixed(0)}
-          unit="%"
-          color={thresholdColor(health.cpu) === "red" ? "red" : thresholdColor(health.cpu) === "amber" ? "amber" : "green"}
-          trend={health.cpu > 70 ? "up" : "neutral"}
-          trendValue={health.cpu > 70 ? "cao" : "ổn định"}
-          delay={0}
-        />
-        <StatCard
-          icon={MemoryStick}
-          label="RAM"
-          value={health.ram.toFixed(0)}
-          unit="%"
-          color={thresholdColor(health.ram) === "red" ? "red" : thresholdColor(health.ram) === "amber" ? "amber" : "green"}
-          trend={health.ram > 70 ? "up" : "neutral"}
-          trendValue={health.ram > 70 ? "cao" : "ổn định"}
-          delay={0.05}
-        />
-        <StatCard
-          icon={Thermometer}
-          label="Nhiệt độ"
-          value={health.temperature.toFixed(0)}
-          unit="°C"
-          color={health.temperature > 70 ? "red" : health.temperature > 55 ? "amber" : "green"}
-          trend={health.temperature > 60 ? "up" : "neutral"}
-          trendValue={health.temperature > 60 ? "nóng" : "mát"}
-          delay={0.1}
-        />
-        <StatCard
-          icon={Wifi}
-          label="Độ trễ mạng"
-          value={health.networkLatency > 0 ? health.networkLatency.toFixed(0) : "—"}
-          unit="ms"
-          color={health.networkLatency > 80 ? "red" : health.networkLatency > 40 ? "amber" : "green"}
-          trend={health.networkLatency > 60 ? "up" : "down"}
-          trendValue={health.networkLatency > 60 ? "chậm" : "nhanh"}
-          delay={0.15}
-        />
-      </div>
+  return <div className="space-y-6">
+    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Giám sát thiết bị</p><h2 className="mt-1 text-2xl font-semibold">Tình trạng vận hành</h2><p className="mt-1 text-sm text-muted-foreground">Các chỉ số chỉ hiện khi có telemetry thực nhận từ thiết bị.</p></div>
+      <p className="text-xs text-muted-foreground">{health?.observedAt ? `Cập nhật ${new Date(health.observedAt).toLocaleTimeString("vi-VN")}` : "Chưa nhận telemetry phần cứng"}</p>
+    </div>
 
-      {/* Hardware gauges + Uptime */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Gauges */}
-        <div className="lg:col-span-2">
-          <SectionCard
-            title="Hệ thống phần cứng"
-            subtitle="Ngưỡng: Xanh < 60% · Vàng 60–80% · Đỏ > 80%"
-            icon={ServerCog}
-            action={
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
-                Cập nhật mỗi 5s
-              </span>
-            }
-          >
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {gauges.map((g, i) => (
-                <Gauge
-                  key={g.id}
-                  icon={g.icon}
-                  label={g.label}
-                  value={g.value}
-                  unit={g.unit}
-                  delay={i * 0.06}
-                />
-              ))}
-            </div>
-          </SectionCard>
-        </div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {cards.map(({ label, value, icon: Icon }) => <article key={label} className="flex items-center justify-between rounded-xl border border-border bg-card/90 p-4">
+        <div><p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p></div><Icon className="h-5 w-5 text-primary" />
+      </article>)}
+    </div>
 
-        {/* Uptime + FPS */}
-        <SectionCard title="Uptime & FPS" subtitle="Độ ổn định vận hành" icon={Activity}>
-          <div className="space-y-4">
-            <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-center">
-              <div className="text-[10px] uppercase tracking-wide text-success/90">Uptime</div>
-              <div className="mt-1 text-3xl font-bold tabular-nums text-success">
-                {health.uptime.toFixed(2)}%
-              </div>
-              <div className="mt-0.5 text-[11px] text-success/80">30 ngày gần nhất</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <Video className="h-3.5 w-3.5" /> FPS
-                </div>
-                <div className="mt-1 text-xl font-bold tabular-nums text-foreground">
-                  {health.fps}
-                </div>
-                <div className="text-[10px] text-success">tốt</div>
-              </div>
-              <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" /> Tick
-                </div>
-                <div className="mt-1 text-xl font-bold tabular-nums text-foreground">
-                  #{tickCount}
-                </div>
-                <div className="text-[10px] text-muted-foreground">vòng tick</div>
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+      <SectionCard title="Mức sử dụng CPU và RAM" subtitle="Mẫu telemetry đã nhận trong phiên trình duyệt này · tối đa 60 điểm" icon={ServerCog}>
+        {points.length < 2 ? <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border px-6 text-center text-sm text-muted-foreground">Cần nhận thêm telemetry phần cứng để vẽ diễn biến. Không có chuỗi lịch sử dài hạn trong nguồn dữ liệu hiện tại.</div> : <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%"><AreaChart data={points} margin={{ top: 8, right: 12, bottom: 2, left: -16 }}>
+            <defs><linearGradient id="cpuArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity={0.26} /><stop offset="100%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient><linearGradient id="ramArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.22} /><stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} /></linearGradient></defs>
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} /><XAxis dataKey="time" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={24} /><YAxis domain={[0, 100]} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} unit="%" />
+            <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 10, color: "var(--foreground)" }} formatter={(value: number, name: string) => [`${Number(value).toFixed(1)}%`, name.toUpperCase()]} />
+            <Area type="monotone" dataKey="ram" name="RAM" stroke="var(--chart-2)" fill="url(#ramArea)" connectNulls={false} isAnimationActive={false} /><Area type="monotone" dataKey="cpu" name="CPU" stroke="var(--primary)" fill="url(#cpuArea)" connectNulls={false} isAnimationActive={false} />
+          </AreaChart></ResponsiveContainer>
+          <div className="mt-2 flex justify-end gap-4 text-xs text-muted-foreground"><span>CPU</span><span>RAM</span></div>
+        </div>}
+      </SectionCard>
 
-      {/* Service status + CPU/RAM chart */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Service status */}
-        <SectionCard
-          title="Trạng thái dịch vụ"
-          subtitle="Trạng thái chưa đo được sẽ không giả lập Online"
-          icon={CircleDot}
-          bodyClassName="p-0"
-          noPadding
-        >
-          <div className="divide-y divide-border">
-            {SERVICES.map((s, i) => (
-              <ServiceRow key={s.id} service={s} delay={i * 0.05} />
-            ))}
-          </div>
-        </SectionCard>
-
-        {/* CPU/RAM history */}
-        <div className="lg:col-span-2">
-          <SectionCard
-            title="Sử dụng tài nguyên"
-            subtitle="CPU & RAM trong 10 phút qua"
-            icon={Activity}
-          >
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
-                  <defs>
-                    <linearGradient id="cpuGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="ramGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis
-                    dataKey="time"
-                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "var(--border)" }}
-                    interval={3}
-                  />
-                  <YAxis
-                    domain={[0, 100]}
-                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "var(--border)" }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--card)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "0.75rem",
-                      fontSize: "12px",
-                      color: "var(--foreground)",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="ram"
-                    stroke="var(--chart-2)"
-                    strokeWidth={2}
-                    fill="url(#ramGrad)"
-                    name="RAM %"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="cpu"
-                    stroke="var(--primary)"
-                    strokeWidth={2}
-                    fill="url(#cpuGrad)"
-                    name="CPU %"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-2 flex items-center justify-end gap-4 text-[11px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-primary" /> CPU
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ background: "var(--chart-2)" }} /> RAM
-              </span>
-            </div>
-          </SectionCard>
-        </div>
-      </div>
-
-      {/* Network latency chart */}
-      <SectionCard
-        title="Độ trễ mạng theo thời gian"
-        subtitle="Chưa có chuỗi số đo độ trễ mạng"
-        icon={Wifi}
-      >
-        <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={latencyHistory} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                tickLine={false}
-                axisLine={{ stroke: "var(--border)" }}
-                interval={3}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                tickLine={false}
-                axisLine={{ stroke: "var(--border)" }}
-                unit="ms"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "0.75rem",
-                  fontSize: "12px",
-                  color: "var(--foreground)",
-                }}
-                formatter={(v: number) => [`${v} ms`, "Độ trễ"]}
-              />
-              <Line
-                type="monotone"
-                dataKey="latency"
-                stroke="var(--chart-2)"
-                strokeWidth={2.5}
-                dot={{ r: 2, fill: "var(--chart-2)", strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: "var(--chart-2)", stroke: "var(--background)", strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      <SectionCard title="Kết nối thiết bị" subtitle="Tình trạng suy ra từ heartbeat và thời điểm dữ liệu gần nhất" icon={Radio}>
+        <div className="divide-y divide-border">
+          {statuses.map(({ name, detail, icon: Icon, ok, known }) => <div key={name} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-medium">{name}</p><p className="text-xs text-muted-foreground">{detail}</p></div>
+            <StatusBadge color={!known ? "cyan" : ok ? "green" : "amber"}>{!known ? "Chưa có dữ liệu" : ok ? "Đang kết nối" : "Dữ liệu cũ"}</StatusBadge>
+          </div>)}
         </div>
       </SectionCard>
     </div>
-  );
-}
 
-function Gauge({
-  icon: Icon,
-  label,
-  value,
-  unit,
-  delay = 0,
-}: {
-  icon: typeof Cpu;
-  label: string;
-  value: number;
-  unit: string;
-  delay?: number;
-}) {
-  const radius = 38;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (value / 100) * circumference;
-  const stroke = thresholdStroke(value);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4, delay }}
-      whileHover={{ y: -2 }}
-      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-muted/30 p-3"
-    >
-      <div className="relative flex h-24 w-24 items-center justify-center">
-        <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke="var(--muted)"
-            strokeWidth="7"
-          />
-          <motion.circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke={stroke}
-            strokeWidth="7"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 0.8, ease: "easeOut", delay: delay + 0.1 }}
-          />
-        </svg>
-        <div className="absolute flex flex-col items-center">
-          <span className="text-lg font-bold tabular-nums text-foreground">
-            {value.toFixed(0)}
-            <span className="text-[10px] text-muted-foreground">{unit}</span>
-          </span>
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2.2} />
-        </div>
-      </div>
-      <span className="text-xs font-medium text-foreground">{label}</span>
-    </motion.div>
-  );
-}
-
-function ServiceRow({
-  service,
-  delay,
-}: {
-  service: (typeof SERVICES)[number];
-  delay: number;
-}) {
-  const Icon = service.icon;
-  const color = serviceColor(service.status);
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3, delay }}
-      className="flex items-center gap-3 p-3.5 transition-colors hover:bg-muted/40"
-    >
-      <div
-        className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-          color === "green" && "bg-success/10 text-success",
-          color === "amber" && "bg-warning/10 text-warning",
-          color === "red" && "bg-destructive/10 text-destructive",
-        )}
-      >
-        <Icon className="h-4 w-4" strokeWidth={2.1} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold text-foreground">{service.name}</div>
-        <div className="truncate text-[11px] text-muted-foreground">{service.desc}</div>
-      </div>
-      <div className="flex flex-col items-end gap-1">
-        <StatusBadge color={color} pulse={color !== "green"}>
-          {serviceLabel(service.status)}
-        </StatusBadge>
-        <span className="text-[10px] tabular-nums text-muted-foreground">{service.latency === null ? "—" : `${service.latency}ms`}</span>
-      </div>
-    </motion.div>
-  );
+    <SectionCard title="Thời gian hoạt động" subtitle="Lấy từ bản tin hệ thống, không suy ra từ uptime của trình duyệt" icon={Activity}>
+      <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Genio 350</p><p className="mt-1 text-2xl font-semibold tabular-nums">{duration(health?.uptime)}</p></div><StatusBadge color={genioFresh ? "green" : "amber"}>{genioFresh ? "Heartbeat mới" : "Chưa xác nhận hoạt động"}</StatusBadge></div>
+      {modelStatus?.runtime_version && <p className="mt-3 text-xs text-muted-foreground">Runtime: {modelStatus.runtime_version}</p>}
+    </SectionCard>
+  </div>;
 }

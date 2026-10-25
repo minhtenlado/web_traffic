@@ -1,319 +1,116 @@
 "use client";
 
-import { cameraView } from "@/lib/traffic-status";
-import { TrafficVotes } from "@/components/shared/TrafficVotes";
-import { motion } from "framer-motion";
-import {
-  Car,
-  Timer,
-  AlertTriangle,
-  Camera,
-  CloudRain,
-  Sun,
-  Wind,
-  Droplets,
-  Radar,
-  Video,
-  Activity,
-  ArrowRight,
-} from "lucide-react";
+import { useMemo } from "react";
+import { Activity, AlertTriangle, Camera, CarFront, CloudRain, MapPinned, Radio, Sun } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
-import { CAMERAS, SIGNAL_PHASES, TRAFFIC_LABELS, type TrafficLabelKey } from "@/lib/constants";
+import { CAMERAS, DIRECTIONS, SIGNAL_PHASES } from "@/lib/constants";
+import { cameraView } from "@/lib/traffic-status";
 import { formatNumber } from "@/lib/formatters";
-import { StatCard, StatusBadge, SectionCard } from "@/components/shared/ui";
+import { SectionCard, StatCard, StatusBadge } from "@/components/shared/ui";
 import { IntersectionMap } from "@/components/shared/IntersectionMap";
-import { cn } from "@/lib/utils";
+import { TrafficHistoryChart } from "./TrafficHistoryChart";
 
-const CAM_INFO: Record<string, { name: string; location: string }> = {
-  cam_01: { name: "Camera 1", location: "Cầu Thị Nghè - Hàng Xanh" },
-  cam_02: { name: "Camera 2", location: "Cầu Điện Biên Phủ - Hàng Xanh" },
-  cam_03: { name: "Camera 3", location: "Đinh Bộ Lĩnh - Bạch Đằng" },
-  cam_04: { name: "Camera 4", location: "Điện Biên Phủ - Nguyễn Gia Trí" },
-  cam_05: { name: "Camera 5", location: "Viện Máy tính (XVNT)" },
-  cam_06: { name: "Camera 6", location: "Hàng Xanh - Bạch Đằng" },
-  cam_07: { name: "Camera 7", location: "Hàng Xanh - Cầu Văn Thánh" },
-};
+function WeatherPanel({ weather, weatherStatus }: { weather: Record<string, any> | null; weatherStatus?: string }) {
+  const available = weatherStatus === "AVAILABLE" && weather;
+  const rate = typeof weather?.precipitation === "number" && Number.isFinite(weather.precipitation) ? weather.precipitation : null;
+  const amount = typeof weather?.raw_precipitation_mm === "number" && Number.isFinite(weather.raw_precipitation_mm) ? weather.raw_precipitation_mm : null;
+  const interval = typeof weather?.interval_seconds === "number" && Number.isFinite(weather.interval_seconds) ? weather.interval_seconds : null;
+  const isRaining = typeof weather?.is_raining === "boolean" ? weather.is_raining : null;
+  const temperature = typeof weather?.temperature === "number" ? weather.temperature : null;
+  const humidity = typeof weather?.humidity === "number" ? weather.humidity : null;
+  return <SectionCard title="Thời tiết tại Hàng Xanh" subtitle="Ước tính từ API thời tiết, không phải thiết bị đo tại chỗ" icon={isRaining ? CloudRain : Sun}>
+    {!available ? <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Dữ liệu thời tiết hiện chưa khả dụng. Hệ thống không tự điền số liệu mưa.</div> : <>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div><p className="text-xs uppercase tracking-wider text-muted-foreground">Điều kiện hiện tại</p><p className="mt-1 text-2xl font-semibold">{isRaining === null ? "Chưa xác định" : isRaining ? "Có mưa" : "Không ghi nhận mưa"}</p></div>
+        {temperature !== null && <p className="text-4xl font-semibold tabular-nums">{temperature.toFixed(1)}<span className="ml-1 text-base font-normal text-muted-foreground">°C</span></p>}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2 border-y border-border py-3 sm:grid-cols-4">
+        <WeatherMetric label="Mưa" value={rate === null ? "—" : `${rate.toFixed(2)} mm/giờ`} />
+        <WeatherMetric label={interval === 900 ? "Lượng mưa / 15 phút" : "Lượng mưa theo kỳ"} value={amount === null ? "—" : `${amount.toFixed(2)} mm${interval === null ? "" : ` / ${interval}s`}`} />
+        <WeatherMetric label="Độ ẩm" value={humidity === null ? "—" : `${humidity.toFixed(0)}%`} />
+        <WeatherMetric label="Nguồn" value={String(weather.source || "API thời tiết")} />
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">Thời điểm cập nhật: {weather.timestamp ? new Date(weather.timestamp).toLocaleString("vi-VN") : "không có trong bản tin"}</p>
+    </>}</SectionCard>;
+}
+
+function WeatherMetric({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-1 truncate text-sm font-medium tabular-nums" title={value}>{value}</p></div>;
+}
 
 export function Dashboard() {
-  const metrics = useTrafficStore((s) => s.metrics);
-  const realtimeCams = useTrafficStore((s) => s.realtimeCams);
-  const weather = useTrafficStore((s) => s.weather);
-  const routeStats = useTrafficStore((s) => s.routeStats);
-  const isOffline = useTrafficStore((s) => s.isBoardOffline);
-  const signalState = useTrafficStore((s) => s.signalState);
-  const setActive = useTrafficStore((s) => s.setActiveSection);
+  const metrics = useTrafficStore((state) => state.metrics);
+  const realtimeCams = useTrafficStore((state) => state.realtimeCams);
+  const weatherFromRealtime = useTrafficStore((state) => state.weather);
+  const edgeAI = useTrafficStore((state) => state.edgeAI);
+  const routeStats = useTrafficStore((state) => state.routeStats);
+  const isOffline = useTrafficStore((state) => state.isBoardOffline);
+  const signalState = useTrafficStore((state) => state.signalState);
+  const setActive = useTrafficStore((state) => state.setActiveSection);
+  const tick = useTrafficStore((state) => state._tickCount);
+  const cameras = useMemo(() => CAMERAS.filter((camera) => camera.aiInput).map((camera) => ({
+    ...camera, view: cameraView(realtimeCams?.[camera.id]), data: realtimeCams?.[camera.id],
+  })), [realtimeCams, tick]);
+  const freshCameras = cameras.filter((camera) => camera.view.fresh).length;
+  const weather = edgeAI?.weather ?? weatherFromRealtime;
+  const weatherStatus = edgeAI?.status?.weather_status ?? (weather ? "AVAILABLE" : "UNAVAILABLE");
+  const signalFresh = Number.isFinite(signalState.timestamp) && Date.now() / 1000 - signalState.timestamp < 3;
+  const activePhase = signalFresh ? SIGNAL_PHASES.find((phase) => phase.id === signalState.currentPhase)?.name : null;
 
-  return (
-    <div className="space-y-5">
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          icon={Car}
-          label="Số xe trong ảnh mới"
-          value={formatNumber(metrics.totalVehicles)}
-          unit="xe"
-          trend="up"
-          trendValue="ước lượng từ detector"
-          color="primary"
-          delay={0}
-        />
-        <StatCard
-          icon={Timer}
-          label="Thời gian chờ TB"
-          value="—"
-          unit="giây"
-          trend="down"
-          trendValue="chưa có phép đo thời gian chờ"
-          trendColor="success"
-          color="amber"
-          delay={0.05}
-        />
-        <StatCard
-          icon={AlertTriangle}
-          label="Cảnh báo hoạt động"
-          value={metrics.activeAlerts}
-          unit="sự kiện"
-          trend={metrics.activeAlerts > 0 ? "up" : "neutral"}
-          trendValue={metrics.activeAlerts > 0 ? "cần xử lý" : "bình thường"}
-          trendColor={metrics.activeAlerts > 0 ? "destructive" : "muted"}
-          color="red"
-          delay={0.1}
-          onClick={() => setActive("alerts")}
-        />
-      </div>
-
-      {/* Route summary */}
-      <SectionCard
-        title="Tình trạng các hướng"
-        subtitle="Nhãn đã tổng hợp 10 ảnh mới; mỗi hướng dùng mức cao nhất từ camera có dữ liệu hợp lệ"
-        icon={Radar}
-        action={
-          <button
-            onClick={() => setActive("analytics")}
-            className="flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
-          >
-            Chi tiết <ArrowRight className="h-3 w-3" />
-          </button>
-        }
-      >
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {routeStats.length === 0 && (
-            <div className="col-span-full flex items-center gap-3 py-4 text-sm text-muted-foreground">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              Đang tải dữ liệu thời gian thực...
-            </div>
-          )}
-          {routeStats.map((route, i) => (
-            <motion.div
-              key={route.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="group relative overflow-hidden rounded-xl border border-border bg-muted/30 p-3"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">{route.name}</span>
-                <StatusBadge color={route.statusColor} pulse={route.statusColor !== "green"}>
-                  {route.status}
-                </StatusBadge>
-              </div>
-              <div className="mb-2 flex items-baseline gap-1">
-                <span className="text-xl font-bold tabular-nums text-foreground">{route.hasData ? formatNumber(route.vehicleCount) : "—"}</span>
-                <span className="text-xs text-muted-foreground">xe</span>
-              </div>
-              {/* Density bar */}
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${route.severity === null ? "—" : `Mức ${route.severity}/4`}` }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className={cn(
-                    "h-full rounded-full",
-                    route.statusColor === "red" && "bg-destructive",
-                    route.statusColor === "amber" && "bg-warning",
-                    route.statusColor === "green" && "bg-success",
-                  )}
-                />
-              </div>
-              <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>{route.cameras.length ? route.cameras.join(", ") : "Chưa có camera AI"}</span>
-                <span className="tabular-nums">{route.severity === null ? "—" : `Mức ${route.severity}/4`}</span>
-              </div>
-              {route.isReference && (
-                <span className="mt-1.5 inline-block rounded bg-chart-5/10 px-1.5 py-0.5 text-[9px] font-medium text-chart-5">
-                  Camera tham chiếu
-                </span>
-              )}
-            </motion.div>
-          ))}
+  return <div className="space-y-6">
+    <section className="relative overflow-hidden rounded-2xl border border-border bg-[linear-gradient(115deg,color-mix(in_oklch,var(--card)_96%,var(--primary)),var(--card)_55%)] p-5 sm:p-7">
+      <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full border border-primary/10" />
+      <div className="pointer-events-none absolute -right-4 -top-8 h-40 w-40 rounded-full border border-primary/10" />
+      <div className="relative flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Trung tâm điều hành · TP. Hồ Chí Minh</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Ngã tư Hàng Xanh</h2>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Theo dõi ảnh camera, tình trạng các hướng và dự báo giao thông theo dữ liệu đang nhận.</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <StatusBadge color={isOffline ? "amber" : "green"}><Radio className="mr-1 h-3.5 w-3.5" />Genio {isOffline ? "chưa có tín hiệu mới" : "đang kết nối"}</StatusBadge>
+          <StatusBadge color={signalFresh ? "green" : "amber"}>{signalFresh ? "STM32 có telemetry mới" : "Chưa có telemetry đèn mới"}</StatusBadge>
+        </div>
+      </div>
+      <div className="relative mt-6 grid grid-cols-2 gap-3 border-t border-border/70 pt-5 lg:grid-cols-4">
+        <StatCard icon={CarFront} label="Xe trong ảnh mới" value={metrics.totalVehicles === null ? "—" : formatNumber(metrics.totalVehicles)} unit="xe · 5 camera AI" color="primary" />
+        <StatCard icon={Camera} label="Camera AI có ảnh mới" value={`${freshCameras}/5`} unit="camera" color="cyan" />
+        <StatCard icon={Activity} label="Hướng đã có trạng thái" value={`${routeStats.filter((route) => route.hasStatus).length}/4`} unit="hướng" color="green" />
+        <StatCard icon={AlertTriangle} label="Cảnh báo hiện tại" value={metrics.activeAlerts} unit="sự kiện" color={metrics.activeAlerts ? "amber" : "green"} onClick={() => setActive("alerts")} />
+      </div>
+    </section>
+
+    <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
+      <SectionCard title="Bản đồ giám sát" subtitle={activePhase ? `Pha đèn hiện tại: ${activePhase} · còn ${signalState.countdown}s` : "Sơ đồ vị trí camera và tình trạng giao lộ"} icon={MapPinned} noPadding bodyClassName="p-3 sm:p-4">
+        <IntersectionMap />
       </SectionCard>
-
-      {/* Camera status grid */}
-      <SectionCard
-        title="Trạng thái Camera — Realtime"
-        subtitle="10 ảnh mới nhất cho từng camera · ảnh trùng không cộng phiếu"
-        icon={Video}
-        action={
-          <span className={cn(
-            "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-            isOffline ? "border-warning/30 bg-warning/10 text-warning" : "border-success/30 bg-success/10 text-success",
-          )}>
-            <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-current" />
-            {isOffline ? "DỮ LIỆU CŨ" : "LIVE"}
-          </span>
-        }
-      >
-        {!realtimeCams ? (
-          <div className="flex items-center gap-3 py-8 text-sm text-muted-foreground">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            Đang kết nối dữ liệu...
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {CAMERAS.map((cam, i) => {
-              const camData = realtimeCams[cam.id] as any;
-              const view = cameraView(camData);
-              const isAiInput = cam.aiInput;
-              const isError = isAiInput && !view.fresh;
-              const info = CAM_INFO[cam.id] || { name: cam.id, location: "" };
-              const { text, cls } = view;
-              const ts = isAiInput ? camData?.timestamp?.split(" ")[1] || "—" : "—";
-              const statusText = isAiInput ? text : "Chỉ xem ảnh tham chiếu";
-              const statusColor = isAiInput ? cls : "cyan";
-
-              return (
-                <motion.div
-                  key={cam.id}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.03 }}
-                  whileHover={{ y: -2 }}
-                  className={cn(
-                    "relative overflow-hidden rounded-xl border bg-card p-3 transition-colors",
-                    cls === "red" && "border-destructive/30",
-                    cls === "amber" && "border-warning/30",
-                    cls === "green" && "border-success/20",
-                    cls === "cyan" && "border-border",
-                  )}
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-foreground">{info.name}</span>
-                    <StatusBadge color={statusColor} pulse={isAiInput && !isError && cls !== "green"}>
-                      {statusText}
-                    </StatusBadge>
-                  </div>
-                  <div className="mb-2 truncate text-xs text-muted-foreground" title={info.location}>
-                    {info.location}
-                  </div>
-                  <div className="mb-2 text-[10px] font-medium text-muted-foreground">
-                    {isAiInput ? "AI nhận diện từ ảnh" : "Ảnh tham khảo, chưa phân tích AI"}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-lg bg-muted/40 p-2">
-                      <div className="text-[10px] uppercase text-muted-foreground">Số xe</div>
-                      <div className="font-semibold tabular-nums text-foreground">
-                        {view.count === null ? "—" : formatNumber(view.count)}
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-2">
-                      <div className="text-[10px] uppercase text-muted-foreground">Cập nhật</div>
-                      <div className="font-mono font-semibold tabular-nums text-foreground">{ts}</div>
-                    </div>
-                  </div>
-                  {isAiInput ? <TrafficVotes record={camData} /> : (
-                    <p className="pt-2 text-xs text-muted-foreground">Chưa có phiếu AI cho camera này.</p>
-                  )}
-                </motion.div>
-              );
+      <div className="space-y-6">
+        <WeatherPanel weather={weather || null} weatherStatus={weatherStatus} />
+        <SectionCard title="Tình trạng các hướng" subtitle="Nhãn ùn tắc từ camera AI đang có dữ liệu mới" icon={Activity}>
+          <div className="space-y-4">
+            {routeStats.map((route) => {
+              const fill = route.severity === null ? 0 : Math.max(8, Math.min(100, route.severity / 4 * 100));
+              const bar = route.statusColor === "red" ? "bg-destructive" : route.statusColor === "amber" ? "bg-warning" : route.statusColor === "green" ? "bg-success" : "bg-muted-foreground/40";
+              return <article key={route.id} className="border-b border-border/70 pb-3 last:border-0 last:pb-0">
+                <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium">{route.name}</h3><StatusBadge color={route.statusColor}>{route.status}</StatusBadge></div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${fill}%` }} /></div>
+                <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{route.coverage}/{route.expectedCameras} camera có nhãn mới</span><span>{route.hasData ? `${formatNumber(route.vehicleCount)} xe trong ảnh` : "Chưa có số đếm mới"}</span></div>
+              </article>;
             })}
           </div>
-        )}
-      </SectionCard>
-
-      {/* Map + Weather Floating */}
-      <div className="grid grid-cols-1">
-        {/* Intersection map with full width */}
-        <div className="col-span-1">
-          <SectionCard
-            title="Bản đồ ngã tư Hàng Xanh"
-            subtitle={`Pha hiện tại: ${SIGNAL_PHASES.find((p) => p.id === signalState.currentPhase)?.name || "Chưa có telemetry STM32"} · Đếm ngược ${signalState.countdown}s`}
-            icon={Radar}
-            noPadding
-            bodyClassName="p-4 relative flex flex-col lg:block"
-          >
-            <IntersectionMap />
-
-            {/* Weather Overlay (Floating on Desktop, Stacked on Mobile) */}
-            <div className="mt-4 lg:mt-0 lg:absolute lg:top-8 lg:right-8 z-[500] w-full lg:w-72 rounded-2xl border border-border/40 bg-card lg:bg-card/80 p-5 shadow-md lg:shadow-2xl lg:backdrop-blur-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                  {weather?.is_raining ? <CloudRain className="h-4 w-4 text-chart-2" /> : <Sun className="h-4 w-4 text-warning" />}
-                  Thời tiết
-                </div>
-                <span className="text-[10px] font-medium uppercase text-muted-foreground">Hàng Xanh</span>
-              </div>
-              {weather ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-chart-2/10 shadow-inner">
-                      <motion.div
-                        key={weather.is_raining ? "rain" : "sun"}
-                        initial={{ rotate: -10, scale: 0.8 }}
-                        animate={{ rotate: 0, scale: 1 }}
-                        transition={{ type: "spring", stiffness: 200 }}
-                      >
-                        {weather.is_raining ? (
-                          <CloudRain className="h-7 w-7 text-chart-2" />
-                        ) : (
-                          <Sun className="h-7 w-7 text-warning" />
-                        )}
-                      </motion.div>
-                    </div>
-                    <div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-foreground">{Number(weather.temperature).toFixed(1)}</span>
-                        <span className="text-sm font-semibold text-muted-foreground">°C</span>
-                      </div>
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {weather.is_raining ? "Đang mưa" : "Trời quang mây tạnh"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="flex flex-col items-center justify-center rounded-xl bg-background/50 p-2 shadow-sm">
-                      <Droplets className="mb-1 h-3.5 w-3.5 text-chart-2/80" />
-                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Độ ẩm</div>
-                      <div className="text-xs font-bold tabular-nums text-foreground">{weather.humidity}%</div>
-                    </div>
-                    <div className="flex flex-col items-center justify-center rounded-xl bg-background/50 p-2 shadow-sm">
-                      <CloudRain className="mb-1 h-3.5 w-3.5 text-chart-2/80" />
-                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Mưa</div>
-                      <div className="text-xs font-bold tabular-nums text-foreground">{weather.rain_intensity}mm</div>
-                    </div>
-                    <div className="flex flex-col items-center justify-center rounded-xl bg-background/50 p-2 shadow-sm">
-                      <Wind className="mb-1 h-3.5 w-3.5 text-chart-2/80" />
-                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Gió</div>
-                      <div className="text-xs font-bold tabular-nums text-foreground">{weather.wind_speed}km/h</div>
-                    </div>
-                  </div>
-                  {weather.is_raining && (
-                    <div className="flex items-start gap-2 rounded-lg border border-chart-2/20 bg-chart-2/10 p-2.5 text-[10px] font-medium text-chart-2">
-                      <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>Cảnh báo mưa có thể làm giảm tốc độ lưu thông.</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  Đang tải dữ liệu...
-                </div>
-              )}
-            </div>
-          </SectionCard>
-        </div>
+        </SectionCard>
       </div>
     </div>
-  );
+
+    <TrafficHistoryChart />
+
+    <SectionCard title="Camera AI tại giao lộ" subtitle="Thời điểm lấy từ bản tin camera; camera tham chiếu không được tính vào phân tích AI" icon={Camera} action={<button onClick={() => setActive("camera")} className="text-xs font-medium text-primary hover:underline">Mở giám sát camera →</button>}>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        {cameras.map((camera) => <article key={camera.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/30 px-3 py-3">
+          <div className="min-w-0"><p className="font-medium">{camera.name}</p><p className="truncate text-xs text-muted-foreground" title={camera.label}>{camera.label}</p></div>
+          <div className="shrink-0 text-right"><StatusBadge color={camera.view.fresh ? "green" : camera.data?.status === "ERROR" ? "red" : "cyan"}>{camera.view.fresh ? "Ảnh mới" : camera.data?.status === "ERROR" ? "Lỗi" : "Đang chờ"}</StatusBadge><p className="mt-1 text-xs tabular-nums text-muted-foreground">{camera.view.count === null ? "—" : `${camera.view.count} xe`}</p></div>
+        </article>)}
+      </div>
+    </SectionCard>
+  </div>;
 }

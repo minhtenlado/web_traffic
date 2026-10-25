@@ -23,8 +23,7 @@ export function AICameraCharts() {
     timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit" });
   if (!points.length || forecast.status !== "EXPERIMENTAL") return (
     <p className="mt-4 rounded-lg border border-border p-4 text-sm text-muted-foreground">
-      {forecast.status === "NOT_READY" ? "Đang chờ lịch sử camera đủ mới." : "Chưa có dự báo còn hiệu lực."}
-      {forecast.reason ? ` ${forecast.reason}` : ""}
+      {forecast.status === "NOT_READY" ? "Mô hình đang chờ đủ lịch sử camera mới." : "Chưa có dự báo còn hiệu lực để hiển thị."}
     </p>
   );
   return <div className="mt-5 space-y-4">
@@ -51,6 +50,6 @@ export function AICameraCharts() {
         </ResponsiveContainer></div>
       </div>)}
     </div>
-    <p className="break-all text-xs text-muted-foreground">Model: {forecast.modelVersion} · Tự ẩn khi dữ liệu hết hạn.</p>
+    <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Thông tin mô hình</summary><p className="mt-2 break-all font-mono">Mã phiên bản: {forecast.modelVersion || "chưa có"}</p><p className="mt-1">Tự ẩn biểu đồ khi dự báo hết hiệu lực.</p></details>
   </div>;
 }

@@ -1,40 +1,71 @@
 "use client";
 
-import { BarChart3, Camera, Car } from "lucide-react";
+import { useMemo } from "react";
+import { Activity, BarChart3, Camera, CircleHelp } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { cameraView } from "@/lib/traffic-status";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { TrafficVotes } from "@/components/shared/TrafficVotes";
+import { TrafficHistoryChart } from "./TrafficHistoryChart";
+import { AICameraCharts } from "./AICameraCharts";
 
 export function Analytics() {
-  const records = useTrafficStore(s => s.realtimeCams);
-  const routes = useTrafficStore(s => s.routeStats);
-  useTrafficStore(s => s._tickCount);
-  return <div className="space-y-5">
-    <SectionCard title="Thống kê từ dữ liệu đang thu thập" subtitle="Mỗi camera có cửa sổ 10 ảnh mới riêng. Số xe là ước lượng trong ảnh, không phải lưu lượng xe qua đường." icon={BarChart3}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {CAMERAS.filter(c => !c.isReference).map(cam => {
-          const record = records?.[cam.id];
-          const view = cameraView(record);
-          return <div key={cam.id} className="rounded-xl border border-border p-4">
-            <div className="flex items-center justify-between"><h3 className="font-semibold">{cam.name}</h3><StatusBadge color={view.cls}>{view.text}</StatusBadge></div>
-            <p className="mt-1 text-sm text-muted-foreground">{cam.label}</p>
-            <p className="mt-3 text-xl font-semibold">{view.count ?? "—"} <span className="text-sm font-normal">xe trong ảnh (EMA)</span></p>
-            {view.fresh && <p className="text-xs text-muted-foreground">Đếm ở ảnh mới nhất: {record.raw_count ?? "—"} · nhãn thô: {record.raw_mapped_label ?? "—"}</p>}
-            <TrafficVotes record={record} />
-          </div>;
-        })}
+  const records = useTrafficStore((state) => state.realtimeCams);
+  const routes = useTrafficStore((state) => state.routeStats);
+  const tick = useTrafficStore((state) => state._tickCount);
+  const cameras = useMemo(() => CAMERAS.filter((camera) => camera.aiInput).map((camera) => ({
+    ...camera, view: cameraView(records?.[camera.id]), record: records?.[camera.id],
+  })), [records, tick]);
+  const freshCount = cameras.filter((camera) => camera.view.fresh).length;
+
+  return <div className="space-y-6">
+    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Hàng Xanh · Dữ liệu trực tiếp</p>
+        <h2 className="text-2xl font-semibold tracking-tight">Lưu lượng quan sát & dự báo</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Chỉ hiển thị phép đo có nguồn và thời điểm; số xe là ước lượng trên ảnh camera.</p>
+      </div>
+      <StatusBadge color={freshCount === cameras.length && cameras.length ? "green" : freshCount ? "amber" : "cyan"}>
+        {freshCount}/{cameras.length} camera AI đang có ảnh mới
+      </StatusBadge>
+    </div>
+
+    <TrafficHistoryChart />
+
+    <SectionCard title="Camera phân tích AI" subtitle="Ảnh mới nhất và nhãn ổn định từ từng camera" icon={Camera}>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {cameras.map(({ id, name, label, view, record }) => <article key={id} className="min-w-0 rounded-xl border border-border/80 bg-background/35 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0"><h3 className="font-semibold">{name}</h3><p className="mt-0.5 truncate text-sm text-muted-foreground" title={label}>{label}</p></div>
+            <StatusBadge color={view.cls}>{view.fresh ? "Ảnh mới" : view.text}</StatusBadge>
+          </div>
+          <div className="mt-4 flex items-end justify-between gap-3 border-t border-border/70 pt-3">
+            <div><span className="text-3xl font-semibold tabular-nums">{view.count ?? "—"}</span><span className="ml-2 text-xs text-muted-foreground">xe trong ảnh</span></div>
+            <p className="text-right text-xs text-muted-foreground">{record?.last_update ? new Date(Number(record.last_update) * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Chưa có thời điểm"}</p>
+          </div>
+          {view.ready ? <p className="mt-2 text-sm">Tình trạng: <strong>{view.text}</strong></p> : <p className="mt-2 text-xs text-muted-foreground">Chưa đủ dữ liệu mới để kết luận tình trạng.</p>}
+          {view.ready && <TrafficVotes record={record} />}
+        </article>)}
       </div>
     </SectionCard>
-    <SectionCard title="Độ phủ các hướng" subtitle="Một hướng có nhiều camera dùng nhãn ổn định nghiêm trọng nhất; không có mẫu thì chưa kết luận." icon={Camera}>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{routes.map(route => <div key={route.id} className="rounded-xl border border-border p-3">
-        <p className="font-semibold">{route.name}</p><p className="my-2"><StatusBadge color={route.statusColor}>{route.status}</StatusBadge></p>
-        <p className="text-sm text-muted-foreground">{route.coverage}/{route.expectedCameras} camera AI đủ 10 mẫu</p>
-      </div>)}</div>
+
+    <SectionCard title="Tình trạng theo hướng" subtitle="Tổng hợp từ camera AI còn dữ liệu hiệu lực; mức ùn tắc là nhãn phân loại, không phải mật độ đo được." icon={Activity}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {routes.map((route) => <article key={route.id} className="rounded-xl border border-border/80 bg-background/35 p-4">
+          <div className="flex items-center justify-between gap-2"><h3 className="font-medium">{route.name}</h3><StatusBadge color={route.statusColor}>{route.status}</StatusBadge></div>
+          <p className="mt-5 text-2xl font-semibold tabular-nums">{route.hasData ? route.vehicleCount : "—"}<span className="ml-2 text-xs font-normal text-muted-foreground">xe trong ảnh mới</span></p>
+          <p className="mt-2 text-xs text-muted-foreground">Camera có dữ liệu: {route.coverage}/{route.expectedCameras}</p>
+        </article>)}
+      </div>
     </SectionCard>
-    <SectionCard title="Lịch sử và chất lượng mô hình" icon={Car}>
-      <p className="text-sm text-muted-foreground">Chưa có API thống kê lịch sử và tập nhãn chuẩn đã được xác minh. Biểu đồ theo ngày, thời gian chờ, tốc độ, độ chính xác và dự báo số xe sẽ chỉ hiển thị khi có dữ liệu đo tương ứng. Nhật ký phiếu đang được lưu riêng trên Genio để đối chiếu.</p>
+
+    <SectionCard title="Dự báo TCN" subtitle="Quan sát và dự báo chỉ xuất hiện khi payload còn hiệu lực; trạng thái kiểm định được giữ nguyên." icon={BarChart3}>
+      <div className="mb-4 flex items-start gap-2 rounded-lg border border-border bg-background/40 p-3 text-sm text-muted-foreground">
+        <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <p>Biểu đồ TCN là kết quả thử nghiệm của mô hình. Độ tin cậy đầu ra không đồng nghĩa với độ chính xác đã được kiểm chứng thực địa.</p>
+      </div>
+      <AICameraCharts />
     </SectionCard>
   </div>;
 }

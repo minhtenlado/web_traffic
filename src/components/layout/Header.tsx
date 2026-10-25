@@ -2,18 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sun, Moon, Bell, Radio, MapPin, LogOut, Menu } from "lucide-react";
+import { Sun, Moon, Bell, Radio, MapPin, LogOut, Menu, Clock3 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatLongDate, formatClockTime } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const SECTION_TITLES: Record<string, { title: string; subtitle: string }> = {
   dashboard: { title: "Tổng quan", subtitle: "Trung tâm điều khiển giao thông" },
@@ -41,8 +34,6 @@ export function Header() {
   const logout = useTrafficStore((s) => s.logout);
   const toggleSidebar = useTrafficStore((s) => s.toggleSidebar);
   const isMobile = useIsMobile();
-  const selectedArea = useTrafficStore((s) => s.selectedArea);
-  const setSelectedArea = useTrafficStore((s) => s.setSelectedArea);
 
   useEffect(() => {
     setTime(new Date());
@@ -60,7 +51,7 @@ export function Header() {
     nowSeconds >= controllerLastSeen - 2 && nowSeconds - controllerLastSeen < 3;
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/70 px-4 backdrop-blur-xl sm:px-5">
+    <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-3 border-b border-border bg-background/95 px-4 sm:px-6">
       {/* Left: hamburger (mobile) + title */}
       <div className="flex min-w-0 items-center gap-2">
         {isMobile && (
@@ -87,7 +78,7 @@ export function Header() {
               </h1>
             </motion.div>
           </AnimatePresence>
-          <p className="hidden truncate text-sm text-muted-foreground sm:block">{meta.subtitle}</p>
+          <p className="hidden truncate text-xs text-muted-foreground sm:block">{meta.subtitle}</p>
         </div>
       </div>
 
@@ -101,33 +92,25 @@ export function Header() {
           )}>
             <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-current" />
             <Radio className="h-3.5 w-3.5" />
-            <span>Genio AI {genioOnline ? "online" : "offline"}</span>
+            <span>Genio {genioOnline ? "đang hoạt động" : "mất kết nối"}</span>
           </span>
           <span className={cn(
             "rounded-full border px-3 py-1.5",
             stm32Online ? "border-success/30 bg-success/10 text-success" : "border-amber-500/30 bg-amber-500/10 text-amber-600",
           )}>
-            STM32 {stm32Online ? "telemetry mới" : "chưa có telemetry"}
+            STM32 {stm32Online ? "đang phản hồi" : "chưa phản hồi"}
           </span>
         </div>
 
-        {/* Location Selector */}
-        <div className="hidden items-center lg:flex">
-          <Select value={selectedArea} onValueChange={setSelectedArea}>
-            <SelectTrigger className="h-8 gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 focus:ring-0 focus:ring-offset-0">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-                <SelectValue placeholder="Chọn khu vực" />
-              </div>
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-border bg-popover/95 backdrop-blur-md shadow-xl">
-              <SelectItem value="hang-xanh" className="text-xs font-medium cursor-pointer">Ngã tư Hàng Xanh</SelectItem>
-              <SelectItem value="truong-chinh" className="text-xs font-medium cursor-pointer">Đường Trường Chinh</SelectItem>
-              <SelectItem value="cong-hoa" className="text-xs font-medium cursor-pointer">Đường Cộng Hòa</SelectItem>
-              <SelectItem value="xa-lo-ha-noi" className="text-xs font-medium cursor-pointer">Xa lộ Hà Nội</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="hidden items-center gap-2 border-r border-border pr-3 text-right lg:flex">
+          <MapPin className="h-4 w-4 text-primary" />
+          <div className="leading-tight"><p className="text-xs font-semibold">Ngã tư Hàng Xanh</p><p className="text-[10px] text-muted-foreground">TP. Hồ Chí Minh</p></div>
         </div>
+
+        {time && <div className="hidden min-w-[118px] flex-col items-end leading-tight xl:flex">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium tabular-nums"><Clock3 className="h-3.5 w-3.5 text-muted-foreground" />{formatClockTime(time)}</span>
+          <span className="text-[10px] text-muted-foreground">{formatLongDate(time)}</span>
+        </div>}
 
         {/* Alerts */}
         <button

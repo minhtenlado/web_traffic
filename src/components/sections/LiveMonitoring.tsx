@@ -49,10 +49,8 @@ const SCANLINE_COLOR: Record<string, string> = {
 export function LiveMonitoring() {
   const tickCount = useTrafficStore((s) => s._tickCount);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
-  const isOffline = useTrafficStore((s) => s.isBoardOffline);
   const refreshRealtime = useTrafficStore((s) => s.refreshRealtime);
   const lastUpdate = useTrafficStore((s) => s.lastRealtimeUpdate);
-  const isBoardOffline = useTrafficStore((s) => s.isBoardOffline);
 
   const [expandedCam, setExpandedCam] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,23 +67,15 @@ export function LiveMonitoring() {
     setTimeout(() => setRefreshing(false), 800);
   };
 
-  // Online / offline counts
-  const { online, offline, totalVehicles } = useMemo(() => {
-    let online = 0;
-    let offline = 0;
+  const { freshCount, waitingCount, totalVehicles } = useMemo(() => {
+    let freshCount = 0;
     let totalVehicles = 0;
-    if (realtimeCams) {
-      for (const id of ACTIVE_CAMERA_IDS) {
-        const d = realtimeCams[id] as any;
-        if (!cameraView(d).fresh) offline++;
-        else {
-          online++;
-          totalVehicles += d.count || 0;
-        }
-      }
+    for (const id of ACTIVE_CAMERA_IDS) {
+      const view = cameraView(realtimeCams?.[id]);
+      if (view.fresh) { freshCount++; if (view.count !== null) totalVehicles += view.count; }
     }
-    return { online, offline, totalVehicles };
-  }, [realtimeCams, isOffline, tickCount]);
+    return { freshCount, waitingCount: ACTIVE_CAMERA_IDS.length - freshCount, totalVehicles: freshCount ? totalVehicles : null };
+  }, [realtimeCams, tickCount]);
 
   return (
     <div className="space-y-5">
@@ -99,12 +89,12 @@ export function LiveMonitoring() {
             {/* Online/offline count */}
             <div className="hidden items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success sm:flex">
               <Camera className="h-3 w-3" />
-              {online} online
+              {freshCount}/5 ảnh mới
             </div>
-            {offline > 0 && (
+            {waitingCount > 0 && (
               <div className="hidden items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-semibold text-destructive sm:flex">
                 <CameraOff className="h-3 w-3" />
-                {offline} lỗi
+                {waitingCount} chờ cập nhật
               </div>
             )}
             <span className="flex items-center gap-1.5 rounded-full border border-chart-2/30 bg-chart-2/10 px-2.5 py-1 text-[11px] font-bold text-chart-2">
@@ -130,15 +120,15 @@ export function LiveMonitoring() {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-muted/30 p-3 text-xs">
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <Signal className="h-3.5 w-3.5 text-primary" />
-            Cập nhật: <span className="font-mono font-semibold text-foreground">{formatClockTime(new Date(lastUpdate))}</span>
+            Cập nhật: <span className="font-mono font-semibold text-foreground">{lastUpdate ? formatClockTime(new Date(lastUpdate)) : "—"}</span>
           </span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <Activity className="h-3.5 w-3.5 text-chart-2" />
-            Tổng xe phát hiện: <span className="font-semibold tabular-nums text-foreground">{formatNumber(totalVehicles)}</span>
+            Tổng xe trong ảnh mới: <span className="font-semibold tabular-nums text-foreground">{totalVehicles === null ? "—" : formatNumber(totalVehicles)}</span>
           </span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <Radio className="h-3.5 w-3.5 text-success" />
-            Trạng thái: <span className="font-semibold text-success">{isOffline ? "Mất kết nối" : "Ổn định"}</span>
+            Trạng thái: <span className={`font-semibold ${freshCount ? "text-success" : "text-warning"}`}>{freshCount ? "Đang nhận ảnh" : "Chưa có ảnh mới"}</span>
           </span>
           <span className="ml-auto text-[10px] text-muted-foreground">Bấm vào camera để xem toàn màn hình</span>
         </div>

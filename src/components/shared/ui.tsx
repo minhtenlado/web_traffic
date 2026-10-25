@@ -112,9 +112,12 @@ export function StatCard({
       whileHover={{ y: -2 }}
       onClick={onClick}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-border bg-card p-4 transition-shadow hover:shadow-lg hover:shadow-primary/5",
-        onClick && "cursor-pointer active:scale-[0.98]"
+        "group relative overflow-hidden rounded-xl border border-border bg-card/90 p-4 transition-colors hover:border-primary/25 hover:bg-card",
+        onClick && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       )}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } } : undefined}
     >
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
@@ -145,7 +148,7 @@ export function StatCard({
         </div>
         <div
           className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-sm",
+            "flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br",
             colorMap[color],
           )}
         >
@@ -181,33 +184,33 @@ export function SectionCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "overflow-hidden rounded-2xl border border-border bg-card shadow-sm",
+        "overflow-hidden rounded-xl border border-border bg-card/90 shadow-[0_8px_26px_-24px_rgba(0,0,0,0.5)]",
         className,
       )}
     >
       {(title || action) && (
-        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
+        <div className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-2.5">
             {Icon && (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-4 w-4" strokeWidth={2.1} />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-primary">
+                <Icon className="h-4 w-4" strokeWidth={1.9} />
               </div>
             )}
             <div className="min-w-0">
               {title && (
-                <h3 className="truncate text-base font-semibold tracking-tight text-foreground">
+                <h3 className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
                   {title}
                 </h3>
               )}
               {subtitle && (
-                <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
               )}
             </div>
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
-      <div className={cn(!noPadding && "p-5", bodyClassName)}>{children}</div>
+      <div className={cn(!noPadding && "p-4 sm:p-5", bodyClassName)}>{children}</div>
     </motion.section>
   );
 }

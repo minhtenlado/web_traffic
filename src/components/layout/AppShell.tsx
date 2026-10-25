@@ -35,26 +35,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [tick]);
 
   return (
-    <div className="relative flex h-screen w-full overflow-hidden bg-background">
-      {/* Ambient background orbs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="animate-float-slow absolute -left-40 top-0 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-        <div className="animate-float-slow absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-chart-2/10 blur-3xl" style={{ animationDelay: "3s" }} />
-      </div>
-
+    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
       <Sidebar />
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="relative flex-1 overflow-y-auto">
+        <main className="relative flex-1 overflow-y-auto scroll-smooth">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSection}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto w-full max-w-[1600px] p-4 sm:p-6"
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="mx-auto w-full max-w-[1720px] px-4 py-5 sm:px-6 sm:py-6 xl:px-8"
             >
               {children}
             </motion.div>
