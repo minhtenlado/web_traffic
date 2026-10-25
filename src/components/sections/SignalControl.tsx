@@ -22,7 +22,6 @@ export function SignalControl() {
   const emergency = useTrafficStore((s) => s.emergencyStop);
   const user = useTrafficStore((s) => s.user);
   const [axisPlan, setAxisPlan] = useState<AxisPlan>({greenNS:30,greenEW:30,leftNS:10,leftEW:10,yellow:3,allred:2});
-  const modelStatus = useTrafficStore((s) => s.modelStatus);
   const fuzzy = useTrafficStore((s) => s.fuzzyStatus);
   const [pending, setPending] = useState("");
   const [message, setMessage] = useState("");
@@ -64,6 +63,23 @@ export function SignalControl() {
     }
   }
   const button = "rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed";
+  const fuzzyLabels: Record<string, string> = {
+    APPLIED: "STM32 đã áp dụng", QUEUED: "Đang chờ STM32 áp dụng",
+    SHADOW_READY: "Đã tính thử · chưa gửi", READY_NO_MATERIAL_CHANGE: "Đang chạy · giữ thời lượng",
+    WAITING_FOR_AUTO_MODE: "Chờ AUTO", WAITING_FOR_NEW_CAMERA_SAMPLE: "Chờ ảnh mới",
+    WAITING_FOR_VALID_CAMERA_DATA: "Chờ đủ ảnh mới", STM32_OFFLINE: "STM32 mất kết nối",
+    LOCAL_CONTROL_ACTIVE_OR_UNKNOWN: "Điều khiển tại mạch", GENIO_HEARTBEAT_STALE: "Genio heartbeat cũ",
+    REMOTE_COMMAND_LEASE_EXPIRED: "Lease điều khiển hết hạn", WEB_COMMAND_PENDING: "Ưu tiên lệnh Web",
+    RATE_LIMITED: "Đang giới hạn tần suất", COMMAND_QUEUE_UNAVAILABLE: "Không đọc được hàng lệnh",
+    REJECTED: "STM32 từ chối kế hoạch", UNCERTAIN: "Chưa xác nhận kết quả",
+    DISCONNECTED: "Mất UART", PLANNER_ERROR: "Planner lỗi",
+  };
+  const fuzzyStatusLabel = (fuzzy?.planStatus && fuzzyLabels[fuzzy.planStatus]) || fuzzy?.planStatus || "Chờ dữ liệu";
+  const fuzzyStatusColor: "green" | "amber" = fuzzy?.planStatus === "APPLIED" ? "green"
+    : fuzzy?.planStatus === "QUEUED" || fuzzy?.planStatus === "SHADOW_READY" || fuzzy?.planStatus?.startsWith("WAITING") ? "amber"
+      : fuzzy?.planStatus?.startsWith("READY") ? "green" : "amber";
+  const fuzzyFresh = !!fuzzy?.timestamp && Date.now() - fuzzy.timestamp * 1000 < 30000;
+  const fuzzyPlan = fuzzy?.appliedPlan || fuzzy?.plan;
   return (
     <div className="space-y-5">
       <SectionCard title="Bộ điều khiển đèn STM32F105RCT6" subtitle="Genio ↔ UART ↔ STM32" icon={Cpu}
@@ -133,10 +149,13 @@ export function SignalControl() {
         </tbody></table></div>
         <p className="mt-3 text-sm text-muted-foreground">Không giữ CHUYỂN PHA để lặp. Chỉnh thời lượng trên Web khi đã trả quyền điều khiển. AUTO không xóa trạng thái khẩn cấp.</p>
       </SectionCard>
-      <SectionCard title="Gợi ý AI Fuzzy" subtitle="Chế độ đánh giá, chưa tự áp dụng vào đèn" icon={Timer}>
-        <p className="text-sm">{fuzzy ? `Xanh thẳng A/B: ${fuzzy.greenStraightA}/${fuzzy.greenStraightB} s · Xanh rẽ A/B: ${fuzzy.greenLeftA}/${fuzzy.greenLeftB} s` : "Chờ dữ liệu AI"}</p>
-        <p className="mt-2 text-sm">Bộ đệm TCN: {modelStatus?.buffer_fill ?? 0}/{modelStatus?.buffer_max ?? 720} mẫu · Đầu vào thiếu: {modelStatus?.missing_model_inputs?.join(", ") || "chưa xác nhận"}</p>
-        <p className="mt-2 text-sm text-muted-foreground">AI đang chạy ở chế độ chỉ đề xuất. Mô hình TCN cần 5 camera nhưng hiện có 4 nguồn; chưa bật tự điều khiển theo dự báo.</p>
+      <SectionCard title="Điều khiển thích ứng Fuzzy" subtitle="Tự gửi kế hoạch khi STM32 ở AUTO; STM32 vẫn thực thi và giữ các pha an toàn" icon={Timer}
+        action={<StatusBadge color={fuzzyFresh ? fuzzyStatusColor : "amber"} pulse={fuzzyFresh}>{fuzzyFresh ? fuzzyStatusLabel : "Dữ liệu Fuzzy cũ"}</StatusBadge>}>
+        <p className="text-sm">{fuzzy?.reason || "Đang chờ snapshot camera và telemetry hợp lệ."}</p>
+        <p className="mt-2 text-sm">Trục A → Bắc–Nam · Trục B → Đông–Tây · Chế độ STM32: {fuzzy?.controllerState?.mode || signal.mode}</p>
+        {fuzzyPlan && <p className="mt-2 text-sm font-medium">Kế hoạch {fuzzy?.planId ? `#${fuzzy.planId}` : "ứng viên"}: xanh thẳng NS/EW {fuzzyPlan.greenNS ?? "—"}/{fuzzyPlan.greenEW ?? "—"} giây · rẽ trái NS/EW {fuzzyPlan.leftNS ?? "—"}/{fuzzyPlan.leftEW ?? "—"} giây</p>}
+        {fuzzy && <p className="mt-2 text-sm">Nhu cầu ước lượng A/B: {fuzzy.demandA ?? "—"}/{fuzzy.demandB ?? "—"} · số xe trong ảnh A/B: {fuzzy.directionCounts?.A ?? "—"}/{fuzzy.directionCounts?.B ?? "—"}</p>}
+        <p className="mt-2 text-xs text-muted-foreground">Đầu vào là số đối tượng YOLO trong ảnh, chưa hiệu chuẩn thành lưu lượng. Nhãn classifier, TCN và thời tiết chưa được đưa vào bộ điều khiển Fuzzy; trạng thái kiểm định: {fuzzy?.validationStatus || "chưa có dữ liệu"}. {fuzzy?.advisoryOnly ? "Hiện chỉ theo dõi, chưa gửi kế hoạch." : "Kế hoạch chỉ có hiệu lực sau khi STM32 xác nhận."}</p>
       </SectionCard>
     </div>
   );

@@ -85,20 +85,36 @@ interface TrafficState {
 
   // Mamdani Fuzzy Adaptive Control state
   fuzzyStatus: {
-    demandA: number;
-    demandB: number;
+    demandA?: number;
+    demandB?: number;
     leftDemandA?: number;
     leftDemandB?: number;
-    situation: "NORMAL" | "BOTH_HEAVY" | "A_HEAVY" | "B_HEAVY";
-    greenStraightA: number;
-    greenStraightB: number;
-    greenLeftA: number;
-    greenLeftB: number;
+    situation?: "NORMAL" | "BOTH_HEAVY" | "A_HEAVY" | "B_HEAVY";
+    greenStraightA?: number;
+    greenStraightB?: number;
+    greenLeftA?: number;
+    greenLeftB?: number;
     yellowTime?: number;
     isSimulation?: boolean;
     timestamp?: number;
     dataValid?: boolean;
     validUntil?: number;
+    planStatus?: string;
+    reason?: string;
+    autoEnabled?: boolean;
+    advisoryOnly?: boolean;
+    validationStatus?: string;
+    inputSemantics?: string;
+    weatherInfluence?: string;
+    tcnInfluence?: string;
+    classifierInfluence?: string;
+    phaseMapping?: Record<string, string>;
+    cameraCounts?: Record<string, number>;
+    directionCounts?: Record<string, number>;
+    plan?: { greenNS?: number; greenEW?: number; leftNS?: number; leftEW?: number; yellow?: number; allred?: number };
+    appliedPlan?: { greenNS?: number; greenEW?: number; leftNS?: number; leftEW?: number; yellow?: number; allred?: number };
+    planId?: number;
+    controllerState?: { mode?: string; currentPhase?: string; planId?: number };
   } | null;
 
   // Chart history
