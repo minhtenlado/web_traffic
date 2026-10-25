@@ -30,20 +30,28 @@ export async function appendAuditEvent(
       source: "web_admin",
     });
 
-    // Keep this operational journal bounded in RTDB instead of growing forever.
-    const oldest = await ref.orderByChild("timestamp").limitToFirst(501).get();
-    const keys: string[] = [];
-    oldest.forEach((child) => { if (child.key) keys.push(child.key); return false; });
-    const removeCount = Math.max(0, keys.length - 500);
-    await Promise.all(keys.slice(0, removeCount).map((key) => ref.child(key).remove()));
+    // Firebase rules do not currently index this node. Read the bounded audit
+    // collection and sort locally instead of issuing an orderByChild query.
+    const snapshot = await ref.get();
+    const entries: Array<{ key: string; timestamp: number }> = [];
+    snapshot.forEach((child) => {
+      if (child.key) {
+        const value = child.val();
+        const timestamp = Number(value?.timestamp);
+        entries.push({ key: child.key, timestamp: Number.isFinite(timestamp) ? timestamp : 0 });
+      }
+      return false;
+    });
+    entries.sort((a, b) => a.timestamp - b.timestamp);
+    const excess = Math.max(0, entries.length - 500);
+    await Promise.all(entries.slice(0, excess).map(({ key }) => ref.child(key).remove()));
   } catch {
     // Auditing must not prevent a successful login, alert acknowledgement, or command queue write.
   }
 }
 
 export async function readRecentAuditEvents(limit = 500) {
-  const snapshot = await database().ref("system/auditLog")
-    .orderByChild("timestamp").limitToLast(Math.min(500, Math.max(1, limit))).get();
+  const snapshot = await database().ref("system/auditLog").get();
   const events: Array<Record<string, any>> = [];
   snapshot.forEach((child) => {
     const value = child.val();
@@ -51,5 +59,6 @@ export async function readRecentAuditEvents(limit = 500) {
     events.push({ id: child.key, ...value });
     return false;
   });
-  return events.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+  return events.sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+    .slice(0, Math.min(500, Math.max(1, limit)));
 }
