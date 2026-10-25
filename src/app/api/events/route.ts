@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   let cleanup = () => {};
   const stream = new ReadableStream({
     start(controller) {
-      const paths = ["realtime", "system/hardware", "system/status", "traffic/signalState", "traffic/controllerStatus", "traffic/fuzzyStatus", "chart_data/latest"];
+      const paths = ["realtime", "system/hardware", "system/status", "traffic/signalState", "traffic/controllerStatus", "traffic/fuzzyStatus", "traffic/edgeAI", "chart_data/latest"];
       const subscriptions: (() => void)[] = [];
       let closed = false;
       const send = (event: string, data: unknown) => {

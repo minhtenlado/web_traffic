@@ -81,6 +81,11 @@ test('Firebase nested put/patch events produce complete telemetry snapshots', ()
   source.listeners.put({ data: JSON.stringify({ path: '/traffic/signalState/countdown', data: 1 }) });
   assert.equal(events.at(-1).data.countdown, 1);
   assert.equal(update.data.countdown, 2); // previous store snapshot is immutable
+  const edge = { schema_version: 1, source: 'genio350-production-edge', generated_at: 100,
+    status: { online: true, validation_status: 'experimental_unvalidated' }, weather: null, cameras: {}, forecasts: [] };
+  source.listeners.put({ data: JSON.stringify({ path: '/traffic/edgeAI', data: edge }) });
+  assert.equal(events.at(-1).path, '/traffic/edgeAI');
+  assert.equal(events.at(-1).data.source, 'genio350-production-edge');
   cleanup();
 });
 test('cloud auth uses inline configuration without accessing local files', () => {

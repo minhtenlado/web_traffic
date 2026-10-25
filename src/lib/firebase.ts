@@ -34,7 +34,7 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
     } else assign(path, data);
     if (path === '/') onEvent('/', structuredClone(tree));
     else if (path === '/traffic' || path.startsWith('/traffic/')) {
-      for (const key of ['signalState', 'controllerStatus', 'commandResult', 'fuzzyStatus']) {
+      for (const key of ['signalState', 'controllerStatus', 'commandResult', 'fuzzyStatus', 'edgeAI']) {
         if (tree.traffic?.[key]) onEvent(`/traffic/${key}`, structuredClone(tree.traffic[key]));
       }
     } else if (path === '/realtime' || path.startsWith('/realtime/')) {
@@ -111,12 +111,13 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
   // Fallback Polling every 8 seconds to ensure data NEVER goes stale even if SSE drops
   const polling = setInterval(async () => {
     try {
-      const [realtimeRes, statusRes, signalRes, controllerRes, fuzzyRes] = await Promise.allSettled([
+      const [realtimeRes, statusRes, signalRes, controllerRes, fuzzyRes, edgeAIRes] = await Promise.allSettled([
         fetch(`/api/data?path=realtime`, { cache: "no-store" }),
         fetch(`/api/data?path=system`, { cache: "no-store" }),
         fetch(`/api/data?path=traffic/signalState`, { cache: "no-store" }),
         fetch(`/api/data?path=traffic/controllerStatus`, { cache: "no-store" }),
         fetch(`/api/data?path=traffic/fuzzyStatus`, { cache: "no-store" }),
+        fetch(`/api/data?path=traffic/edgeAI`, { cache: "no-store" }),
       ]);
       if (realtimeRes.status === "fulfilled" && realtimeRes.value.ok) {
         const rData = await realtimeRes.value.json();
@@ -137,6 +138,10 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
       if (fuzzyRes.status === "fulfilled" && fuzzyRes.value.ok) {
         const fData = await fuzzyRes.value.json();
         if (!isClosed) receive('/traffic/fuzzyStatus', fData, false);
+      }
+      if (edgeAIRes.status === "fulfilled" && edgeAIRes.value.ok) {
+        const edgeData = await edgeAIRes.value.json();
+        if (!isClosed) receive('/traffic/edgeAI', edgeData, false);
       }
     } catch {}
   }, 8000);

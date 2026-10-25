@@ -58,6 +58,7 @@ interface TrafficState {
   signalState: ControllerSignal;
   controllerStatus: ControllerStatus | null;
   commandResult: CommandResult | null;
+  edgeAI: Record<string, any> | null;
   modelStatus: { buffer_fill?: number; buffer_max?: number; missing_model_inputs?: string[]; last_heartbeat?: number; online?: boolean; tcn_status?: string; tcn_reason?: string; runtime_version?: string; active_camera_ids?: string[]; model_artifacts?: Record<string, any> } | null;
   isBoardOffline: boolean;
   lastRealtimeUpdate: number;
@@ -151,6 +152,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   },
   controllerStatus: null,
   commandResult: null,
+  edgeAI: null,
   modelStatus: null,
   fuzzyStatus: null,
   alerts: [],
@@ -261,6 +263,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.traffic?.controllerStatus) set({ controllerStatus: data.traffic.controllerStatus });
         if (data.traffic?.commandResult) set({ commandResult: data.traffic.commandResult });
         if (data.traffic?.fuzzyStatus) set({ fuzzyStatus: data.traffic.fuzzyStatus });
+        if (data.traffic?.edgeAI) set({ edgeAI: data.traffic.edgeAI });
         if (data.realtime?.weather) {
           set((s) => ({
             weather: {
@@ -307,6 +310,8 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         set({ controllerStatus: data });
       } else if (path === '/traffic/commandResult') {
         set({ commandResult: data });
+      } else if (path === '/traffic/edgeAI') {
+        set({ edgeAI: data });
       } else if (path.startsWith('/traffic/fuzzyStatus')) {
         set({ fuzzyStatus: data });
       }
