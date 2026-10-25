@@ -5,7 +5,7 @@ import { Brain, Camera, CloudRain, Cpu, ShieldCheck } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
-import { edgeHistoryProgress, groupEdgeForecasts } from "@/lib/edge-forecast";
+import { edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
 
 const TRAFFIC_LABELS: Record<string, string> = {
   Khong_ket: "Thông thoáng", Dong: "Đông xe", Ket_nhe: "Kẹt nhẹ", Ket_nang: "Kẹt nặng",
@@ -14,12 +14,6 @@ function validationText(value: unknown) {
   if (value === "validated") return "Đã kiểm định";
   if (value === "experimental_unvalidated" || value === "EXPERIMENTAL") return "Đang kiểm định";
   return "Chưa xác nhận";
-}
-function forecastText(value: unknown) {
-  if (value === "EXPERIMENTAL") return "Dự báo thử nghiệm";
-  if (["WAITING", "NOT_READY", "UNAVAILABLE"].includes(String(value))) return "Đang chờ dữ liệu";
-  if (value === "DISABLED") return "Tạm dừng";
-  return "Chưa có dự báo";
 }
 
 export function ModelManagement() {
@@ -35,8 +29,9 @@ export function ModelManagement() {
   const validation = validationText(edgeStatus.validation_status);
   const models = status?.model_artifacts || edgeStatus.model_artifacts || {};
   const progress = edgeHistoryProgress(edgeStatus);
+  const recovery = edgeTcnRecovery(edgeStatus, edgeLive);
   const forecasts = groupEdgeForecasts(edgeAI?.forecasts);
-  const forecastReady = edgeLive && edgeStatus.weather_status === "AVAILABLE" && edgeStatus.forecast_status === "EXPERIMENTAL";
+  const forecastReady = recovery.forecastReady;
   const cameras = Object.entries(edgeAI?.cameras || {}).sort(([a], [b]) => a.localeCompare(b));
   const rainRate = typeof edgeWeather?.precipitation === "number" ? edgeWeather.precipitation : null;
   const rainAmount = typeof edgeWeather?.raw_precipitation_mm === "number" ? edgeWeather.raw_precipitation_mm : null;
@@ -86,14 +81,19 @@ export function ModelManagement() {
     </SectionCard>
 
     <SectionCard title="Dự báo ùn tắc" subtitle="Dự báo 5, 15 và 30 phút; kết quả vẫn được gắn trạng thái kiểm định" icon={Brain}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Dự báo từ lịch sử camera và đặc trưng thời tiết có sẵn.</p><StatusBadge color={forecastReady ? "amber" : "cyan"}>{forecastReady ? "Thử nghiệm · chưa kiểm định thực địa" : forecastText(edgeStatus.forecast_status)}</StatusBadge></div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Lịch sử 120 phút · cập nhật mỗi 10 giây</p><div className="flex flex-wrap items-center gap-2"><StatusBadge color={forecastReady ? "green" : recovery.state === "RESTORING" ? "amber" : "cyan"}>{recovery.label}</StatusBadge>{forecastReady && <StatusBadge color="amber">Thử nghiệm · chưa kiểm định thực địa</StatusBadge>}</div></div>
+      <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
+        <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Lịch sử hợp lệ{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} bước · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
+        {progress.required > 0 && <div role="progressbar" aria-label="Lịch sử TCN hợp lệ" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} /></div>}
+        <p className="mt-2 text-xs text-muted-foreground">{recovery.reason}</p>
+      </div>
       {forecastReady ? <div className="grid gap-3 md:grid-cols-3">
         {([5, 15, 30] as const).map((horizon) => <article key={horizon} className="rounded-lg border border-border/80 bg-background/35 p-4"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Sau {horizon} phút</p><div className="mt-3 space-y-3">{forecasts[horizon].length ? forecasts[horizon].map((row) => <div key={`${row.camera_id}-${horizon}`} className="flex items-center justify-between gap-2 border-b border-border/70 pb-2 last:border-0 last:pb-0"><div><p className="text-sm font-medium">{CAMERAS.find((camera) => camera.id === row.camera_id)?.name || row.camera_id}</p><p className="text-xs text-muted-foreground">{TRAFFIC_LABELS[row.predicted_class] || "Chưa rõ"}</p></div><span className="text-xs tabular-nums text-muted-foreground">{(row.confidence * 100).toFixed(0)}%</span></div>) : <p className="text-sm text-muted-foreground">Chưa có kết quả hợp lệ ở mốc này.</p>}</div></article>)}
-      </div> : <div className="rounded-lg border border-dashed border-border p-5"><p className="text-sm text-muted-foreground">{!edgeLive ? "Đang chờ bản tin mới từ Genio." : edgeStatus.weather_status !== "AVAILABLE" ? "Thời tiết chưa có dữ liệu; chưa tạo dự báo mới." : progress.remaining > 0 ? `Đang tích lũy lịch sử liên tục: ${progress.steps}/${progress.required} bước.` : "Đã đủ đầu vào; đang chờ chu kỳ dự báo tiếp theo."}</p>{progress.required > 0 && edgeLive && <div className="mt-3"><div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Lịch sử đầu vào</span><span>{progress.steps}/{progress.required}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${progress.percent}%` }} /></div></div>}</div>}
+      </div> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Dự báo 5, 15 và 30 phút sẽ hiển thị khi có đủ đầu vào hợp lệ.</div>}
       <p className="mt-4 text-xs text-muted-foreground">Phần trăm là độ tin cậy của đầu ra, không phải độ chính xác đã đo. Dự báo không tự điều khiển đèn.</p>
     </SectionCard>
 
-    <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Trạng thái TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p></div></details>
+    <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Kiểm định TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p><p>Khôi phục TCN: {String(edgeStatus.tcn_state || "chưa có")}</p><p>Lý do: {String(edgeStatus.history_reason || "chưa có")}</p><p>Bước lịch sử cuối: {String(edgeStatus.history_last_timestamp || "chưa có")}</p></div></details>
   </div>;
 }
 

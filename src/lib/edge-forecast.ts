@@ -22,6 +22,38 @@ export function edgeHistoryProgress(status: Record<string, unknown> | null | und
   };
 }
 
+const HISTORY_REASONS: Record<string, string> = {
+  loading_snapshot: "Đang kiểm tra lịch sử đã lưu.",
+  restored: "Đã khôi phục lịch sử; đang chờ kết quả dự báo mới.",
+  history_gap: "Lịch sử bị gián đoạn; đang thu thập lại chuỗi dữ liệu liên tục.",
+  stale_history: "Lịch sử đã cũ; đang chờ dữ liệu mới từ camera.",
+  incompatible_checkpoint: "Lịch sử đã lưu không phù hợp với mô hình hiện tại; đang thu thập lại.",
+  invalid_snapshot: "Không khôi phục được lịch sử đã lưu; đang thu thập lại.",
+  weather_unavailable: "Chưa có dữ liệu thời tiết để tạo dự báo mới.",
+};
+
+export function edgeTcnRecovery(status: Record<string, unknown> | null | undefined, live: boolean) {
+  const progress = edgeHistoryProgress(status);
+  const historyComplete = progress.required > 0 && progress.steps === progress.required;
+  // Old devices omit tcn_state. Explicit recovery/invalid states always take precedence
+  // over a cached forecast_status, so an interrupted history cannot appear as ready.
+  const forecastReady = live && historyComplete && status?.weather_status === "AVAILABLE" &&
+    status?.forecast_status === "EXPERIMENTAL" &&
+    (status?.tcn_state === "FORECASTING" || status?.tcn_state === undefined);
+  const state = forecastReady ? "FORECASTING" : live && status?.tcn_state === "RESTORING"
+    ? "RESTORING" : "INSUFFICIENT_DATA";
+  const label = state === "FORECASTING" ? "Đang dự báo" : state === "RESTORING"
+    ? "Đang khôi phục" : "Chưa đủ dữ liệu";
+  const reason = !live ? "Đang chờ bản tin mới từ Genio."
+    : forecastReady ? "Lịch sử đầu vào đã sẵn sàng."
+    : HISTORY_REASONS[String(status?.history_reason)] || (state === "RESTORING"
+      ? "Đang kiểm tra lịch sử đã lưu."
+      : status?.weather_status !== "AVAILABLE" ? HISTORY_REASONS.weather_unavailable
+      : historyComplete ? "Đã đủ lịch sử; đang chờ kết quả dự báo mới."
+      : "Đang thu thập lịch sử camera liên tục.");
+  return { state, label, forecastReady, reason };
+}
+
 export function groupEdgeForecasts(value: unknown) {
   const groups: Record<5 | 15 | 30, EdgeForecastRow[]> = { 5: [], 15: [], 30: [] };
   if (!Array.isArray(value)) return groups;
