@@ -100,6 +100,7 @@ interface TrafficState {
     dataValid?: boolean;
     validUntil?: number;
     planStatus?: string;
+    plannerStatus?: string;
     reason?: string;
     autoEnabled?: boolean;
     advisoryOnly?: boolean;
@@ -113,6 +114,7 @@ interface TrafficState {
     directionCounts?: Record<string, number>;
     plan?: { greenNS?: number; greenEW?: number; leftNS?: number; leftEW?: number; yellow?: number; allred?: number };
     appliedPlan?: { greenNS?: number; greenEW?: number; leftNS?: number; leftEW?: number; yellow?: number; allred?: number };
+    currentPlan?: { greenNS?: number; greenEW?: number; leftNS?: number; leftEW?: number; yellow?: number; allred?: number };
     planId?: number;
     controllerState?: { mode?: string; currentPhase?: string; planId?: number };
   } | null;
