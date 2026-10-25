@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { readTCNChart } from "./tcn-forecast";
-import { buildRouteStats, buildCameraAlerts, cameraView, ACTIVE_CAMERA_IDS } from "./traffic-status";
+import { buildRouteStats, buildCameraAlerts, cameraView, ACTIVE_CAMERA_IDS, edgePayloadIsFresh } from "./traffic-status";
 import { isControllerSignal, sendControllerCommand,
   type ControllerSignal, type ControllerStatus, type CommandResult, type TimingKey } from "./controller";
 
@@ -164,12 +164,6 @@ interface TrafficState {
 }
 
 function getStoredUser() { return null; }
-
-function edgeIsFresh(data: any, now = Date.now() / 1000) {
-  const generatedAt = Number(data?.generated_at);
-  return data?.status?.online === true && Number.isFinite(generatedAt) &&
-    now >= generatedAt && now - generatedAt <= 30;
-}
 
 function applyAcknowledgements(alerts: AlertItem[], acknowledgements: TrafficState["alertAcknowledgements"]) {
   return alerts.map((alert) => {
@@ -349,7 +343,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.traffic?.controllerStatus) processControllerData(data.traffic.controllerStatus);
         if (data.traffic?.commandResult) set({ commandResult: data.traffic.commandResult });
         if (data.traffic?.fuzzyStatus) set({ fuzzyStatus: data.traffic.fuzzyStatus });
-        if (data.traffic?.edgeAI) set({ edgeAI: data.traffic.edgeAI, isBoardOffline: !edgeIsFresh(data.traffic.edgeAI) });
+        if (data.traffic?.edgeAI) set({ edgeAI: data.traffic.edgeAI, isBoardOffline: !edgePayloadIsFresh(data.traffic.edgeAI) });
         if (data.realtime?.weather) {
           set((s) => ({
             weather: {
@@ -402,7 +396,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       } else if (path === '/traffic/commandResult') {
         set({ commandResult: data });
       } else if (path === '/traffic/edgeAI') {
-        set({ edgeAI: data, isBoardOffline: !edgeIsFresh(data) });
+        set({ edgeAI: data, isBoardOffline: !edgePayloadIsFresh(data) });
       } else if (path.startsWith('/traffic/fuzzyStatus')) {
         set({ fuzzyStatus: data });
       }
@@ -446,7 +440,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     const alerts = applyAcknowledgements(
       buildCameraAlerts(state.realtimeCams || {}, state.alerts) as AlertItem[], state.alertAcknowledgements,
     );
-    set({ isBoardOffline: !edgeIsFresh(state.edgeAI),
+    set({ isBoardOffline: !edgePayloadIsFresh(state.edgeAI),
           routeStats: routes, alerts,
           metrics: { ...state.metrics, totalVehicles: routes.some(route => route.hasData) ? routes.reduce((sum, r) => sum + r.vehicleCount, 0) : null,
             activeAlerts: alerts.filter(a => !a.acknowledged).length },

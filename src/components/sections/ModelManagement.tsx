@@ -33,9 +33,13 @@ export function ModelManagement() {
   const forecasts = groupEdgeForecasts(edgeAI?.forecasts);
   const forecastReady = recovery.forecastReady;
   const cameras = Object.entries(edgeAI?.cameras || {}).sort(([a], [b]) => a.localeCompare(b));
+  const rainFlag = edgeWeather?.is_raining;
+  const isRaining = typeof rainFlag === "boolean" ? rainFlag : rainFlag === 0 || rainFlag === 1 ? Boolean(rainFlag) : null;
   const rainRate = typeof edgeWeather?.precipitation === "number" ? edgeWeather.precipitation : null;
   const rainAmount = typeof edgeWeather?.raw_precipitation_mm === "number" ? edgeWeather.raw_precipitation_mm : null;
   const rainInterval = typeof edgeWeather?.interval_seconds === "number" ? edgeWeather.interval_seconds : null;
+  const temperature = edgeWeather?.temperature_c ?? edgeWeather?.temperature ?? edgeWeather?.temperature_2m;
+  const humidity = edgeWeather?.humidity_percent ?? edgeWeather?.humidity ?? edgeWeather?.relative_humidity_2m;
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
@@ -62,8 +66,9 @@ export function ModelManagement() {
 
       <SectionCard title="Thời tiết hiện tại" subtitle="Ước tính API tại khu vực; không phải số đo từ trạm tại chỗ" icon={CloudRain}>
         {edgeStatus.weather_status === "AVAILABLE" && edgeWeather ? <>
-          <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Điều kiện</p><p className="mt-1 text-2xl font-semibold">{edgeWeather.is_raining === true ? "Có mưa" : edgeWeather.is_raining === false ? "Không ghi nhận mưa" : "Chưa xác định"}</p></div>{typeof edgeWeather.temperature === "number" && <p className="text-3xl font-semibold tabular-nums">{edgeWeather.temperature.toFixed(1)} °C</p>}</div>
-          <div className="mt-4 grid gap-3 border-y border-border py-3 sm:grid-cols-3"><WeatherValue label="Cường độ theo API" value={rainRate === null ? "—" : `${rainRate.toFixed(2)} mm/giờ`} /><WeatherValue label={rainInterval === 900 ? "Lượng mưa / 15 phút" : "Lượng mưa theo kỳ"} value={rainAmount === null ? "—" : `${rainAmount.toFixed(2)} mm${rainInterval === null ? "" : ` / ${rainInterval}s`}`} /><WeatherValue label="Nguồn" value={String(edgeWeather.source || "Không rõ")} /></div>
+          <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Điều kiện</p><p className="mt-1 text-2xl font-semibold">{isRaining === true ? "Có mưa" : isRaining === false ? "Không ghi nhận mưa" : "Chưa xác định"}</p></div>{typeof temperature === "number" && Number.isFinite(temperature) && <p className="text-3xl font-semibold tabular-nums">{temperature.toFixed(1)} °C</p>}</div>
+          <div className="mt-4 grid gap-3 border-y border-border py-3 sm:grid-cols-5"><WeatherValue label="Nhiệt độ · 2 m" value={typeof temperature === "number" && Number.isFinite(temperature) ? `${temperature.toFixed(1)} °C` : "Thiếu từ API"} /><WeatherValue label="Mưa" value={rainRate === null ? "—" : `${rainRate.toFixed(2)} mm/giờ`} /><WeatherValue label={rainInterval === 900 ? "Lượng mưa / 15 phút" : "Lượng mưa theo kỳ"} value={rainAmount === null ? "—" : `${rainAmount.toFixed(2)} mm${rainInterval === null ? "" : ` / ${rainInterval}s`}`} /><WeatherValue label="Độ ẩm · 2 m" value={typeof humidity === "number" && Number.isFinite(humidity) ? `${humidity.toFixed(0)}%` : "Thiếu từ API"} /><WeatherValue label="Nguồn" value={String(edgeWeather.source || "Không rõ")} /></div>
+          <p className="mt-3 text-xs text-muted-foreground">Bản tin API lúc {edgeWeather.source_time ? new Date(String(edgeWeather.source_time)).toLocaleString("vi-VN") : "không rõ thời điểm"}. Nếu API thiếu trường nhiệt độ hoặc độ ẩm, giao diện để trống thay vì tự ước lượng.</p>
           <p className="mt-3 text-xs text-muted-foreground">Nếu API không có dữ liệu mưa, hệ thống để trống đặc trưng thời tiết thay vì tự tạo giá trị.</p>
         </> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Thời tiết hiện không khả dụng; dự báo không được điền giả dữ liệu mưa.</div>}
       </SectionCard>

@@ -1,7 +1,42 @@
 import { CAMERAS, DIRECTIONS, TRAFFIC_LABELS, LABEL_SEVERITY, type TrafficLabelKey } from "./constants";
 
 export const CAMERA_TTL_SECONDS = 45;
+export const EDGE_TTL_SECONDS = 30;
+export const EDGE_CAMERA_TTL_SECONDS = 45;
 export const ACTIVE_CAMERA_IDS = CAMERAS.filter(c => c.aiInput).map(c => c.id);
+
+export const EDGE_TRAFFIC_LABELS: Record<string, { text: string; cls: "green" | "amber" | "red" }> = {
+  Khong_ket: { text: "Thông thoáng", cls: "green" },
+  Dong: { text: "Đông xe", cls: "amber" },
+  Ket_nhe: { text: "Kẹt nhẹ", cls: "amber" },
+  Ket_nang: { text: "Kẹt nặng", cls: "red" },
+};
+
+export function edgePayloadIsFresh(data: any, nowMs = Date.now()) {
+  const generatedAt = Number(data?.generated_at);
+  const now = nowMs / 1000;
+  return data?.status?.online === true && Number.isFinite(generatedAt) && generatedAt > 0 &&
+    now >= generatedAt && now - generatedAt <= EDGE_TTL_SECONDS;
+}
+
+/** Live Genio output is shown separately from the legacy, ten-vote traffic state. */
+export function edgeCameraView(record: any, payloadFresh: boolean, nowMs = Date.now()) {
+  const observedAt = Number(record?.observed_at);
+  const now = nowMs / 1000;
+  const hasTimestamp = Number.isFinite(observedAt) && observedAt > 0 && now >= observedAt;
+  const ageSeconds = hasTimestamp ? now - observedAt : null;
+  const status = String(record?.status || "").toLowerCase();
+  const count = Number.isInteger(record?.vehicle_count) && record.vehicle_count >= 0
+    ? Number(record.vehicle_count) : null;
+  const rawLabel = String(record?.label || "");
+  const label = EDGE_TRAFFIC_LABELS[rawLabel] ? rawLabel : null;
+  const available = hasTimestamp && (count !== null || label !== null);
+  const fresh = payloadFresh && status === "fresh" && available && ageSeconds !== null &&
+    ageSeconds <= EDGE_CAMERA_TTL_SECONDS;
+  return { available, fresh, count, label, labelInfo: label ? EDGE_TRAFFIC_LABELS[label] : null,
+    observedAt: hasTimestamp ? observedAt : null, ageSeconds, status,
+    labelSource: typeof record?.label_source === "string" ? record.label_source : null };
+}
 
 export function cameraView(record: any, nowMs = Date.now()) {
   const now = nowMs / 1000;

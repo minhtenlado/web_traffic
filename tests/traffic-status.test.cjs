@@ -65,6 +65,30 @@ test('camera 5 is an active AI input and contributes to the XVNT route', () => {
   assert.match(camera5.url, /ImageHandler\.ashx\?id=5d9ddd49766c880017188c94/);
   assert.ok(!camera5.url.includes('expandcameraplayer'));
 });
+test('fresh Genio inference exposes its own count and edge class without treating it as legacy ground truth', () => {
+  const payload = { generated_at: 999, status: { online: true } };
+  const record = { status: 'fresh', observed_at: 998, vehicle_count: 13, label: 'Khong_ket',
+    label_source: 'yolo_classification_unverified' };
+  assert.equal(status.edgePayloadIsFresh(payload, 1_000_000), true);
+  const view = status.edgeCameraView(record, true, 1_000_000);
+  assert.equal(view.fresh, true);
+  assert.equal(view.count, 13);
+  assert.equal(view.labelInfo.text, 'Thông thoáng');
+  assert.match(view.labelSource, /unverified/);
+  assert.equal(status.cameraView(record, 1_000_000).fresh, false);
+});
+test('Genio camera output becomes stale on old, future, reused or offline payloads', () => {
+  const nowMs = 1_000_000;
+  const current = { status: 'fresh', observed_at: 999, vehicle_count: 13, label: 'Ket_nang' };
+  assert.equal(status.edgeCameraView(current, false, nowMs).fresh, false);
+  assert.equal(status.edgeCameraView({ ...current, status: 'reused' }, true, nowMs).fresh, false);
+  assert.equal(status.edgeCameraView({ ...current, observed_at: 900 }, true, nowMs).fresh, false);
+  assert.equal(status.edgeCameraView({ ...current, observed_at: 1001 }, true, nowMs).available, false);
+  const badLabel = status.edgeCameraView({ ...current, label: 'not-a-class' }, true, nowMs);
+  assert.equal(badLabel.fresh, true);
+  assert.equal(badLabel.label, null);
+  assert.equal(badLabel.count, 13);
+});
 test('alerts use stabilized state, persist acknowledgement and resolve with condition', () => {
   const alerts = status.buildCameraAlerts({ cam_01: record() }, [], now);
   assert.equal(alerts.length, 1);
