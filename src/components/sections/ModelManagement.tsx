@@ -20,6 +20,10 @@ export function ModelManagement() {
   const edgeAge = Number.isFinite(edgeGeneratedAt) ? Math.max(0, now - edgeGeneratedAt) : Infinity;
   const edgeLive = edgeStatus.online === true && edgeAge <= 30;
   const edgeWeather = edgeAI?.weather;
+  const edgeRainRate = typeof edgeWeather?.precipitation === "number" && Number.isFinite(edgeWeather.precipitation) ? edgeWeather.precipitation : null;
+  const edgeRainAmount = typeof edgeWeather?.raw_precipitation_mm === "number" && Number.isFinite(edgeWeather.raw_precipitation_mm) ? edgeWeather.raw_precipitation_mm : null;
+  const edgeRainInterval = typeof edgeWeather?.interval_seconds === "number" && Number.isFinite(edgeWeather.interval_seconds) ? edgeWeather.interval_seconds : null;
+  const edgeRainIntensity = typeof edgeWeather?.rain_intensity === "number" && Number.isFinite(edgeWeather.rain_intensity) ? edgeWeather.rain_intensity : null;
   const edgeForecasts = Array.isArray(edgeAI?.forecasts) ? edgeAI.forecasts : [];
   return <div className="space-y-5">
     <SectionCard title="Mô hình đang chạy trên Genio 350" subtitle="Thông tin do bo báo về; chưa có phép đo độ chính xác thực địa." icon={Brain}>
@@ -42,8 +46,8 @@ export function ModelManagement() {
         <span className="text-muted-foreground">TCN: {edgeStatus.validation_status || "—"}</span>
       </div>
       <p className="mt-3 text-sm">
-        Thời tiết: {edgeStatus.weather_status === "AVAILABLE" && edgeWeather
-          ? `${edgeWeather.is_raining ? "Có mưa" : "Không ghi nhận mưa"} · ${Number(edgeWeather.precipitation || 0).toFixed(2)} mm/giờ · rain_intensity ${Number(edgeWeather.rain_intensity || 0).toFixed(2)} · ${edgeWeather.rain_group || "chưa phân nhóm"}`
+        Thời tiết (ước lượng mô hình, không phải trạm đo): {edgeStatus.weather_status === "AVAILABLE" && edgeWeather
+          ? `${edgeWeather.is_raining ? "Có mưa" : "Không ghi nhận mưa"} · ${edgeRainAmount !== null && edgeRainInterval !== null ? `API ${edgeRainAmount.toFixed(2)} mm/${edgeRainInterval}s → ` : ""}${edgeRainRate !== null ? `${edgeRainRate.toFixed(2)} mm/giờ` : "tốc độ mưa không có dữ liệu"} · rain_intensity ${edgeRainIntensity !== null ? edgeRainIntensity.toFixed(2) : "không có dữ liệu"} · ${edgeWeather.rain_group || "chưa phân nhóm"}`
           : "Không có dữ liệu thời tiết mới; hệ thống không tự điền lượng mưa."}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
