@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     if (typeof username !== "string" || typeof password !== "string" || username.length > 128 || password.length > 256) return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 });
     const key = username.toLowerCase(); const entry = attempts.get(key);
     if (entry && entry.until > Date.now() && entry.count >= 5) return NextResponse.json({ error: "Thử lại sau 60 giây" }, { status: 429 });
-    const user = authenticate(key, password);
+    const user = await authenticate(key, password);
     if (!user) {
       const count = entry && entry.until > Date.now() ? entry.count+1 : 1;
       if (attempts.size > 1000) attempts.clear();
