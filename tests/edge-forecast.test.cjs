@@ -32,5 +32,7 @@ test('groups only supported camera, horizon, class and finite confidence rows', 
   assert.equal(grouped[5][0].predicted_class, 'Ket_nhe');
   assert.equal(grouped[15].length, 0);
   assert.equal(grouped[30].length, 1);
-  assert.deepEqual(groupEdgeForecasts(null), { 5: [], 15: [], 30: [] });
+  const empty = groupEdgeForecasts(null);
+  assert.deepEqual(Object.keys(empty), ['5', '15', '30']);
+  assert.ok(Object.values(empty).every((items) => Array.isArray(items) && items.length === 0));
 });

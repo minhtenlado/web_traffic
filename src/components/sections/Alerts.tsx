@@ -54,6 +54,17 @@ export function Alerts() {
   const acknowledgeAllAlerts = useTrafficStore((s) => s.acknowledgeAllAlerts);
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [operationError, setOperationError] = useState("");
+
+  const acknowledge = async (id?: string) => {
+    setOperationError("");
+    try {
+      if (id) await acknowledgeAlert(id);
+      else await acknowledgeAllAlerts();
+    } catch (error) {
+      setOperationError(error instanceof Error ? error.message : "Không lưu được xác nhận cảnh báo");
+    }
+  };
 
 
   const stats = useMemo(() => {
@@ -105,11 +116,11 @@ export function Alerts() {
         />
         <StatCard
           icon={ShieldAlert}
-          label="Cảnh báo"
-          value={hasCameraData ? stats.warnings : "—"}
+          label="Đã ghi nhận"
+          value={hasCameraData ? stats.acknowledged : "—"}
           unit="sự kiện"
           trend="neutral"
-          trendValue="theo dõi"
+          trendValue="đã xác nhận trên máy chủ"
           color="amber"
           delay={0.1}
         />
@@ -125,16 +136,17 @@ export function Alerts() {
           <Button
             size="sm"
             variant="default"
-            onClick={acknowledgeAllAlerts}
+            onClick={() => void acknowledge()}
             disabled={!hasActive}
             className="gap-1.5"
           >
             <CheckCheck className="h-3.5 w-3.5" />
-            Ẩn tất cả trong phiên
+            Ghi nhận tất cả
           </Button>
         }
       >
         <div className="space-y-4">
+          {operationError && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">{operationError}</div>}
           {/* Filters */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -175,7 +187,7 @@ export function Alerts() {
                     key={alert.id}
                     alert={alert}
                     index={i}
-                    onAck={() => acknowledgeAlert(alert.id)}
+                    onAck={() => acknowledge(alert.id)}
                   />
                 ))}
               </AnimatePresence>
@@ -194,7 +206,7 @@ function AlertRow({
 }: {
   alert: AlertItem;
   index: number;
-  onAck: () => void;
+  onAck: () => Promise<void>;
 }) {
   const Icon = TYPE_ICON[alert.type] ?? AlertTriangle;
   const stripe = SEVERITY_STRIPE[alert.severity] ?? "bg-muted-foreground";
@@ -266,12 +278,12 @@ function AlertRow({
             className="gap-1.5 border-success/40 text-success hover:bg-success/10 hover:text-success"
           >
             <CheckCheck className="h-3.5 w-3.5" />
-            Ẩn cảnh báo
+            Ghi nhận
           </Button>
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Đã ẩn trong phiên
+            Đã ghi nhận
           </span>
         )}
       </div>

@@ -41,6 +41,7 @@ test('API authenticates, queues by ID, rejects unsupported commands', async () =
     require: (name) => name === 'next/server' ? { NextResponse: { json: (v, init) => new Response(JSON.stringify(v), init) } }
       : name.endsWith('/controller') ? controller
       : name.endsWith('/auth') ? { session: async () => authenticated ? { id: 'test', role: 'admin' } : null, sameOrigin: () => true }
+      : name.endsWith('/audit') ? { appendAuditEvent: async () => {} }
       : { database: () => ({ ref: (url) => ({
         get: async () => ({ val: () => controlStatus }),
         transaction: async (callback) => { writes.push({ url, data: callback(null) }); return { committed: true }; },

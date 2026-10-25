@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -12,8 +12,8 @@ import {
   ArrowUp,
   ShieldCheck,
   FileText,
+  RefreshCw,
 } from "lucide-react";
-import { useTrafficStore } from "@/lib/store";
 import { formatDateTime } from "@/lib/formatters";
 import { StatCard, SectionCard, StatusBadge } from "@/components/shared/ui";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,29 @@ function roleToBadge(role: string) {
 }
 
 export function AuditLog() {
-  const auditLog = useTrafficStore((s) => s.auditLog);
+  const [auditLog, setAuditLog] = useState<Array<{ id: string; user: string; role: string; action: string; timestamp: string; ip?: string }>>([]);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadError, setLoadError] = useState("");
+  const [loadedAt, setLoadedAt] = useState<number | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await fetch("/api/audit", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không tải được nhật ký máy chủ");
+      setAuditLog(Array.isArray(data.events) ? data.events : []);
+      setLoadedAt(Date.now()); setLoadState("ready"); setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Không tải được nhật ký máy chủ");
+      setLoadState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
@@ -169,15 +191,21 @@ export function AuditLog() {
       {/* Audit log table */}
       <SectionCard
         title="Nhật ký hoạt động hệ thống"
-        subtitle="Lịch sử thao tác đã nhận từ máy chủ"
+        subtitle={loadedAt ? `Nhật ký bền vững từ Firebase · 500 thao tác gần nhất · tải lúc ${new Date(loadedAt).toLocaleTimeString("vi-VN")}` : "Đang kết nối nhật ký máy chủ"}
         icon={ShieldCheck}
         action={
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={!filtered.length}>
-            <Download className="h-3.5 w-3.5" />
-            Xuất CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => void refresh()} disabled={loadState === "loading"}>
+              <RefreshCw className="h-3.5 w-3.5" />Làm mới
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={!filtered.length}>
+              <Download className="h-3.5 w-3.5" />Xuất CSV
+            </Button>
+          </div>
         }
       >
+        {loadState === "error" && <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">{loadError} · dữ liệu hiện trên trang chưa được cập nhật.</div>}
+        {loadState === "loading" && !auditLog.length && <div className="mb-4 rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">Đang tải nhật ký đã lưu trên máy chủ…</div>}
         {/* Filter bar */}
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
@@ -251,7 +279,7 @@ export function AuditLog() {
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     <FileText className="mx-auto mb-2 h-6 w-6 opacity-40" />
-                    {auditLog.length ? "Không tìm thấy bản ghi phù hợp." : "Chưa có nguồn nhật ký được kết nối; không có bản ghi để hiển thị."}
+                    {auditLog.length ? "Không tìm thấy bản ghi phù hợp." : loadState === "ready" ? "Chưa có thao tác nào được ghi nhận kể từ khi nhật ký máy chủ được bật." : "Chưa đọc được nhật ký từ máy chủ."}
                   </TableCell>
                 </TableRow>
               ) : (

@@ -7,6 +7,7 @@ import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { cameraView } from "@/lib/traffic-status";
 import { isControllerOnline } from "@/lib/controller";
+import { telemetryIsFresh } from "@/lib/hardware-telemetry";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 
 type Point = { timestamp: number; cpu: number | null; ram: number | null; time: string };
@@ -29,15 +30,24 @@ export function SystemHealth() {
   const tick = useTrafficStore((state) => state._tickCount);
   void tick;
   const [points, setPoints] = useState<Point[]>([]);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    if (!health?.observedAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const telemetryFresh = telemetryIsFresh(health, now);
+  const telemetryAge = health?.observedAt ? Math.max(0, Math.floor((now - health.observedAt) / 1000)) : null;
+
+  useEffect(() => {
+    if (!health?.observedAt || !telemetryFresh) return;
     setPoints((old) => {
       if (old.at(-1)?.timestamp === health.observedAt) return old;
       return [...old, { timestamp: health.observedAt!, cpu: health.cpu, ram: health.ram,
         time: new Date(health.observedAt!).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) }].slice(-60);
     });
-  }, [health]);
+  }, [health, telemetryFresh]);
 
   const edgeAt = Number(edgeAI?.generated_at);
   const nowSeconds = Date.now() / 1000;
@@ -51,18 +61,21 @@ export function SystemHealth() {
     { name: "Bản tin giao thông", detail: "Dữ liệu mới từ Firebase", icon: Cloud, ok: firebaseFresh, known: lastRealtimeUpdate > 0 },
   ];
   const cards = [
-    { label: "CPU", value: display(health?.cpu, "%"), icon: Cpu },
-    { label: "RAM", value: display(health?.ram, "%"), icon: MemoryStick },
-    { label: "Nhiệt độ", value: display(health?.temperature, " °C"), icon: Thermometer },
-    { label: "Ổ đĩa", value: display(health?.diskUsage, "%"), icon: HardDrive },
-    { label: "Độ trễ", value: display(health?.networkLatency, " ms"), icon: Wifi },
-    { label: "FPS camera", value: display(health?.fps, " FPS"), icon: Activity },
+    { label: "CPU Genio", value: display(telemetryFresh ? health?.cpu : null, "%"), icon: Cpu },
+    { label: "RAM Genio", value: display(telemetryFresh ? health?.ram : null, "%"), icon: MemoryStick },
+    { label: "Nhiệt độ CPU", value: display(telemetryFresh ? health?.temperature : null, " °C"), icon: Thermometer },
+    { label: "Dung lượng /data", value: display(telemetryFresh ? health?.diskUsage : null, "%"), icon: HardDrive },
+    { label: "Độ trễ mạng", value: display(telemetryFresh ? health?.networkLatency : null, " ms"), icon: Wifi },
+    { label: "FPS camera", value: display(telemetryFresh ? health?.fps : null, " FPS"), icon: Activity },
   ];
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Giám sát thiết bị</p><h2 className="mt-1 text-2xl font-semibold">Tình trạng vận hành</h2><p className="mt-1 text-sm text-muted-foreground">Các chỉ số chỉ hiện khi có telemetry thực nhận từ thiết bị.</p></div>
-      <p className="text-xs text-muted-foreground">{health?.observedAt ? `Cập nhật ${new Date(health.observedAt).toLocaleTimeString("vi-VN")}` : "Chưa nhận telemetry phần cứng"}</p>
+      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Giám sát thiết bị</p><h2 className="mt-1 text-2xl font-semibold">Tình trạng vận hành</h2><p className="mt-1 text-sm text-muted-foreground">Chỉ số Genio lấy từ cảm biến và bộ lấy mẫu hệ thống; dữ liệu quá 20 giây sẽ không hiển thị như số hiện tại.</p></div>
+      <div className="text-right text-xs text-muted-foreground">
+        <p>{telemetryFresh && health?.observedAt ? `Đo lúc ${new Date(health.observedAt).toLocaleTimeString("vi-VN")}` : "Chưa có telemetry phần cứng mới"}</p>
+        <p className="mt-1">{telemetryFresh ? health?.source : telemetryAge !== null ? `Mẫu gần nhất cách đây ${telemetryAge} giây · đã hết hạn` : "Nguồn: chưa xác định"}</p>
+      </div>
     </div>
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -72,7 +85,7 @@ export function SystemHealth() {
     </div>
 
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-      <SectionCard title="Mức sử dụng CPU và RAM" subtitle="Mẫu telemetry đã nhận trong phiên trình duyệt này · tối đa 60 điểm" icon={ServerCog}>
+      <SectionCard title="Mức sử dụng CPU và RAM" subtitle="Mẫu đo thật nhận trong phiên mở trang này · tối đa 60 điểm, không phải lịch sử lưu trữ dài hạn" icon={ServerCog}>
         {points.length < 2 ? <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border px-6 text-center text-sm text-muted-foreground">Cần nhận thêm telemetry phần cứng để vẽ diễn biến. Không có chuỗi lịch sử dài hạn trong nguồn dữ liệu hiện tại.</div> : <div className="h-64">
           <ResponsiveContainer width="100%" height="100%"><AreaChart data={points} margin={{ top: 8, right: 12, bottom: 2, left: -16 }}>
             <defs><linearGradient id="cpuArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity={0.26} /><stop offset="100%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient><linearGradient id="ramArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.22} /><stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} /></linearGradient></defs>
@@ -96,7 +109,7 @@ export function SystemHealth() {
     </div>
 
     <SectionCard title="Thời gian hoạt động" subtitle="Lấy từ bản tin hệ thống, không suy ra từ uptime của trình duyệt" icon={Activity}>
-      <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Genio 350</p><p className="mt-1 text-2xl font-semibold tabular-nums">{duration(health?.uptime)}</p></div><StatusBadge color={genioFresh ? "green" : "amber"}>{genioFresh ? "Heartbeat mới" : "Chưa xác nhận hoạt động"}</StatusBadge></div>
+      <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Genio 350</p><p className="mt-1 text-2xl font-semibold tabular-nums">{duration(telemetryFresh ? health?.uptime : null)}</p></div><StatusBadge color={genioFresh && telemetryFresh ? "green" : "amber"}>{genioFresh && telemetryFresh ? "Heartbeat và telemetry mới" : genioFresh ? "AI còn heartbeat · telemetry phần cứng cũ" : "Chưa xác nhận hoạt động"}</StatusBadge></div>
       {modelStatus?.runtime_version && <p className="mt-3 text-xs text-muted-foreground">Runtime: {modelStatus.runtime_version}</p>}
     </SectionCard>
   </div>;

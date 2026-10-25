@@ -15,6 +15,11 @@ function settings(): { secret: string; users: Account[] } {
   }
   return config;
 }
+export function configuredUsers(): User[] {
+  return settings().users.map(({ id, username, fullName, email, role }) => ({
+    id, username, fullName, email, role,
+  }));
+}
 function sign(payload: string) { return createHmac("sha256", settings().secret).update(payload).digest("base64url"); }
 export function authenticate(username: string, password: string): User | null {
   const account = settings().users.find((u) => u.username === username.toLowerCase());

@@ -16,6 +16,7 @@ function load(file, overrides = {}) {
 }
 const status = load('src/lib/traffic-status.ts');
 const constants = load('src/lib/constants.ts');
+const hardware = load('src/lib/hardware-telemetry.ts');
 const now = 1000000;
 function record(label = 'Ket_xe') {
   const counts = { Duong_vang: 0, Binh_thuong: 0, Dong_xe: 0, Sap_ket: 0, Ket_xe: 0 };
@@ -72,6 +73,17 @@ test('alerts use stabilized state, persist acknowledgement and resolve with cond
   assert.equal(status.buildCameraAlerts({ cam_01: record('Duong_vang') }, alerts, now).length, 0);
   const stale = status.buildCameraAlerts({ cam_01: record() }, alerts, now + 50000);
   assert.equal(stale.length, 1); assert.equal(stale[0].type, 'camera_error');
+});
+test('Genio telemetry uses its sampled timestamp and expires instead of refreshing on Firebase receipt', () => {
+  const sampledAt = Date.parse('2026-10-25T15:40:00.000Z');
+  const sample = hardware.genioTelemetry({ echoTimestamp: sampledAt / 1000 + 2, sampleAgeMs: 2000,
+    temperatureC: 46.8, cpuPercent: 20.2, ramPercent: 25.6, dataUsedPercent: 30.6, linuxUptimeSeconds: 1180 });
+  assert.equal(sample.observedAt, sampledAt);
+  assert.equal(sample.temperature, 46.8);
+  assert.equal(sample.source, 'Genio 350 · GINFO qua UART STM32');
+  assert.equal(hardware.telemetryIsFresh(sample, sampledAt + 19000), true);
+  assert.equal(hardware.telemetryIsFresh(sample, sampledAt + 21000), false);
+  assert.equal(hardware.genioTelemetry({ echoTimestamp: sampledAt / 1000, sampleAgeMs: -1, temperatureC: 38 }), null);
 });
 test('SSE nested camera patches, deletes and system polling normalize full immutable snapshots', async () => {
   let source; const intervals = []; const events = [];

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { session, sameOrigin } from "@/lib/server/auth";
 import { database } from "@/lib/server/firebase";
+import { appendAuditEvent } from "@/lib/server/audit";
 import { TIMING_LIMITS, type TimingKey } from "@/lib/controller";
 
 // This endpoint accepts requests only; actual signalState is written by the UART bridge.
@@ -42,6 +43,11 @@ export async function POST(request: Request) {
     command = { ...command, status: "PENDING", actor: user.id, queueKey: `${action === "emergency" ? 0 : 1}:${timestamp}:${id}`, expiresAt: timestamp+10000 };
     const transaction = await database().ref(`traffic/commands/${id}`).transaction((existing) => existing === null ? command : undefined);
     if (!transaction.committed) return NextResponse.json({ error: "ID đã tồn tại" }, { status: 409 });
+    const actionLabel = action === "set_mode" ? `Xếp hàng yêu cầu đổi chế độ ${String(command.mode)}` :
+      action === "set_duration" ? `Xếp hàng yêu cầu đặt ${String(command.phase)} = ${String(command.duration)} giây` :
+      action === "set_plan" ? "Xếp hàng kế hoạch pha đèn" :
+      action === "emergency" ? "Xếp hàng lệnh khẩn cấp" : "Xếp hàng yêu cầu chuyển pha";
+    await appendAuditEvent(request, user, "control", actionLabel, { commandId: id, status: "PENDING" });
     return NextResponse.json({ id, status: "PENDING" }, { status: 202 });
   } catch {
     return NextResponse.json({ error: "Không ghi được yêu cầu điều khiển" }, { status: 500 });

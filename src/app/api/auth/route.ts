@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticate, session, sessionToken, sameOrigin } from "@/lib/server/auth";
+import { appendAuditEvent } from "@/lib/server/audit";
 const attempts = new Map<string, { count: number; until: number }>();
 export async function GET() { const user = await session(); return NextResponse.json({ user }, { status: user ? 200 : 401 }); }
 export async function POST(request: Request) {
@@ -21,10 +22,13 @@ export async function POST(request: Request) {
     response.cookies.set("traffic_session", sessionToken(user), {
       httpOnly: true, sameSite: "strict", secure: new URL(request.url).protocol === "https:", path: "/", maxAge: 8*3600,
     });
+    await appendAuditEvent(request, user, "auth", "Đăng nhập hệ thống");
     return response;
   } catch { return NextResponse.json({ error: "Dịch vụ đăng nhập chưa sẵn sàng" }, { status: 503 }); }
 }
 export async function DELETE(request: Request) {
   if (!sameOrigin(request)) return new Response(null, { status: 403 });
+  const user = await session();
+  if (user) await appendAuditEvent(request, user, "auth", "Đăng xuất hệ thống");
   const response = NextResponse.json({ success: true }); response.cookies.delete("traffic_session"); return response;
 }

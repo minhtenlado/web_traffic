@@ -56,9 +56,13 @@ export function buildCameraAlerts(records: Record<string, any>, previous: any[],
     if (!error && !congestion) return [];
     const key = `alert-${id}-${error ? "err" : "cong"}`;
     const old = previous.find(a => a.id === key);
+    const sourceAt = Number(records[id]?.last_update) * 1000;
+    const estimatedAt = Number.isFinite(sourceAt) && sourceAt > 0
+      ? error ? sourceAt + CAMERA_TTL_SECONDS * 1000 : sourceAt
+      : nowMs;
     return [{ id: key, type: error ? "camera_error" : "congestion", label: error ? "Dữ liệu camera" : "Ùn tắc",
       color: error ? "amber" : "red", severity: error ? "warning" : "critical",
       message: `${CAMERAS.find(c => c.id === id)?.name}: ${view.text}`,
-      timestamp: old?.timestamp ?? new Date(nowMs).toISOString(), acknowledged: old?.acknowledged ?? false, camera: id }];
+      timestamp: old?.timestamp ?? new Date(Math.min(estimatedAt, nowMs)).toISOString(), acknowledged: old?.acknowledged ?? false, camera: id }];
   });
 }
