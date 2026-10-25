@@ -33,7 +33,8 @@ export function SignalControl() {
   void tick;
   const phase = SIGNAL_PHASES.find((p) => p.id === signal.currentPhase);
   const localControl = signal.localControl === true;
-  const disabled = !online || !!pending || localControl;
+  const readOnlyTelemetry = status?.readOnlyTelemetry === true || status?.controlEnabled === false;
+  const disabled = !online || readOnlyTelemetry || !!pending || localControl;
   useEffect(() => { setValues(signal.phaseDurations); }, [signal.phaseDurations.green, signal.phaseDurations.yellow, signal.phaseDurations.left, signal.phaseDurations.allred]);
   useEffect(() => {
     if (!pending || pending === "sending") return;
@@ -73,6 +74,7 @@ export function SignalControl() {
           <p className="text-2xl font-bold">{phase?.name || "Chưa xác định pha"}</p>
           <p className="text-4xl font-mono">{!online ? "—" : signal.mode === "emergency" ? "STOP" : signal.hold ? "GIỮ PHA" : `${signal.countdown} s`}</p>
           {!online && <p className="text-sm text-amber-600">Trạng thái cũ không xác nhận đèn hiện tại. Các lệnh điều khiển đang khóa.</p>}
+          {online && readOnlyTelemetry && <p className="text-sm text-amber-600">Đang nhận telemetry UART ở chế độ chỉ đọc; mọi lệnh điều khiển vẫn bị khóa.</p>}
           <div className="flex flex-wrap gap-3">
             <button className={button} disabled={disabled || signal.mode === "emergency"} onClick={() => run(() => setMode("auto"))}>AUTO</button>
             <button className={button} disabled={disabled || signal.mode === "emergency"} onClick={() => run(() => setMode("manual"))}>MANUAL</button>
@@ -115,7 +117,7 @@ export function SignalControl() {
           onClick={() => run(() => sendControllerCommand({action:'set_plan',plan:axisPlan,planId:(crypto.getRandomValues(new Uint32Array(1))[0]%0xFFFFFF)+1,validUntil:Math.floor(Date.now()/1000)+300}))}>Gửi kế hoạch cho chu kỳ tiếp theo</button>
       </SectionCard>
       <SectionCard title="Khẩn cấp" subtitle="STM32 đưa tất cả tín hiệu về đỏ" icon={ShieldAlert}>
-        <button className={`${button} bg-destructive text-destructive-foreground`} disabled={!online}
+        <button className={`${button} bg-destructive text-destructive-foreground`} disabled={!online || readOnlyTelemetry}
           onClick={() => run(emergency)}>DỪNG KHẨN CẤP</button>
         <p className="mt-3 text-sm text-muted-foreground">Nhả nút KHẨN CẤP, sau đó nhấn giữ KHÔI PHỤC (PB3) đủ 3 giây. STM32 giữ toàn đỏ rồi về AUTO. Nút KHẨN CẤP tại mạch hoạt động độc lập với Web.</p>
       </SectionCard>

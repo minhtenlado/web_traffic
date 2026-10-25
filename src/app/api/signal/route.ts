@@ -9,6 +9,10 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Cần đăng nhập" }, { status: 401 });
   if (!["admin", "operator"].includes(user.role) || !sameOrigin(request)) return new Response(null, { status: 403 });
   try {
+    const controllerStatus = (await database().ref("traffic/controllerStatus").get()).val();
+    if (controllerStatus?.readOnlyTelemetry === true || controllerStatus?.controlEnabled === false) {
+      return NextResponse.json({ error: "Kết nối STM32 hiện ở chế độ chỉ đọc; lệnh điều khiển đang khóa" }, { status: 423 });
+    }
     const body = await request.json();
     const { id, timestamp, action } = body;
     if (typeof id !== "string" || !/^[a-zA-Z0-9-]{1,128}$/.test(id) ||

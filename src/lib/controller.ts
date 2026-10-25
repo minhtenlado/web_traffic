@@ -28,6 +28,8 @@ export interface ControllerStatus {
   metrics?: Record<string, number>;
   framesReceived?: number;
   maxHeartbeatGapMs?: number;
+  readOnlyTelemetry?: boolean;
+  controlEnabled?: boolean;
   timestamp: number;
 }
 export interface CommandResult { id: string; status: string; message: string; timestamp: number }

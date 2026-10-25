@@ -1,6 +1,5 @@
 "use client";
 
-import { cameraView } from "@/lib/traffic-status";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Bell, Radio, MapPin, LogOut, Menu } from "lucide-react";
@@ -36,10 +35,10 @@ export function Header() {
   const toggleTheme = useTrafficStore((s) => s.toggleTheme);
   const setActive = useTrafficStore((s) => s.setActiveSection);
   const alertCount = useTrafficStore((s) => s.alerts.filter((a) => !a.acknowledged).length);
-  const isBoardOffline = useTrafficStore((s) => s.isBoardOffline);
+  const edgeAI = useTrafficStore((s) => s.edgeAI);
+  const controllerStatus = useTrafficStore((s) => s.controllerStatus);
   const user = useTrafficStore((s) => s.user);
   const logout = useTrafficStore((s) => s.logout);
-  const realtimeCams = useTrafficStore((s) => s.realtimeCams);
   const toggleSidebar = useTrafficStore((s) => s.toggleSidebar);
   const isMobile = useIsMobile();
   const selectedArea = useTrafficStore((s) => s.selectedArea);
@@ -52,9 +51,13 @@ export function Header() {
   }, []);
 
   const meta = SECTION_TITLES[activeSection] || SECTION_TITLES.dashboard;
-  const onlineCameras = realtimeCams
-    ? ['cam_01', 'cam_02', 'cam_03', 'cam_04', 'cam_05', 'cam_06', 'cam_07'].filter((id) => cameraView(realtimeCams[id], time?.getTime() ?? Date.now()).fresh).length
-    : 0;
+  const nowSeconds = (time?.getTime() ?? Date.now()) / 1000;
+  const edgeGeneratedAt = Number(edgeAI?.generated_at);
+  const genioOnline = edgeAI?.status?.online === true && Number.isFinite(edgeGeneratedAt) &&
+    nowSeconds >= edgeGeneratedAt && nowSeconds - edgeGeneratedAt <= 30;
+  const controllerLastSeen = Number(controllerStatus?.lastSeen);
+  const stm32Online = controllerStatus?.online === true && Number.isFinite(controllerLastSeen) &&
+    nowSeconds >= controllerLastSeen - 2 && nowSeconds - controllerLastSeen < 3;
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/70 px-4 backdrop-blur-xl sm:px-5">
@@ -91,17 +94,21 @@ export function Header() {
       {/* Right cluster */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* System status */}
-        <div
-          className={cn(
-            "hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium md:flex",
-            isBoardOffline
-              ? "border-destructive/30 bg-destructive/10 text-destructive"
-              : "border-success/30 bg-success/10 text-success",
-          )}
-        >
-          <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-current" />
-          <Radio className="h-3.5 w-3.5" />
-          <span>{isBoardOffline ? "Bo mạch offline" : `${onlineCameras}/7 camera có dữ liệu AI mới`}</span>
+        <div className="hidden items-center gap-2 text-xs font-medium md:flex" aria-label="Trạng thái Genio và STM32">
+          <span className={cn(
+            "flex items-center gap-2 rounded-full border px-3 py-1.5",
+            genioOnline ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive",
+          )}>
+            <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-current" />
+            <Radio className="h-3.5 w-3.5" />
+            <span>Genio AI {genioOnline ? "online" : "offline"}</span>
+          </span>
+          <span className={cn(
+            "rounded-full border px-3 py-1.5",
+            stm32Online ? "border-success/30 bg-success/10 text-success" : "border-amber-500/30 bg-amber-500/10 text-amber-600",
+          )}>
+            STM32 {stm32Online ? "telemetry mới" : "chưa có telemetry"}
+          </span>
         </div>
 
         {/* Location Selector */}
