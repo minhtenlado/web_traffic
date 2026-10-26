@@ -79,9 +79,17 @@ export function SignalControl() {
     : fuzzy?.planStatus === "QUEUED" || fuzzy?.planStatus === "SHADOW_READY" || fuzzy?.planStatus?.startsWith("WAITING") ? "amber"
       : fuzzy?.planStatus?.startsWith("READY") ? "green" : "amber";
   const fuzzyFresh = !!fuzzy?.timestamp && Date.now() - fuzzy.timestamp * 1000 < 30000;
+  const fuzzyValidationLabel = fuzzy?.validationStatus === "validated" || fuzzy?.validationStatus === "field_validated"
+    ? "Đã kiểm định" : "Chưa kiểm định";
+  const situationLabels: Record<string, string> = {
+    NORMAL: "Lưu lượng ổn định", BOTH_HEAVY: "Hai hướng đông",
+    A_HEAVY: "Bắc–Nam đông", B_HEAVY: "Đông–Tây đông",
+  };
+  const situationLabel = fuzzy?.situation ? situationLabels[fuzzy.situation] || fuzzy.situation : "Chưa xác định";
   const fuzzyPlanQueuedOrApplied = ["APPLIED", "QUEUED"].includes(fuzzy?.planStatus || "");
   const fuzzyPlan = fuzzyPlanQueuedOrApplied ? fuzzy?.appliedPlan || fuzzy?.plan : null;
   const fuzzyCandidatePlan = !fuzzyPlanQueuedOrApplied ? fuzzy?.plan : null;
+  const visibleFuzzyPlan = fuzzyFresh ? fuzzyPlan || fuzzyCandidatePlan : null;
   const liveSignalPlan = signal.protocol === 2 ? {
     greenNS: signal.phaseDurations.green, greenEW: signal.greenEW,
     leftNS: signal.phaseDurations.left, leftEW: signal.leftEW,
@@ -144,27 +152,50 @@ export function SignalControl() {
           onClick={() => run(emergency)}>DỪNG KHẨN CẤP</button>
         <p className="mt-3 text-sm text-muted-foreground">Nhả nút KHẨN CẤP, sau đó nhấn giữ KHÔI PHỤC (PB3) đủ 3 giây. STM32 giữ toàn đỏ rồi về AUTO. Nút KHẨN CẤP tại mạch hoạt động độc lập với Web.</p>
       </SectionCard>
-      <SectionCard title="5 nút vận hành tại mạch" subtitle="Bố trí mới, giữ nguyên chân và dây nối" icon={Settings2}>
-        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Nút</th><th className="p-2">Chân</th><th className="p-2">Thao tác</th></tr></thead><tbody>
+      <SectionCard title="Điều khiển thích ứng Fuzzy" subtitle="Nhu cầu hai hướng và thời lượng đèn" icon={Timer}
+        action={<div className="flex flex-wrap justify-end gap-2">
+          <StatusBadge color={fuzzyFresh ? fuzzyStatusColor : "amber"} pulse={fuzzyFresh}>{fuzzyFresh ? fuzzyStatusLabel : "Dữ liệu cũ"}</StatusBadge>
+          {fuzzy?.advisoryOnly && <StatusBadge color="amber">Chỉ theo dõi</StatusBadge>}
+          <StatusBadge color={fuzzyValidationLabel === "Đã kiểm định" ? "green" : "amber"}>{fuzzyValidationLabel}</StatusBadge>
+        </div>}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
+          <span className="text-sm font-medium">{fuzzyFresh ? situationLabel : "Đang chờ dữ liệu mới"}</span>
+          <span className="text-sm text-muted-foreground">STM32 · {MODE_LABELS[fuzzy?.controllerState?.mode as keyof typeof MODE_LABELS] || MODE_LABELS[signal.mode]}</span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {([
+            { key: "A", title: "Điểm nhu cầu · Bắc–Nam", value: fuzzy?.demandA, count: fuzzy?.directionCounts?.A },
+            { key: "B", title: "Điểm nhu cầu · Đông–Tây", value: fuzzy?.demandB, count: fuzzy?.directionCounts?.B },
+          ]).map((item) => (
+            <div key={item.key} className="rounded-lg border border-border/80 p-3">
+              <p className="text-xs text-muted-foreground">{item.title}</p>
+              <div className="mt-1 flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-semibold tabular-nums">{fuzzyFresh && item.value != null ? Number(item.value).toFixed(1) : "—"}</span>
+                <span className="text-xs text-muted-foreground">{fuzzyFresh && item.count != null ? `${item.count} xe trong ảnh` : "Chưa có số liệu mới"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {[
-            ["TỰ ĐỘNG", "PC11", "Trả quyền cho Web, chuyển tiếp an toàn rồi chạy AUTO"],
-            ["THỦ CÔNG", "PC12", "Tiếp quản tại mạch, giữ pha xanh đang chạy"],
-            ["CHUYỂN PHA", "PD2", "Nhấn một lần để chuyển pha trong thủ công tại mạch; xanh tối thiểu 5 giây"],
-            ["KHÔI PHỤC", "PB3", "Nhả KHẨN CẤP rồi giữ nút này 3 giây để thoát khẩn cấp"],
-            ["KHẨN CẤP", "PB4", "Đưa tất cả tín hiệu về đỏ; ưu tiên cao nhất"],
-          ].map(([label,pin,help]) => <tr key={pin} className="border-t"><td className="p-2 font-medium">{label}</td><td className="p-2 font-mono">{pin}</td><td className="p-2">{help}</td></tr>)}
-        </tbody></table></div>
-        <p className="mt-3 text-sm text-muted-foreground">Không giữ CHUYỂN PHA để lặp. Chỉnh thời lượng trên Web khi đã trả quyền điều khiển. AUTO không xóa trạng thái khẩn cấp.</p>
-      </SectionCard>
-      <SectionCard title="Điều khiển thích ứng Fuzzy" subtitle="Tự gửi kế hoạch khi STM32 ở AUTO; STM32 vẫn thực thi và giữ các pha an toàn" icon={Timer}
-        action={<StatusBadge color={fuzzyFresh ? fuzzyStatusColor : "amber"} pulse={fuzzyFresh}>{fuzzyFresh ? fuzzyStatusLabel : "Dữ liệu Fuzzy cũ"}</StatusBadge>}>
-        <p className="text-sm">{fuzzy?.reason || "Đang chờ snapshot camera và telemetry hợp lệ."}</p>
-        <p className="mt-2 text-sm">Trục A → Bắc–Nam · Trục B → Đông–Tây · Chế độ STM32: {fuzzy?.controllerState?.mode || signal.mode}</p>
-        {liveSignalPlan && <p className="mt-2 text-sm font-medium">STM32 đang chạy plan #{signal.planId ?? 0}: xanh NS/EW {liveSignalPlan.greenNS}/{liveSignalPlan.greenEW ?? "—"} giây · rẽ trái NS/EW {liveSignalPlan.leftNS}/{liveSignalPlan.leftEW ?? "—"} giây</p>}
-        {fuzzyPlan && <p className="mt-1 text-sm">{fuzzy?.planStatus === "APPLIED" ? "Fuzzy đã được STM32 áp dụng" : "Fuzzy đang chờ STM32 xác nhận"} #{fuzzy?.planId ?? "—"}: xanh NS/EW {fuzzyPlan.greenNS ?? "—"}/{fuzzyPlan.greenEW ?? "—"} giây · rẽ trái NS/EW {fuzzyPlan.leftNS ?? "—"}/{fuzzyPlan.leftEW ?? "—"} giây</p>}
-        {fuzzyCandidatePlan && <p className="mt-1 text-sm text-muted-foreground">Đề xuất Fuzzy chưa gửi: xanh NS/EW {fuzzyCandidatePlan.greenNS ?? "—"}/{fuzzyCandidatePlan.greenEW ?? "—"} giây · rẽ trái NS/EW {fuzzyCandidatePlan.leftNS ?? "—"}/{fuzzyCandidatePlan.leftEW ?? "—"} giây</p>}
-        {fuzzy && <p className="mt-2 text-sm">Nhu cầu ước lượng A/B: {fuzzy.demandA ?? "—"}/{fuzzy.demandB ?? "—"} · số xe trong ảnh A/B: {fuzzy.directionCounts?.A ?? "—"}/{fuzzy.directionCounts?.B ?? "—"}</p>}
-        <p className="mt-2 text-xs text-muted-foreground">Đầu vào là số đối tượng YOLO trong ảnh, chưa hiệu chuẩn thành lưu lượng. Nhãn classifier, TCN và thời tiết chưa được đưa vào bộ điều khiển Fuzzy; trạng thái kiểm định: {fuzzy?.validationStatus || "chưa có dữ liệu"}. {fuzzy?.advisoryOnly ? "Hiện chỉ theo dõi, chưa gửi kế hoạch." : "Kế hoạch chỉ có hiệu lực sau khi STM32 xác nhận."}</p>
+            { title: "Thời lượng đang chạy", plan: online ? liveSignalPlan : null, badge: signal.planId ? `Kế hoạch #${signal.planId}` : "STM32" },
+            { title: fuzzyPlanQueuedOrApplied ? "Kế hoạch Fuzzy" : "Đề xuất Fuzzy", plan: visibleFuzzyPlan, badge: visibleFuzzyPlan ? `#${fuzzy?.planId ?? "—"}` : "Chưa có" },
+          ].map((item) => (
+            <div key={item.title} className="rounded-lg border border-border/80 p-3">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h4 className="text-sm font-medium">{item.title}</h4>
+                <span className="text-xs text-muted-foreground">{item.badge}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-md bg-muted/40 p-2"><span className="block text-xs text-muted-foreground">Xanh thẳng NS / EW</span><span className="font-medium tabular-nums">{item.plan ? `${item.plan.greenNS ?? "—"} / ${item.plan.greenEW ?? "—"} giây` : "—"}</span></div>
+                <div className="rounded-md bg-muted/40 p-2"><span className="block text-xs text-muted-foreground">Rẽ trái NS / EW</span><span className="font-medium tabular-nums">{item.plan ? `${item.plan.leftNS ?? "—"} / ${item.plan.leftEW ?? "—"} giây` : "—"}</span></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">{fuzzy?.advisoryOnly ? "Đang theo dõi, chưa gửi kế hoạch đến STM32." : "Kế hoạch chỉ có hiệu lực sau khi STM32 xác nhận."}</p>
       </SectionCard>
     </div>
   );
