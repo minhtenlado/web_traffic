@@ -131,10 +131,12 @@ export function Dashboard() {
     <SectionCard title="Camera AI tại giao lộ" subtitle="Số xe và nhãn lấy từ bản tin nhận diện mới nhất trên Genio; nhãn tự động chưa được xác minh độc lập" icon={Camera} action={<button onClick={() => setActive("camera")} className="text-xs font-medium text-primary hover:underline">Mở giám sát camera →</button>}>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {cameras.map((camera) => {
-          const label = camera.edge.labelInfo?.text || (camera.view.label ? camera.view.text : null);
+          const label = camera.edge.stabilizationMode === "display"
+            ? camera.edge.labelInfo?.text || camera.edge.stabilizationText
+            : camera.edge.labelInfo?.text || (camera.view.label ? camera.view.text : null);
           const count = camera.edge.fresh ? camera.edge.count : camera.view.fresh ? camera.view.count : camera.edge.count;
-          const status = camera.edge.fresh ? "AI mới" : camera.edge.available ? "AI cũ" : camera.view.fresh ? "Nhãn ổn định" : camera.data?.status === "ERROR" ? "Lỗi" : "Đang chờ";
-          const color = camera.edge.fresh ? camera.edge.labelInfo?.cls || "green" : camera.edge.available ? "amber" : camera.view.fresh ? camera.view.cls : camera.data?.status === "ERROR" ? "red" : "cyan";
+          const status = camera.edge.fresh ? "AI mới" : camera.edge.available ? "AI cũ" : camera.edge.stabilizationMode === "display" ? "Chưa đủ dữ liệu" : camera.view.fresh ? "Nhãn ổn định" : camera.data?.status === "ERROR" ? "Lỗi" : "Đang chờ";
+          const color = camera.edge.fresh ? camera.edge.labelInfo?.cls || (camera.edge.stabilizationMode === "display" ? "cyan" : "green") : camera.edge.available ? "amber" : camera.edge.stabilizationMode === "display" ? "cyan" : camera.view.fresh ? camera.view.cls : camera.data?.status === "ERROR" ? "red" : "cyan";
           return <article key={camera.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/30 px-3 py-3">
             <div className="min-w-0"><p className="font-medium">{camera.name}</p><p className="truncate text-xs text-muted-foreground" title={camera.label}>{camera.label}</p><p className="mt-1 truncate text-xs font-medium text-foreground">{label || "Chưa phân loại"}</p></div>
             <div className="shrink-0 text-right"><StatusBadge color={color}>{status}</StatusBadge><p className="mt-1 text-xs tabular-nums text-muted-foreground">{count === null ? "—" : `${count} xe`}</p></div>

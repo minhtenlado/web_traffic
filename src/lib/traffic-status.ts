@@ -5,11 +5,11 @@ export const EDGE_TTL_SECONDS = 30;
 export const EDGE_CAMERA_TTL_SECONDS = 45;
 export const ACTIVE_CAMERA_IDS = CAMERAS.filter(c => c.aiInput).map(c => c.id);
 
-export const EDGE_TRAFFIC_LABELS: Record<string, { text: string; cls: "green" | "amber" | "red" }> = {
-  Khong_ket: { text: "Thông thoáng", cls: "green" },
-  Dong: { text: "Đông xe", cls: "amber" },
-  Ket_nhe: { text: "Kẹt nhẹ", cls: "amber" },
-  Ket_nang: { text: "Kẹt nặng", cls: "red" },
+export const EDGE_TRAFFIC_LABELS: Record<string, { text: string; displayCode: string; cls: "green" | "amber" | "red" }> = {
+  Khong_ket: { text: "Thông thoáng", displayCode: "Thong_thoang", cls: "green" },
+  Dong: { text: "Trung bình", displayCode: "Trung_binh", cls: "green" },
+  Ket_nhe: { text: "Đông đúc", displayCode: "Dong_duc", cls: "amber" },
+  Ket_nang: { text: "Rất đông", displayCode: "Rat_dong", cls: "red" },
 };
 
 export function edgePayloadIsFresh(data: any, nowMs = Date.now()) {
@@ -29,13 +29,39 @@ export function edgeCameraView(record: any, payloadFresh: boolean, nowMs = Date.
   const count = Number.isInteger(record?.vehicle_count) && record.vehicle_count >= 0
     ? Number(record.vehicle_count) : null;
   const rawLabel = String(record?.label || "");
-  const label = EDGE_TRAFFIC_LABELS[rawLabel] ? rawLabel : null;
-  const available = hasTimestamp && (count !== null || label !== null);
-  const fresh = payloadFresh && status === "fresh" && available && ageSeconds !== null &&
-    ageSeconds <= EDGE_CAMERA_TTL_SECONDS;
-  return { available, fresh, count, label, labelInfo: label ? EDGE_TRAFFIC_LABELS[label] : null,
-    observedAt: hasTimestamp ? observedAt : null, ageSeconds, status,
-    labelSource: typeof record?.label_source === "string" ? record.label_source : null };
+  const validRawLabel = EDGE_TRAFFIC_LABELS[rawLabel] ? rawLabel : null;
+  const stability = record?.classification_stability || null;
+  const stabilizationMode = ["disabled", "shadow", "display"].includes(String(stability?.mode))
+    ? String(stability.mode) : "legacy";
+  const stableState = String(stability?.stable_state || "");
+  const stableLabel = stability?.data_status === "VALID" && stability?.data_valid === true &&
+    EDGE_TRAFFIC_LABELS[stableState] ? stableState : null;
+  const stableAt = Number(stability?.last_valid_timestamp);
+  const stableAge = Number(stability?.observation_age_seconds);
+  const stableFresh = stabilizationMode === "display" && stableLabel !== null &&
+    Number.isFinite(stableAge) && stableAge >= 0 && stableAge <= EDGE_TTL_SECONDS &&
+    Number.isFinite(stableAt) && stableAt > 0 && now >= stableAt;
+  const label = stabilizationMode === "display" ? (stableFresh ? stableLabel : null) : validRawLabel;
+  const effectiveObservedAt = hasTimestamp ? observedAt : stableFresh ? stableAt : NaN;
+  const effectiveAge = Number.isFinite(effectiveObservedAt) ? now - effectiveObservedAt : null;
+  const available = Number.isFinite(effectiveObservedAt) && (count !== null || label !== null);
+  const fresh = payloadFresh && available && effectiveAge !== null && effectiveAge >= 0 &&
+    effectiveAge <= EDGE_CAMERA_TTL_SECONDS && (status === "fresh" || stableFresh);
+  const pending = stability?.pending_transition;
+  const stabilizationText = stabilizationMode !== "display" ? null
+    : stability?.data_status === "STALE" ? "Nhãn ổn định đã cũ"
+    : pending?.state ? `Đang xác nhận (${pending.count}/${pending.required} ảnh)`
+    : "Chưa đủ ảnh xác nhận";
+  return {
+    available, fresh, count, label, labelInfo: label ? EDGE_TRAFFIC_LABELS[label] : null,
+    rawLabel: validRawLabel, rawLabelInfo: validRawLabel ? EDGE_TRAFFIC_LABELS[validRawLabel] : null,
+    stableLabel, stableLabelInfo: stableLabel ? EDGE_TRAFFIC_LABELS[stableLabel] : null,
+    stableConfidence: Number.isFinite(stability?.stable_confidence) ? Number(stability.stable_confidence) : null,
+    stabilizationMode, stabilizationStatus: stability?.data_status || "UNKNOWN", stabilizationText,
+    pendingTransition: pending || null, observedAt: Number.isFinite(effectiveObservedAt) ? effectiveObservedAt : null,
+    ageSeconds: effectiveAge, status,
+    labelSource: typeof record?.label_source === "string" ? record.label_source : null,
+  };
 }
 
 export function cameraView(record: any, nowMs = Date.now()) {

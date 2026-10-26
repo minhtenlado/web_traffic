@@ -6,9 +6,10 @@ import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
+import { edgeCameraView, edgePayloadIsFresh } from "@/lib/traffic-status";
 
 const TRAFFIC_LABELS: Record<string, string> = {
-  Khong_ket: "Thông thoáng", Dong: "Đông xe", Ket_nhe: "Kẹt nhẹ", Ket_nang: "Kẹt nặng",
+  Khong_ket: "Thông thoáng", Dong: "Trung bình", Ket_nhe: "Đông đúc", Ket_nang: "Rất đông",
 };
 function validationText(value: unknown) {
   if (value === "validated") return "Đã kiểm định";
@@ -76,12 +77,20 @@ export function ModelManagement() {
 
     <SectionCard title="Nhận dạng từ camera" subtitle={`${cameras.length} nguồn camera có bản tin trong payload gần nhất`} icon={Camera}>
       {cameras.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {cameras.map(([id, value]: [string, any]) => <article key={id} className="rounded-lg border border-border/80 bg-background/35 p-4">
-            <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{CAMERAS.find((camera) => camera.id === id)?.name || id.replace("_", " ")}</h3><p className="text-xs text-muted-foreground">{CAMERAS.find((camera) => camera.id === id)?.label || ""}</p></div><StatusBadge color={["OK", "FRESH"].includes(String(value.status).toUpperCase()) ? "green" : "amber"}>{["OK", "FRESH"].includes(String(value.status).toUpperCase()) ? "Ảnh mới" : "Đang chờ"}</StatusBadge></div>
-          <div className="mt-4 flex items-end justify-between border-t border-border/70 pt-3"><div><p className="text-xs text-muted-foreground">Tình trạng</p><p className="mt-1 text-lg font-semibold">{TRAFFIC_LABELS[value.label] || "Chưa phân loại"}</p></div><p className="text-right text-sm tabular-nums">{value.vehicle_count ?? "—"}<span className="ml-1 text-xs text-muted-foreground">xe trong ảnh</span></p></div>
-          <p className="mt-2 text-xs text-muted-foreground">Độ tin cậy đầu ra: {Number.isFinite(value.classification_confidence) ? `${(Number(value.classification_confidence) * 100).toFixed(0)}%` : "—"} · ảnh {Number.isFinite(value.image_age_seconds) ? `${Number(value.image_age_seconds).toFixed(0)} giây trước` : "chưa rõ thời điểm"}</p>
-          {value.label_source && <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Nguồn và nhãn kỹ thuật</summary><p className="mt-1">Nguồn: {value.label_source}</p><p>Nhãn gốc: {value.label || "—"}</p></details>}
-        </article>)}
+        {cameras.map(([id, value]: [string, any]) => {
+          const camera = edgeCameraView(value, edgePayloadIsFresh(edgeAI), now * 1000);
+          const stability = value?.classification_stability;
+          const labelText = camera.labelInfo?.text || (camera.stabilizationMode === "display"
+            ? camera.stabilizationText || "Chưa đủ dữ liệu mới" : TRAFFIC_LABELS[value.label] || "Chưa phân loại");
+          const cameraFresh = camera.fresh;
+          return <article key={id} className="rounded-lg border border-border/80 bg-background/35 p-4">
+            <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{CAMERAS.find((item) => item.id === id)?.name || id.replace("_", " ")}</h3><p className="text-xs text-muted-foreground">{CAMERAS.find((item) => item.id === id)?.label || ""}</p></div><StatusBadge color={cameraFresh ? "green" : "amber"}>{cameraFresh ? "Ảnh mới" : "Đang chờ"}</StatusBadge></div>
+            <div className="mt-4 flex items-end justify-between border-t border-border/70 pt-3"><div><p className="text-xs text-muted-foreground">Tình trạng{camera.stabilizationMode === "display" ? " ổn định" : " nhận diện"}</p><p className="mt-1 text-lg font-semibold">{labelText}</p></div><p className="text-right text-sm tabular-nums">{value.vehicle_count ?? "—"}<span className="ml-1 text-xs text-muted-foreground">xe trong ảnh</span></p></div>
+            <p className="mt-2 text-xs text-muted-foreground">YOLO: {TRAFFIC_LABELS[value.label] || "Chưa phân loại"} · tin cậy {(Number(value.classification_confidence) * 100).toFixed(0)}% · ảnh {Number.isFinite(value.image_age_seconds) ? `${Number(value.image_age_seconds).toFixed(0)} giây trước` : "chưa rõ thời điểm"}</p>
+            {stability && <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Chi tiết trạng thái theo thời gian</summary><p className="mt-1">Chế độ: {stability.mode || "legacy"} · dữ liệu: {stability.data_status || "UNKNOWN"}</p><p>YOLO hiện tại: {TRAFFIC_LABELS[stability.raw_state] || TRAFFIC_LABELS[value.label] || "Chưa phân loại"} · {Number.isFinite(stability.raw_confidence) ? `${(Number(stability.raw_confidence) * 100).toFixed(0)}%` : "—"}</p><p>Ổn định: {stability.data_status === "VALID" ? TRAFFIC_LABELS[stability.stable_state] || "—" : "Chưa hợp lệ"} · {Number.isFinite(stability.stable_confidence) ? `${(Number(stability.stable_confidence) * 100).toFixed(0)}%` : "—"}</p><p>Ảnh hợp lệ gần nhất: {Number.isFinite(stability.last_valid_timestamp) ? new Date(Number(stability.last_valid_timestamp) * 1000).toLocaleString("vi-VN") : "—"}</p>{stability.pending_transition && <p>Đang xác nhận: {TRAFFIC_LABELS[stability.pending_transition.state] || stability.pending_transition.state} ({stability.pending_transition.count}/{stability.pending_transition.required} ảnh)</p>}</details>}
+            {value.label_source && <p className="mt-1 text-[11px] text-muted-foreground">Nguồn: {value.label_source} · tên hiển thị không thay đổi Class ID hoặc trọng số model.</p>}
+          </article>;
+        })}
       </div> : <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa nhận được kết quả nhận dạng mới.</p>}
     </SectionCard>
 

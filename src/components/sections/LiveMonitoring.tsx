@@ -161,14 +161,16 @@ export function LiveMonitoring() {
             const dir = DIRECTIONS.find((d) => d.id === cam.direction);
             const cls = edgeView.fresh ? (edgeView.labelInfo?.cls || "green") : view.cls;
             const displayCount = edgeView.fresh ? edgeView.count : view.fresh ? view.count : edgeView.count;
-            const displayLabel = edgeView.label ? edgeView.labelInfo?.text : view.label ? view.text : null;
+            const displayLabel = edgeView.stabilizationMode === "display"
+              ? edgeView.labelInfo?.text || edgeView.stabilizationText
+              : edgeView.label ? edgeView.labelInfo?.text : view.label ? view.text : null;
             const observedAt = edgeView.observedAt ?? (Number.isFinite(Number(camData?.last_update)) ? Number(camData.last_update) : null);
             const ts = isAiInput && observedAt ? formatClockTime(new Date(observedAt * 1000)) : "—";
             const statusText = !isAiInput ? "Chỉ xem ảnh tham chiếu" : edgeView.fresh
               ? `AI mới · ${displayLabel || "đã nhận dạng"}`
               : edgeView.available ? `Dữ liệu AI cũ · ${displayLabel || "đã nhận dạng"}`
               : view.fresh ? view.text : isCamError ? "Lỗi thu thập" : "Chưa có kết quả AI mới";
-            const statusColor = !isAiInput ? "cyan" : edgeView.fresh ? (edgeView.labelInfo?.cls || "green")
+            const statusColor = !isAiInput ? "cyan" : edgeView.fresh ? (edgeView.labelInfo?.cls || (edgeView.stabilizationMode === "display" ? "cyan" : "green"))
               : edgeView.available ? "amber" : isCamError ? "red" : view.fresh ? view.cls : "cyan";
 
             return (

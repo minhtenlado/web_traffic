@@ -77,6 +77,32 @@ test('fresh Genio inference exposes its own count and edge class without treatin
   assert.match(view.labelSource, /unverified/);
   assert.equal(status.cameraView(record, 1_000_000).fresh, false);
 });
+test('Genio classifier display labels preserve legacy classes and IDs', () => {
+  const expected = { Khong_ket: 'Thông thoáng', Dong: 'Trung bình', Ket_nhe: 'Đông đúc', Ket_nang: 'Rất đông' };
+  for (const [legacy, text] of Object.entries(expected)) {
+    const view = status.edgeCameraView({ status: 'fresh', observed_at: 999, vehicle_count: 4, label: legacy }, true, 1_000_000);
+    assert.equal(view.label, legacy);
+    assert.equal(view.labelInfo.text, text);
+  }
+});
+test('stable Genio state is selected only in display mode and unknown never falls back to raw', () => {
+  const stable = { mode: 'display', data_status: 'VALID', data_valid: true, stable_state: 'Ket_nhe',
+    stable_confidence: 0.82, last_valid_timestamp: 998, observation_age_seconds: 2 };
+  const live = status.edgeCameraView({ status: 'unavailable', vehicle_count: 13, label: 'Ket_nang',
+    classification_stability: stable }, true, 1_000_000);
+  assert.equal(live.fresh, true);
+  assert.equal(live.label, 'Ket_nhe');
+  assert.equal(live.labelInfo.text, 'Đông đúc');
+  assert.equal(live.rawLabel, 'Ket_nang');
+  const unknown = status.edgeCameraView({ status: 'fresh', observed_at: 999, vehicle_count: 13, label: 'Ket_nang',
+    classification_stability: { ...stable, data_status: 'STALE', data_valid: false, stable_state: null } }, true, 1_000_000);
+  assert.equal(unknown.label, null);
+  assert.equal(unknown.labelInfo, null);
+  const shadow = status.edgeCameraView({ status: 'fresh', observed_at: 999, vehicle_count: 13, label: 'Ket_nang',
+    classification_stability: { ...stable, mode: 'shadow' } }, true, 1_000_000);
+  assert.equal(shadow.label, 'Ket_nang');
+  assert.equal(shadow.labelInfo.text, 'Rất đông');
+});
 test('Genio camera output becomes stale on old, future, reused or offline payloads', () => {
   const nowMs = 1_000_000;
   const current = { status: 'fresh', observed_at: 999, vehicle_count: 13, label: 'Ket_nang' };
