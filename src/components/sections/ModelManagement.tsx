@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Brain, Camera, Cpu, ShieldCheck } from "lucide-react";
+import { Brain, Camera, ShieldCheck } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
@@ -9,14 +9,7 @@ import { CurrentWeatherCard } from "@/components/shared/CurrentWeatherCard";
 import { edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
 import { selectedCameraView, EDGE_TRAFFIC_LABELS } from "@/lib/traffic-status";
 
-function validationText(value: unknown) {
-  if (value === "validated") return "Đã kiểm định";
-  if (value === "experimental_unvalidated" || value === "EXPERIMENTAL") return "Đang kiểm định";
-  return "Chưa xác nhận";
-}
-
 export function ModelManagement() {
-  const status = useTrafficStore((state) => state.modelStatus);
   const edgeAI = useTrafficStore((state) => state.edgeAI);
   const edgeStatus = edgeAI?.status || {};
   const edgeWeather = edgeAI?.weather;
@@ -25,8 +18,6 @@ export function ModelManagement() {
   const generatedAt = Number(edgeAI?.generated_at);
   const age = Number.isFinite(generatedAt) ? Math.max(0, now - generatedAt) : null;
   const edgeLive = edgeStatus.online === true && age !== null && age <= 30 && now >= generatedAt;
-  const validation = validationText(edgeStatus.validation_status);
-  const models = status?.model_artifacts || edgeStatus.model_artifacts || {};
   const progress = edgeHistoryProgress(edgeStatus);
   const recovery = edgeTcnRecovery(edgeStatus, edgeLive);
   const forecasts = groupEdgeForecasts(edgeAI?.forecasts);
@@ -39,25 +30,7 @@ export function ModelManagement() {
       <StatusBadge color={edgeLive ? "green" : edgeAI ? "amber" : "cyan"}>{edgeLive ? "Genio có tín hiệu mới" : edgeAI ? "Đang chờ tín hiệu mới" : "Chưa nhận dữ liệu AI"}</StatusBadge>
     </div>
 
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-      <SectionCard title="Phiên bản đang hoạt động" subtitle="Thông tin model được hiển thị khi thiết bị gửi dữ liệu" icon={Cpu}>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          {(["detection", "classification"] as const).map((role) => {
-            const model = models[role];
-            return <article key={role} className="rounded-lg border border-border/80 bg-background/35 p-4">
-              <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">YOLO {role === "detection" ? "Detection" : "Classification"}</h3><StatusBadge color={model ? "green" : "cyan"}>{model ? "Đang hoạt động" : "Chưa có metadata"}</StatusBadge></div>
-              <p className="mt-3 text-sm">{model?.file || "Thiết bị chưa gửi tên tệp model."}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Chỉ số đánh giá độc lập: chưa có trong bản tin hiện tại.</p>
-              {model?.sha256 && <details className="mt-3 text-xs text-muted-foreground"><summary className="cursor-pointer">Thông tin kỹ thuật</summary><p className="mt-2 break-all font-mono">SHA-256: {model.sha256}</p><p className="mt-1">Input: {model.input_shape?.join(" × ") || "—"} · Output: {model.output_shape?.join(" × ") || "—"}</p></details>}
-            </article>;
-          })}
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-sm"><span>TCN: <strong>{validation}</strong></span><span className="text-muted-foreground">{age === null ? "Chưa có thời điểm cập nhật" : `Cập nhật ${Math.round(age)} giây trước`}</span></div>
-        {edgeStatus.model_version && <details className="mt-3 text-xs text-muted-foreground"><summary className="cursor-pointer">Mã phiên bản và trạng thái kiểm định</summary><p className="mt-2 break-all font-mono">Model: {edgeStatus.model_version}</p><p>Mã trạng thái: {String(edgeStatus.validation_status || "chưa có")}</p><p>Runtime: {status?.runtime_version || edgeStatus.runtime_version || "chưa có telemetry"}</p></details>}
-      </SectionCard>
-
-      <CurrentWeatherCard title="Thời tiết hiện tại" subtitle="Open-Meteo · ước tính cho khu vực Hàng Xanh, không phải trạm đo tại chỗ" />
-    </div>
+    <CurrentWeatherCard title="Thời tiết hiện tại" subtitle="Open-Meteo · ước tính cho khu vực Hàng Xanh, không phải trạm đo tại chỗ" />
 
     <SectionCard title="Nhận dạng từ camera" subtitle={`${cameras.length} nguồn camera có bản tin trong payload gần nhất`} icon={Camera}>
       {cameras.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
