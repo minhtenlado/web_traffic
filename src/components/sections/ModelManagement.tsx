@@ -118,7 +118,7 @@ export function ModelManagement() {
       </div> : <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa nhận được kết quả nhận dạng mới.</p>}
     </SectionCard>
 
-    <SectionCard title="Dự báo ùn tắc" subtitle="Dự báo 5, 15 và 30 phút; kết quả vẫn được gắn trạng thái kiểm định" icon={Brain}>
+    <SectionCard title="Dự báo ùn tắc" subtitle="Dự báo 5, 15 và 30 phút" icon={Brain}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Cửa sổ TCN 120 phút · bước 10 giây</p><div className="flex flex-wrap items-center gap-2"><StatusBadge color={hasCurrentForecast ? "green" : hasForecastChart || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge>{edgeStatus.history_reason === "estimated_gap_history" && <StatusBadge color="amber">Có mẫu bù ước tính</StatusBadge>}{(forecastReady || hasForecastChart) && <StatusBadge color="amber">Thử nghiệm · chưa kiểm định thực địa</StatusBadge>}</div></div>
       <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Mẫu đầu vào đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
