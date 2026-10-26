@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Activity, BarChart3, Camera, CircleHelp } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
-import { cameraView } from "@/lib/traffic-status";
+import { selectedCameraView } from "@/lib/traffic-status";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { TrafficVotes } from "@/components/shared/TrafficVotes";
 import { TrafficHistoryChart } from "./TrafficHistoryChart";
@@ -12,11 +12,12 @@ import { AICameraCharts } from "./AICameraCharts";
 
 export function Analytics() {
   const records = useTrafficStore((state) => state.realtimeCams);
+  const edgeAI = useTrafficStore((state) => state.edgeAI);
   const routes = useTrafficStore((state) => state.routeStats);
   const tick = useTrafficStore((state) => state._tickCount);
   const cameras = useMemo(() => CAMERAS.filter((camera) => camera.aiInput).map((camera) => ({
-    ...camera, view: cameraView(records?.[camera.id]), record: records?.[camera.id],
-  })), [records, tick]);
+    ...camera, view: selectedCameraView(camera.id, records, edgeAI), record: records?.[camera.id],
+  })), [records, edgeAI, tick]);
   const freshCount = cameras.filter((camera) => camera.view.fresh).length;
 
   return <div className="space-y-6">
@@ -33,7 +34,7 @@ export function Analytics() {
 
     <TrafficHistoryChart />
 
-    <SectionCard title="Camera phân tích AI" subtitle="Ảnh mới nhất và nhãn ổn định từ từng camera" icon={Camera}>
+    <SectionCard title="Camera phân tích AI" subtitle="Số xe và tình trạng giao thông theo từng camera" icon={Camera}>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {cameras.map(({ id, name, label, view, record }) => <article key={id} className="min-w-0 rounded-xl border border-border/80 bg-background/35 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -42,10 +43,10 @@ export function Analytics() {
           </div>
           <div className="mt-4 flex items-end justify-between gap-3 border-t border-border/70 pt-3">
             <div><span className="text-3xl font-semibold tabular-nums">{view.count ?? "—"}</span><span className="ml-2 text-xs text-muted-foreground">xe trong ảnh</span></div>
-            <p className="text-right text-xs text-muted-foreground">{record?.last_update ? new Date(Number(record.last_update) * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Chưa có thời điểm"}</p>
+            <p className="text-right text-xs text-muted-foreground">{view.observedAt ? new Date(view.observedAt * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Chưa có thời điểm"}</p>
           </div>
           {view.ready ? <p className="mt-2 text-sm">Tình trạng: <strong>{view.text}</strong></p> : <p className="mt-2 text-xs text-muted-foreground">Chưa đủ dữ liệu mới để kết luận tình trạng.</p>}
-          {view.ready && <TrafficVotes record={record} />}
+          {view.ready && view.source === "legacy" && <TrafficVotes record={record} />}
         </article>)}
       </div>
     </SectionCard>

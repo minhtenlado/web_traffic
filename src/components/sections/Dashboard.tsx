@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, Camera, CarFront, CloudRain, MapPinned, Radio, Sun } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
-import { CAMERAS, DIRECTIONS, SIGNAL_PHASES } from "@/lib/constants";
-import { cameraView, edgeCameraView, edgePayloadIsFresh } from "@/lib/traffic-status";
+import { CAMERAS, SIGNAL_PHASES } from "@/lib/constants";
+import { selectedCameraView } from "@/lib/traffic-status";
 import { describeWeatherCode, fetchOpenMeteoCurrent, type OpenMeteoCurrent } from "@/lib/open-meteo";
 import { formatNumber } from "@/lib/formatters";
 import { SectionCard, StatCard, StatusBadge } from "@/components/shared/ui";
@@ -69,15 +69,12 @@ export function Dashboard() {
   const signalState = useTrafficStore((state) => state.signalState);
   const setActive = useTrafficStore((state) => state.setActiveSection);
   const tick = useTrafficStore((state) => state._tickCount);
-  const edgeLive = edgePayloadIsFresh(edgeAI);
   const cameras = useMemo(() => CAMERAS.filter((camera) => camera.aiInput).map((camera) => ({
-    ...camera, view: cameraView(realtimeCams?.[camera.id]), edge: edgeCameraView(edgeAI?.cameras?.[camera.id], edgeLive), data: realtimeCams?.[camera.id],
-  })), [realtimeCams, edgeAI, edgeLive, tick]);
-  const freshCameras = cameras.filter((camera) => camera.edge.fresh || camera.view.fresh).length;
-  const freshEdgeCameras = cameras.filter((camera) => camera.edge.fresh);
-  const edgeVehicleCount = freshEdgeCameras.reduce((sum, camera) => sum + (camera.edge.count ?? 0), 0);
-  const legacyVehicleCount = cameras.reduce((sum, camera) => sum + (camera.view.fresh ? camera.view.count ?? 0 : 0), 0);
-  const vehicleCount = freshEdgeCameras.length ? edgeVehicleCount : freshCameras ? legacyVehicleCount : null;
+    ...camera, view: selectedCameraView(camera.id, realtimeCams, edgeAI),
+  })), [realtimeCams, edgeAI, tick]);
+  const freshCameras = cameras.filter((camera) => camera.view.fresh).length;
+  const countedCameras = cameras.filter((camera) => camera.view.count !== null);
+  const vehicleCount = countedCameras.length ? countedCameras.reduce((sum, camera) => sum + (camera.view.count ?? 0), 0) : null;
   const signalFresh = Number.isFinite(signalState.timestamp) && Date.now() / 1000 - signalState.timestamp < 3;
   const activePhase = signalFresh ? SIGNAL_PHASES.find((phase) => phase.id === signalState.currentPhase)?.name : null;
 
@@ -110,10 +107,10 @@ export function Dashboard() {
       </SectionCard>
       <div className="space-y-6">
         <WeatherPanel />
-        <SectionCard title="Tình trạng các hướng" subtitle="Tổng hợp chỉ hiện khi nhãn ổn định; kết quả AI mới được ghi riêng theo camera bên dưới" icon={Activity}>
+        <SectionCard title="Tình trạng các hướng" subtitle="Nhãn phân loại và số xe từ các camera còn dữ liệu mới" icon={Activity}>
           <div className="space-y-4">
             {routeStats.map((route) => {
-              const fill = route.severity === null ? 0 : Math.max(8, Math.min(100, route.severity / 4 * 100));
+              const fill = route.severity === null ? 0 : Math.max(8, Math.min(100, route.severity / 3 * 100));
               const bar = route.statusColor === "red" ? "bg-destructive" : route.statusColor === "amber" ? "bg-warning" : route.statusColor === "green" ? "bg-success" : "bg-muted-foreground/40";
               return <article key={route.id} className="border-b border-border/70 pb-3 last:border-0 last:pb-0">
                 <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium">{route.name}</h3><StatusBadge color={route.statusColor}>{route.status}</StatusBadge></div>
@@ -131,15 +128,11 @@ export function Dashboard() {
     <SectionCard title="Camera AI tại giao lộ" subtitle="Số xe và nhãn lấy từ bản tin nhận diện mới nhất trên Genio; nhãn tự động chưa được xác minh độc lập" icon={Camera} action={<button onClick={() => setActive("camera")} className="text-xs font-medium text-primary hover:underline">Mở giám sát camera →</button>}>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {cameras.map((camera) => {
-          const label = camera.edge.stabilizationMode === "display"
-            ? camera.edge.labelInfo?.text || camera.edge.stabilizationText
-            : camera.edge.labelInfo?.text || (camera.view.label ? camera.view.text : null);
-          const count = camera.edge.fresh ? camera.edge.count : camera.view.fresh ? camera.view.count : camera.edge.count;
-          const status = camera.edge.fresh ? "AI mới" : camera.edge.available ? "AI cũ" : camera.edge.stabilizationMode === "display" ? "Chưa đủ dữ liệu" : camera.view.fresh ? "Nhãn ổn định" : camera.data?.status === "ERROR" ? "Lỗi" : "Đang chờ";
-          const color = camera.edge.fresh ? camera.edge.labelInfo?.cls || (camera.edge.stabilizationMode === "display" ? "cyan" : "green") : camera.edge.available ? "amber" : camera.edge.stabilizationMode === "display" ? "cyan" : camera.view.fresh ? camera.view.cls : camera.data?.status === "ERROR" ? "red" : "cyan";
+          const { view } = camera;
+          const status = view.fresh ? "Ảnh mới" : view.available ? "Dữ liệu cũ" : "Đang chờ";
           return <article key={camera.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/30 px-3 py-3">
-            <div className="min-w-0"><p className="font-medium">{camera.name}</p><p className="truncate text-xs text-muted-foreground" title={camera.label}>{camera.label}</p><p className="mt-1 truncate text-xs font-medium text-foreground">{label || "Chưa phân loại"}</p></div>
-            <div className="shrink-0 text-right"><StatusBadge color={color}>{status}</StatusBadge><p className="mt-1 text-xs tabular-nums text-muted-foreground">{count === null ? "—" : `${count} xe`}</p></div>
+            <div className="min-w-0"><p className="font-medium">{camera.name}</p><p className="truncate text-xs text-muted-foreground" title={camera.label}>{camera.label}</p><p className="mt-1 truncate text-xs font-medium text-foreground" title={view.text}>{view.text}</p></div>
+            <div className="shrink-0 text-right"><StatusBadge color={view.cls}>{status}</StatusBadge><p className="mt-1 text-xs tabular-nums text-muted-foreground">{view.count === null ? "—" : `${view.count} xe`}</p></div>
           </article>;
         })}
       </div>

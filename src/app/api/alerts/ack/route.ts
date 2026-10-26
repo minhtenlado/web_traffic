@@ -34,8 +34,11 @@ export async function POST(request: Request) {
         [...acknowledgeIds, ...resolveIds].some((id) => !validId(id))) {
       return NextResponse.json({ error: "Danh sách cảnh báo không hợp lệ" }, { status: 400 });
     }
-    const records = (await database().ref("realtime").get()).val() || {};
-    const active = new Set(buildCameraAlerts(records, []).map((alert) => alert.id));
+    const [legacySnapshot, edgeSnapshot] = await Promise.all([
+      database().ref("realtime").get(), database().ref("traffic/edgeAI").get(),
+    ]);
+    const records = legacySnapshot.val() || {};
+    const active = new Set(buildCameraAlerts(records, [], Date.now(), edgeSnapshot.val()).map((alert) => alert.id));
     if (acknowledgeIds.some((id) => !active.has(id as string))) {
       return NextResponse.json({ error: "Cảnh báo đã được xử lý hoặc không còn hoạt động" }, { status: 409 });
     }

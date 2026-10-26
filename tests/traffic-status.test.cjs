@@ -7,8 +7,8 @@ const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 function load(file, overrides = {}) {
   const exports = {};
-  const context = { exports, Date, console, structuredClone, require: name => name.startsWith('.')
-    ? load(path.relative(root, path.resolve(root, path.dirname(file), name + '.ts')), overrides) : require(name), ...overrides };
+  const context = { exports, Date, console, structuredClone, require: name => overrides.modules?.[name] || (name.startsWith('.')
+    ? load(path.relative(root, path.resolve(root, path.dirname(file), name + '.ts')), overrides) : require(name)), ...overrides };
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, context, { filename: file });
@@ -27,7 +27,7 @@ function record(label = 'Ket_xe') {
 test('eight votes shows stable label even when raw label differs', () => {
   const r = record(); r.raw_mapped_label = 'Duong_vang';
   r.aggregation.counts = { ...r.aggregation.counts, Ket_xe: 8, Duong_vang: 2 };
-  assert.equal(status.cameraView(r, now).text, 'Kẹt xe');
+  assert.equal(status.cameraView(r, now).text, 'Rất đông');
 });
 test('missing, cached, future and invalid camera cannot look online/free-flow', () => {
   for (const r of [undefined, { status: 'ONLINE' }, { ...record(), last_update: 940 },
@@ -47,7 +47,7 @@ test('warmup exposes fresh count but no inferred state; malformed histogram is r
 });
 test('routes agree with stabilized cameras and absent XVNT is unknown', () => {
   const routes = status.buildRouteStats({ cam_01: record('Duong_vang'), cam_02: record(), cam_04: record('Dong_xe') }, now);
-  assert.equal(routes.find(r => r.id === 'dien_bien_phu').status, 'Kẹt xe');
+  assert.equal(routes.find(r => r.id === 'dien_bien_phu').status, 'Rất đông');
   assert.equal(routes.find(r => r.id === 'dien_bien_phu').vehicleCount, 24);
   const absent = routes.find(r => r.id === 'xo_viet_nghe_tinh');
   assert.equal(absent.hasData, false); assert.equal(absent.status, 'Chưa đủ dữ liệu');
@@ -56,7 +56,7 @@ test('camera 5 is an active AI input and contributes to the XVNT route', () => {
   const routes = status.buildRouteStats({ cam_05: record() }, now);
   const xvnt = routes.find(r => r.id === 'xo_viet_nghe_tinh');
   assert.equal(xvnt.vehicleCount, 12);
-  assert.equal(xvnt.status, 'Kẹt xe');
+  assert.equal(xvnt.status, 'Rất đông');
   assert.equal(status.ACTIVE_CAMERA_IDS.length, 5);
   assert.ok(status.ACTIVE_CAMERA_IDS.includes('cam_05'));
   assert.ok(!status.ACTIVE_CAMERA_IDS.includes('cam_06'));
@@ -103,11 +103,12 @@ test('stable Genio state is selected only in display mode and unknown never fall
   assert.equal(shadow.label, 'Ket_nang');
   assert.equal(shadow.labelInfo.text, 'Rất đông');
 });
-test('Genio camera output becomes stale on old, future, reused or offline payloads', () => {
+test('Genio camera output becomes stale on old, future or offline payloads', () => {
   const nowMs = 1_000_000;
   const current = { status: 'fresh', observed_at: 999, vehicle_count: 13, label: 'Ket_nang' };
   assert.equal(status.edgeCameraView(current, false, nowMs).fresh, false);
-  assert.equal(status.edgeCameraView({ ...current, status: 'reused' }, true, nowMs).fresh, false);
+  const reused = status.edgeCameraView({ ...current, status: 'reused' }, true, nowMs);
+  assert.equal(reused.fresh, true); assert.equal(reused.newObservation, false);
   assert.equal(status.edgeCameraView({ ...current, observed_at: 900 }, true, nowMs).fresh, false);
   assert.equal(status.edgeCameraView({ ...current, observed_at: 1001 }, true, nowMs).available, false);
   const badLabel = status.edgeCameraView({ ...current, label: 'not-a-class' }, true, nowMs);
@@ -156,7 +157,97 @@ test('SSE nested camera patches, deletes and system polling normalize full immut
   assert.equal(first.data.realtime.cam_01.aggregation.counts.Ket_xe, 10);
   emit('put', '/realtime/cam_01', null);
   assert.equal('cam_01' in events.at(-1).data, false);
+  emit('put', '/traffic/edgeAI', edgePayload({ cam_01: stableCamera() }));
+  emit('patch', '/traffic', { edgeAI: null });
+  assert.equal(events.at(-1).path, '/traffic/edgeAI');
+  assert.equal(events.at(-1).data, null);
   await intervals[1]();
   assert.equal(events.find(e => e.path === '/system').data.status.last_heartbeat, 999);
   cleanup();
+});
+
+const stableCamera = (label = 'Ket_nhe', at = 998) => ({ status: 'fresh', observed_at: at, vehicle_count: 13, label: 'Ket_nang',
+  classification_stability: { mode: 'display', data_status: 'VALID', data_valid: true,
+    stable_state: label, last_valid_timestamp: at, observation_age_seconds: 2 } });
+const edgePayload = (cameras) => ({ generated_at: 999, status: { online: true }, cameras });
+test('stable label expiry is evaluated locally and cannot revive a stale detector count', () => {
+  const r = stableCamera();
+  const old = { ...r, classification_stability: { ...r.classification_stability, last_valid_timestamp: 900 } };
+  const view = status.edgeCameraView(old, true, now);
+  assert.equal(view.label, null); assert.equal(view.count, 13);
+  const labelOnly = status.edgeCameraView({ ...r, status: 'unavailable', observed_at: undefined }, true, now);
+  assert.equal(labelOnly.label, 'Ket_nhe'); assert.equal(labelOnly.count, null);
+  assert.equal(status.edgeCameraView(r, false, now).label, null);
+});
+test('all camera views, routes and alerts prefer current edge data and share the four labels', () => {
+  const legacy = { cam_01: record(), cam_05: record() };
+  const edge = edgePayload({ cam_01: stableCamera('Dong') });
+  const v = status.selectedCameraView('cam_01', legacy, edge, now);
+  assert.equal(v.source, 'edge'); assert.equal(v.label, 'Dong'); assert.equal(v.text, 'Trung bình');
+  const routes = status.buildRouteStats(legacy, now, edge);
+  assert.equal(routes.find(r => r.id === 'hang_xanh').status, 'Trung bình');
+  assert.equal(routes.find(r => r.id === 'hang_xanh').vehicleCount, 13);
+  assert.equal(routes.find(r => r.id === 'xo_viet_nghe_tinh').hasData, false);
+  const alerts = status.buildCameraAlerts(legacy, [], now, edge);
+  assert.equal(alerts.some(a => a.id === 'alert-cam_01-cong'), false);
+  assert.equal(alerts.some(a => a.id === 'alert-cam_05-err'), true);
+  for (const state of ['Khong_ket', 'Dong', 'Ket_nhe', 'Ket_nang']) {
+    const e = edgePayload({cam_01: stableCamera(state)});
+    assert.equal(status.buildRouteStats({}, now, e).find(r => r.id === 'hang_xanh').status, status.EDGE_TRAFFIC_LABELS[state].text);
+  }
+});
+test('display warmup, stale payload and removed edge camera cannot fall back to legacy or raw labels', () => {
+  const r = stableCamera(); r.classification_stability.data_valid = false;
+  const legacy = {cam_01: record()};
+  for (const e of [edgePayload({cam_01:r}), edgePayload({}), {}, {...edgePayload({cam_01:stableCamera()}), generated_at:900}]) {
+    assert.equal(status.selectedCameraView('cam_01', legacy, e, now).label, null);
+    assert.equal(status.buildRouteStats(legacy, now, e).find(r=>r.id==='hang_xanh').hasStatus, false);
+  }
+});
+test('legacy display translates by original model semantics while retaining legacy keys', () => {
+  const mapping = {Duong_vang:'Thông thoáng', Binh_thuong:'Thông thoáng', Dong_xe:'Trung bình', Sap_ket:'Đông đúc', Ket_xe:'Rất đông'};
+  for (const [key,text] of Object.entries(mapping)) {
+    const input = record(key);
+    assert.equal(status.selectedCameraView('cam_01', {cam_01:input}, null, now).text,text);
+    assert.equal(input.mapped_label,key);
+  }
+});
+test('chart timestamps deduplicate reused frames and heartbeat updates, and accept a new observation', () => {
+  const r = stableCamera(); let e = edgePayload({cam_01:r});
+  let history = status.appendCameraHistory([], {}, e, now);
+  assert.equal(history.length,1); assert.equal(history[0].timestamp,998); assert.equal(history[0].hang_xanh,13);
+  e = {...e,generated_at:1000,cameras:{cam_01:{...r,status:'reused'}}};
+  assert.equal(status.appendCameraHistory(history, {}, e, now).length,1);
+  e = {...e,cameras:{cam_01:{...r,observed_at:999,vehicle_count:17}}};
+  history = status.appendCameraHistory(history, {}, e, now);
+  assert.equal(history.length,2); assert.equal(history[1].hang_xanh,17);
+  assert.equal(status.appendCameraHistory(history, {}, {...e,generated_at:900}, now).length,2);
+});
+
+test('store synchronizes edge camera totals, routes, alerts and chart without legacy overwrites', async () => {
+  let receive;
+  class FixedDate extends Date { static now() { return now; } }
+  const store = load('src/lib/store.ts', {
+    Date: FixedDate,
+    fetch: async () => ({ok:true,json:async()=>({acknowledgements:{}})}),
+    modules: {'./firebase': {initUnifiedFirebase: callback => { receive = callback; return () => {}; },firebaseGet:async()=>({})}},
+  }).useTrafficStore;
+  store.getState().initFirebase();
+  receive('/', {realtime:{cam_01:record()},traffic:{edgeAI:edgePayload({cam_01:stableCamera('Dong')})}});
+  assert.equal(store.getState().metrics.totalVehicles,13);
+  assert.equal(store.getState().routeStats.find(r=>r.id==='hang_xanh').status,'Trung bình');
+  assert.equal(store.getState().chartHistory.length,1);
+  receive('/realtime',{cam_01:record('Ket_xe')});
+  assert.equal(store.getState().metrics.totalVehicles,13);
+  assert.equal(store.getState().chartHistory.length,1);
+  store.getState().tick();
+  assert.equal(store.getState().routeStats.find(r=>r.id==='hang_xanh').status,'Trung bình');
+  receive('/traffic/edgeAI',edgePayload({cam_01:stableCamera('Ket_nang',999)}));
+  assert.equal(store.getState().chartHistory.length,2);
+  assert.equal(store.getState().alerts.find(a=>a.id==='alert-cam_01-cong').message,'Camera 1: Rất đông');
+  receive('/traffic/edgeAI',null);
+  assert.equal(store.getState().metrics.totalVehicles,null);
+  assert.equal(store.getState().routeStats.find(r=>r.id==='hang_xanh').hasStatus,false);
+  assert.equal(store.getState().isBoardOffline,true);
+  await Promise.resolve();
 });

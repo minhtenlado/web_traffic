@@ -3,7 +3,7 @@
 import { Camera, Cpu, Radio } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
-import { cameraView } from "@/lib/traffic-status";
+import { selectedCameraView } from "@/lib/traffic-status";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 
 function ageText(timestamp: number | null) {
@@ -23,7 +23,7 @@ export function DeviceManagement() {
   const controllerAt = Number(controller?.lastSeen);
   const stm32Live = controller?.online === true && Number.isFinite(controllerAt) && Date.now() / 1000 - controllerAt < 3;
   const aiCameras = CAMERAS.filter((camera) => camera.aiInput);
-  const freshAiCount = aiCameras.filter((camera) => cameraView(cams?.[camera.id]).fresh).length;
+  const freshAiCount = aiCameras.filter((camera) => selectedCameraView(camera.id, cams, edge).fresh).length;
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Thiết bị hiện có</p><h2 className="mt-1 text-2xl font-semibold">Kết nối tại Hàng Xanh</h2><p className="mt-1 text-sm text-muted-foreground">Trạng thái được suy ra từ ảnh mới và heartbeat đã nhận; không có danh mục thiết bị riêng để đăng ký.</p></div><StatusBadge color={freshAiCount ? "green" : "cyan"}>{freshAiCount}/{aiCameras.length} camera AI có ảnh mới</StatusBadge></div>
@@ -33,11 +33,11 @@ export function DeviceManagement() {
         <div className="divide-y divide-border">
           {CAMERAS.map((camera) => {
             const record = cams?.[camera.id];
-            const view = cameraView(record);
-            const at = Number(record?.last_update);
-            const age = ageText(Number.isFinite(at) && at > 0 ? at : null);
-            const color = camera.aiInput ? view.fresh ? "green" : record?.status === "ERROR" ? "red" : "amber" : "cyan";
-            const label = camera.aiInput ? view.fresh ? "Đang nhận ảnh" : record?.status === "ERROR" ? "Có lỗi camera" : "Chưa có ảnh mới" : "Chỉ xem tham chiếu";
+            const view = selectedCameraView(camera.id, cams, edge);
+            const at = view.observedAt;
+            const age = ageText(at !== null && at > 0 ? at : null);
+            const color = camera.aiInput ? view.fresh ? "green" : view.source === "legacy" && record?.status === "ERROR" ? "red" : "amber" : "cyan";
+            const label = camera.aiInput ? view.fresh ? "Đang nhận ảnh" : view.source === "legacy" && record?.status === "ERROR" ? "Có lỗi camera" : "Chưa có ảnh mới" : "Chỉ xem tham chiếu";
             return <article key={camera.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-primary"><Camera className="h-4 w-4" /></div>
               <div className="min-w-0 flex-1"><p className="text-sm font-medium">{camera.name} <span className="font-normal text-muted-foreground">· {camera.aiInput ? "AI" : "tham chiếu"}</span></p><p className="truncate text-xs text-muted-foreground" title={camera.label}>{camera.label} · {age}</p></div>

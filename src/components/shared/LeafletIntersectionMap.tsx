@@ -1,7 +1,6 @@
 "use client";
 
-import { cameraView } from "@/lib/traffic-status";
-import { TrafficVotes } from "@/components/shared/TrafficVotes";
+import { selectedCameraView } from "@/lib/traffic-status";
 import { CameraSnapshot } from "@/components/shared/CameraSnapshot";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
@@ -54,25 +53,9 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; 
   cyan: { bg: "bg-chart-2/10", border: "border-chart-2/40", text: "text-chart-2", glow: "shadow-chart-2/20" },
 };
 
-function getStatusInfo(mappedLabel?: string, isError?: boolean) {
-  if (isError) return { text: "Mất kết nối", cls: "red" as const };
-  switch (mappedLabel) {
-    case "Ket_xe": return { text: "Kẹt xe", cls: "red" as const };
-    case "Sap_ket": return { text: "Sắp kẹt", cls: "amber" as const };
-    case "Dong_xe": return { text: "Đông xe", cls: "amber" as const };
-    case "Binh_thuong": return { text: "Bình thường", cls: "green" as const };
-    case "Duong_vang": return { text: "Thông thoáng", cls: "green" as const };
-    default: return { text: "Đang chờ", cls: "cyan" as const };
-  }
-}
-
-function createCameraIcon(cam: any, camData: any, isError: boolean) {
-  const label = cameraView(camData).label;
-  let dotColor = "bg-muted-foreground";
-  if (isError) dotColor = "bg-destructive";
-  else if (label === "Ket_xe" || label === "Sap_ket") dotColor = "bg-warning";
-  else if (label === "Dong_xe") dotColor = "bg-warning";
-  else if (label) dotColor = "bg-success";
+function createCameraIcon(view: ReturnType<typeof selectedCameraView>, aiInput: boolean) {
+  const dotColor = !aiInput || !view.ready ? "bg-muted-foreground" : view.cls === "red"
+    ? "bg-destructive" : view.cls === "amber" ? "bg-warning" : "bg-success";
 
   const html = renderToStaticMarkup(
     <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card shadow-md cursor-pointer hover:scale-110 transition-transform">
@@ -158,21 +141,21 @@ function FlyToArea({ selectedArea }: { selectedArea: string }) {
 function CameraPopup({
   cam,
   camData,
-  isError,
+  view,
   onClose,
 }: {
   cam: (typeof CAMERAS)[number];
   camData: any;
-  isError: boolean;
+  view: ReturnType<typeof selectedCameraView>;
   onClose: () => void;
 }) {
   const dir = DIRECTIONS.find((d) => d.id === cam.direction);
-  const view = cameraView(camData);
   const { text, cls } = view;
+  const isError = cam.aiInput && !view.fresh;
   const displayText = cam.aiInput ? text : "Chỉ xem ảnh tham chiếu";
   const displayCls = cam.aiInput ? cls : "cyan";
-  const count = camData?.count || 0;
-  const ts = camData?.timestamp?.split(" ")[1] || "—";
+  const count = cam.aiInput ? view.count : null;
+  const ts = cam.aiInput && view.observedAt ? new Date(view.observedAt * 1000).toLocaleTimeString("vi-VN") : "—";
   const colors = STATUS_COLORS[displayCls] || STATUS_COLORS.cyan;
 
   return (
@@ -255,7 +238,7 @@ function CameraPopup({
           </div>
           <div className="flex flex-col items-center justify-center bg-card/95 p-3">
             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Số xe</span>
-            <span className="mt-0.5 text-sm font-bold tabular-nums text-foreground">{cameraView(camData).count === null ? "—" : formatNumber(count)}</span>
+            <span className="mt-0.5 text-sm font-bold tabular-nums text-foreground">{count === null ? "—" : formatNumber(count ?? 0)}</span>
           </div>
           <div className="flex flex-col items-center justify-center bg-card/95 p-3">
             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Cập nhật</span>
@@ -285,7 +268,7 @@ export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selecte
   const signalState = useTrafficStore((s) => s.signalState);
   const tickCount = useTrafficStore((s) => s._tickCount);
   const realtimeCams = useTrafficStore((s) => s.realtimeCams);
-  const isOffline = useTrafficStore((s) => s.isBoardOffline);
+  const edgeAI = useTrafficStore((s) => s.edgeAI);
 
   const [activeCam, setActiveCam] = useState<string | null>(null);
 
@@ -294,18 +277,17 @@ export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selecte
     [activeCam],
   );
   const activeCamData = activeCam ? realtimeCams?.[activeCam] : null;
-  const activeCamError = activeCamData?.status === "ERROR";
+  const activeView = selectedCameraView(activeCam || "", realtimeCams, edgeAI);
 
   const camIcons = useMemo(() => {
     return CAMERAS.map((cam) => {
-      const camData = realtimeCams?.[cam.id] as any;
-      const isError = camData?.status === "ERROR";
+      const view = selectedCameraView(cam.id, realtimeCams, edgeAI);
       return {
         id: cam.id,
-        icon: createCameraIcon(cam, camData, isError),
+        icon: createCameraIcon(view, cam.aiInput),
       };
     });
-  }, [realtimeCams, isOffline, tickCount]);
+  }, [realtimeCams, edgeAI, tickCount]);
 
   return (
     <div className="h-full w-full relative z-0">
@@ -372,7 +354,7 @@ export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selecte
         <CameraPopup
           cam={activeCamInfo}
           camData={activeCamData}
-          isError={activeCamError}
+          view={activeView}
           onClose={() => setActiveCam(null)}
         />
       )}

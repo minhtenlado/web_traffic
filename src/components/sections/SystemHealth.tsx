@@ -5,7 +5,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { Activity, Camera, Cloud, Cpu, HardDrive, MemoryStick, Radio, ServerCog, Thermometer, Wifi } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
-import { cameraView } from "@/lib/traffic-status";
+import { selectedCameraView } from "@/lib/traffic-status";
 import { isControllerOnline } from "@/lib/controller";
 import { telemetryIsFresh } from "@/lib/hardware-telemetry";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
@@ -52,11 +52,11 @@ export function SystemHealth() {
   const edgeAt = Number(edgeAI?.generated_at);
   const nowSeconds = Date.now() / 1000;
   const genioFresh = edgeAI?.status?.online === true && Number.isFinite(edgeAt) && nowSeconds >= edgeAt && nowSeconds - edgeAt <= 30;
-  const freshCameras = CAMERAS.filter((camera) => camera.aiInput && cameraView(realtimeCams?.[camera.id]).fresh).length;
+  const freshCameras = CAMERAS.filter((camera) => camera.aiInput && selectedCameraView(camera.id, realtimeCams, edgeAI, now).fresh).length;
   const firebaseFresh = lastRealtimeUpdate > 0 && Date.now() - lastRealtimeUpdate < 45000;
   const statuses = [
     { name: "Genio 350", detail: "Heartbeat của dịch vụ AI", icon: Cpu, ok: genioFresh, known: Boolean(edgeAI) },
-    { name: "Camera AI", detail: `${freshCameras}/5 camera có ảnh trong 45 giây gần nhất`, icon: Camera, ok: freshCameras > 0, known: Boolean(realtimeCams) },
+    { name: "Camera AI", detail: `${freshCameras}/5 camera có ảnh trong 45 giây gần nhất`, icon: Camera, ok: freshCameras > 0, known: Boolean(edgeAI || realtimeCams) },
     { name: "STM32", detail: "Telemetry từ bộ điều khiển đèn", icon: Radio, ok: isControllerOnline(controller), known: Boolean(controller) },
     { name: "Bản tin giao thông", detail: "Dữ liệu mới từ Firebase", icon: Cloud, ok: firebaseFresh, known: lastRealtimeUpdate > 0 },
   ];

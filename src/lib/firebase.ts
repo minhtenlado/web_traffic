@@ -18,6 +18,7 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
   let lastMessageTime = Date.now();
   let tree: any = {};
   const receive = (path: string, data: any, patch: boolean) => {
+    const previousTrafficKeys = new Set(Object.keys(tree.traffic || {}));
     const assign = (target: string, value: any) => {
       const segments = target.split('/').filter(Boolean);
       if (!segments.length) { tree = value || {}; return; }
@@ -35,7 +36,13 @@ export function initUnifiedFirebase(onEvent: (path: string, data: any) => void) 
     if (path === '/') onEvent('/', structuredClone(tree));
     else if (path === '/traffic' || path.startsWith('/traffic/')) {
       for (const key of ['signalState', 'controllerStatus', 'commandResult', 'fuzzyStatus', 'edgeAI']) {
-        if (tree.traffic?.[key]) onEvent(`/traffic/${key}`, structuredClone(tree.traffic[key]));
+        const affected = path === '/traffic'
+          ? patch ? Object.keys(data || {}).some(field => field.split('/')[0] === key)
+            : previousTrafficKeys.has(key) || tree.traffic?.[key] != null
+          : path === `/traffic/${key}` || path.startsWith(`/traffic/${key}/`);
+        if (affected) {
+          onEvent(`/traffic/${key}`, structuredClone(tree.traffic?.[key] ?? null));
+        }
       }
     } else if (path === '/realtime' || path.startsWith('/realtime/')) {
       onEvent('/realtime', structuredClone(tree.realtime || {}));

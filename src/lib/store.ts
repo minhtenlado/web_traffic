@@ -2,20 +2,13 @@
 
 import { create } from "zustand";
 import { readTCNChart } from "./tcn-forecast";
-import { buildRouteStats, buildCameraAlerts, cameraView, ACTIVE_CAMERA_IDS, edgePayloadIsFresh } from "./traffic-status";
+import { buildRouteStats, buildCameraAlerts, selectedCameraView, appendCameraHistory, ACTIVE_CAMERA_IDS, edgePayloadIsFresh } from "./traffic-status";
 import { isControllerSignal, sendControllerCommand,
   type ControllerSignal, type ControllerStatus, type CommandResult, type TimingKey } from "./controller";
 
 import { initUnifiedFirebase, firebaseGet } from "./firebase";
 import { genioTelemetry, legacyHardwareTelemetry, newestTelemetry } from "./hardware-telemetry";
 
-import {
-  CAMERAS,
-  labelToDensity,
-  pickWorstLabel,
-  TRAFFIC_LABELS,
-  type TrafficLabelKey,
-} from "./constants";
 
 export interface AlertItem {
   id: string; type: string; label: string; color: string;
@@ -229,41 +222,28 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     if (get()._firebaseInitialized) return;
     set({ _firebaseInitialized: true });
 
-    // Process helper for realtime camera data
-    const processRealtimeData = (data: any, complete = false) => {
-      if (!data || typeof data !== 'object') return;
-      
-      if (data.weather) {
-        set({ weather: { ...data.weather } as any });
-      }
-      // The SSE adapter passes complete snapshots; deletion must not resurrect old records.
-      const routes = buildRouteStats(data);
+    const updateCameraData = (records: Record<string, any>, edgeAI: any) => {
+      const state = get();
+      const routes = buildRouteStats(records, Date.now(), edgeAI);
       const alerts = applyAcknowledgements(
-        buildCameraAlerts(data, get().alerts) as AlertItem[], get().alertAcknowledgements,
+        buildCameraAlerts(records, state.alerts, Date.now(), edgeAI) as AlertItem[], state.alertAcknowledgements,
       );
-      const observationTime = Math.max(0, ...ACTIVE_CAMERA_IDS.map(id => Number(data[id]?.last_update) || 0));
-      const changed = observationTime * 1000 > get().lastRealtimeUpdate;
-      const chartPoint: { timestamp: number; time: string; [key: string]: number | string } = {
-        timestamp: observationTime,
-        time: new Date(observationTime * 1000).toLocaleTimeString("vi-VN", { hour12: false }),
-      };
-      ACTIVE_CAMERA_IDS.forEach(id => {
-        const view = cameraView(data[id]);
-        if (view.fresh && view.count !== null) chartPoint[id] = view.count;
-      });
-      routes.forEach(route => { if (route.hasData) chartPoint[route.id] = route.vehicleCount; });
-      const sampledCount = ACTIVE_CAMERA_IDS.some(id => typeof chartPoint[id] === "number");
-      const total = ACTIVE_CAMERA_IDS.reduce((sum, id) => sum + (typeof chartPoint[id] === "number" ? Number(chartPoint[id]) : 0), 0);
-      if (sampledCount) chartPoint.total = total;
-      const previousSampleAt = get().chartHistory.at(-1)?.timestamp ?? 0;
-      const appendChartPoint = changed && sampledCount && observationTime > previousSampleAt;
-      set(state => ({
-        realtimeCams: data, routeStats: routes, alerts,
-        chartHistory: appendChartPoint ? [...state.chartHistory, chartPoint].slice(-360) : state.chartHistory,
+      const observationTime = Math.max(0, ...ACTIVE_CAMERA_IDS.map(id => selectedCameraView(id, records, edgeAI).observedAt || 0));
+      set({ realtimeCams: records, edgeAI, routeStats: routes, alerts,
+        isBoardOffline: !edgePayloadIsFresh(edgeAI),
+        chartHistory: appendCameraHistory(state.chartHistory, records, edgeAI),
         lastRealtimeUpdate: observationTime * 1000,
         metrics: { ...state.metrics, totalVehicles: routes.some(route => route.hasData) ? routes.reduce((sum, r) => sum + r.vehicleCount, 0) : null,
           activeAlerts: alerts.filter(a => !a.acknowledged).length },
-      }));
+      });
+      return alerts;
+    };
+    const processEdgeAI = (data: any) => updateCameraData(get().realtimeCams || {}, data || {});
+    const processRealtimeData = (data: any, complete = false) => {
+      if (!data || typeof data !== "object") return;
+      if (data.weather) set({ weather: { ...data.weather } });
+      const records = complete ? data : { ...get().realtimeCams, ...data };
+      const alerts = updateCameraData(records, get().edgeAI);
       if (complete && get().alertAcknowledgementsLoaded) {
         const active = new Set(alerts.map((alert) => alert.id));
         const resolvedIds = Object.keys(get().alertAcknowledgements).filter((id) => !active.has(id));
@@ -311,7 +291,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       const acknowledgements = data.acknowledgements && typeof data.acknowledgements === "object" ? data.acknowledgements : {};
       const current = get();
       const alerts = current.realtimeCams
-        ? applyAcknowledgements(buildCameraAlerts(current.realtimeCams, current.alerts) as AlertItem[], acknowledgements)
+        ? applyAcknowledgements(buildCameraAlerts(current.realtimeCams, current.alerts, Date.now(), current.edgeAI) as AlertItem[], acknowledgements)
         : current.alerts;
       set({ alertAcknowledgements: acknowledgements, alertAcknowledgementsLoaded: true, alerts,
         metrics: { ...get().metrics, activeAlerts: alerts.filter((alert) => !alert.acknowledged).length } });
@@ -334,7 +314,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       if (path === '/') {
         const acknowledgements = data.system?.alertAcknowledgements && typeof data.system.alertAcknowledgements === "object"
           ? data.system.alertAcknowledgements : {};
-        set({ alertAcknowledgements: acknowledgements, alertAcknowledgementsLoaded: true });
+        set({ alertAcknowledgements: acknowledgements, alertAcknowledgementsLoaded: true, edgeAI: data?.traffic?.edgeAI || (get().edgeAI !== null ? {} : null) });
         processRealtimeData(data?.realtime || {}, true);
         if (data.chart_data?.latest) processChartData(data.chart_data.latest);
         if (data.system?.hardware) processHardwareData(data.system.hardware);
@@ -343,7 +323,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.traffic?.controllerStatus) processControllerData(data.traffic.controllerStatus);
         if (data.traffic?.commandResult) set({ commandResult: data.traffic.commandResult });
         if (data.traffic?.fuzzyStatus) set({ fuzzyStatus: data.traffic.fuzzyStatus });
-        if (data.traffic?.edgeAI) set({ edgeAI: data.traffic.edgeAI, isBoardOffline: !edgePayloadIsFresh(data.traffic.edgeAI) });
+
         if (data.realtime?.weather) {
           set((s) => ({
             weather: {
@@ -377,7 +357,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data?.hardware) processHardwareData(data.hardware);
         if (data?.status) processStatusData(data.status);
         if (data?.alertAcknowledgements || get().alerts.length) {
-          const alerts = applyAcknowledgements(buildCameraAlerts(get().realtimeCams || {}, get().alerts) as AlertItem[], acknowledgements);
+          const alerts = applyAcknowledgements(buildCameraAlerts(get().realtimeCams || {}, get().alerts, Date.now(), get().edgeAI) as AlertItem[], acknowledgements);
           set({ alerts, metrics: { ...get().metrics, activeAlerts: alerts.filter((alert) => !alert.acknowledged).length } });
         }
       } else if (path.startsWith('/system')) {
@@ -385,7 +365,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (path.includes('status')) processStatusData(data);
         if (path.includes('alertAcknowledgements')) {
           const acknowledgements = data && typeof data === "object" ? data : {};
-          const alerts = applyAcknowledgements(buildCameraAlerts(get().realtimeCams || {}, get().alerts) as AlertItem[], acknowledgements);
+          const alerts = applyAcknowledgements(buildCameraAlerts(get().realtimeCams || {}, get().alerts, Date.now(), get().edgeAI) as AlertItem[], acknowledgements);
           set({ alertAcknowledgements: acknowledgements, alertAcknowledgementsLoaded: true, alerts,
             metrics: { ...get().metrics, activeAlerts: alerts.filter((alert) => !alert.acknowledged).length } });
         }
@@ -396,7 +376,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       } else if (path === '/traffic/commandResult') {
         set({ commandResult: data });
       } else if (path === '/traffic/edgeAI') {
-        set({ edgeAI: data, isBoardOffline: !edgePayloadIsFresh(data) });
+        processEdgeAI(data);
       } else if (path.startsWith('/traffic/fuzzyStatus')) {
         set({ fuzzyStatus: data });
       }
@@ -429,16 +409,16 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
     stopRealtime?.(); stopRealtime = null;
     set({ user: null, isAuthenticated: false, _firebaseInitialized: false, controllerStatus: null,
-      realtimeCams: null, edgeAI: null, healthMetrics: null, alertAcknowledgements: {},
+      realtimeCams: null, edgeAI: null, healthMetrics: null, chartHistory: [], lastRealtimeUpdate: 0, routeStats: [], alertAcknowledgements: {},
       alertAcknowledgementsLoaded: false, alerts: [], auditLog: [], users: [], devices: [] });
   },
 
   tick: () => {
     // Keep STM32 telemetry intact. No browser-generated phase transitions.
     const state = get();
-    const routes = buildRouteStats(state.realtimeCams || {});
+    const routes = buildRouteStats(state.realtimeCams || {}, Date.now(), state.edgeAI);
     const alerts = applyAcknowledgements(
-      buildCameraAlerts(state.realtimeCams || {}, state.alerts) as AlertItem[], state.alertAcknowledgements,
+      buildCameraAlerts(state.realtimeCams || {}, state.alerts, Date.now(), state.edgeAI) as AlertItem[], state.alertAcknowledgements,
     );
     set({ isBoardOffline: !edgePayloadIsFresh(state.edgeAI),
           routeStats: routes, alerts,
@@ -491,18 +471,18 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   deleteUser: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
   refreshRealtime: async () => {
     try {
-      const data = await firebaseGet("realtime");
-      if (data) {
-        set((s) => {
-          return {
-            realtimeCams: data,
-            routeStats: buildRouteStats(data),
-            lastRealtimeUpdate: Math.max(0, ...ACTIVE_CAMERA_IDS.map(id => Number(data[id]?.last_update) || 0)) * 1000,
-          };
-        });
-      }
-    } catch (e) {
-      console.error(e);
-    }
+      const results = await Promise.allSettled([firebaseGet("realtime"), firebaseGet("traffic/edgeAI")]);
+      const records = results[0].status === "fulfilled" ? results[0].value || {} : get().realtimeCams || {};
+      const edge = results[1].status === "fulfilled" ? results[1].value || {} : get().edgeAI;
+      const routes = buildRouteStats(records, Date.now(), edge);
+      const alerts = applyAcknowledgements(buildCameraAlerts(records, get().alerts, Date.now(), edge) as AlertItem[], get().alertAcknowledgements);
+      set((state) => ({ realtimeCams: records, edgeAI: edge, routeStats: routes, alerts,
+        chartHistory: appendCameraHistory(state.chartHistory, records, edge),
+        isBoardOffline: !edgePayloadIsFresh(edge),
+        lastRealtimeUpdate: Math.max(0, ...ACTIVE_CAMERA_IDS.map(id => selectedCameraView(id, records, edge).observedAt || 0)) * 1000,
+        metrics: { ...state.metrics, totalVehicles: routes.some(r => r.hasData) ? routes.reduce((sum, r) => sum + r.vehicleCount, 0) : null,
+          activeAlerts: alerts.filter(a => !a.acknowledged).length },
+      }));
+    } catch (e) { console.error(e); }
   },
 }));

@@ -213,12 +213,20 @@ export const USER_ROLES = {
   operator: "Vận hành viên",
 };
 
+export const EDGE_TRAFFIC_LABELS: Record<string, { text: string; displayCode: string; cls: "green" | "amber" | "red" }> = {
+  Khong_ket: { text: "Thông thoáng", displayCode: "Thong_thoang", cls: "green" },
+  Dong: { text: "Trung bình", displayCode: "Trung_binh", cls: "green" },
+  Ket_nhe: { text: "Đông đúc", displayCode: "Dong_duc", cls: "amber" },
+  Ket_nang: { text: "Rất đông", displayCode: "Rat_dong", cls: "red" },
+};
+
+// Historic five-bin records keep their original keys; only the presentation is shared.
 export const TRAFFIC_LABELS = {
-  Duong_vang: { text: "Thông thoáng", cls: "green" },
-  Binh_thuong: { text: "Bình thường", cls: "green" },
-  Dong_xe: { text: "Đông xe", cls: "amber" },
-  Sap_ket: { text: "Sắp kẹt", cls: "amber" },
-  Ket_xe: { text: "Kẹt xe", cls: "red" },
+  Duong_vang: EDGE_TRAFFIC_LABELS.Khong_ket,
+  Binh_thuong: EDGE_TRAFFIC_LABELS.Khong_ket,
+  Dong_xe: EDGE_TRAFFIC_LABELS.Dong,
+  Sap_ket: EDGE_TRAFFIC_LABELS.Ket_nhe,
+  Ket_xe: EDGE_TRAFFIC_LABELS.Ket_nang,
 } as const;
 
 export type TrafficLabelKey = keyof typeof TRAFFIC_LABELS;

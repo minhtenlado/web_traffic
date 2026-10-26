@@ -1,6 +1,6 @@
 "use client";
 
-import { ACTIVE_CAMERA_IDS, cameraView, edgeCameraView, edgePayloadIsFresh } from "@/lib/traffic-status";
+import { ACTIVE_CAMERA_IDS, selectedCameraView } from "@/lib/traffic-status";
 import { TrafficVotes } from "@/components/shared/TrafficVotes";
 import { CameraSnapshot } from "@/components/shared/CameraSnapshot";
 import { useMemo, useState } from "react";
@@ -52,7 +52,6 @@ export function LiveMonitoring() {
   const edgeAI = useTrafficStore((s) => s.edgeAI);
   const refreshRealtime = useTrafficStore((s) => s.refreshRealtime);
   const lastUpdate = useTrafficStore((s) => s.lastRealtimeUpdate);
-  const edgeLive = edgePayloadIsFresh(edgeAI);
 
   const [expandedCam, setExpandedCam] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,8 +60,7 @@ export function LiveMonitoring() {
     () => CAMERAS.find((c) => c.id === expandedCam) || null,
     [expandedCam],
   );
-  const expandedCamData = expandedCam ? realtimeCams?.[expandedCam] : null;
-  const expandedEdgeView = edgeCameraView(expandedCam ? edgeAI?.cameras?.[expandedCam] : null, edgeLive);
+  const expandedView = selectedCameraView(expandedCam || "", realtimeCams, edgeAI);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -73,18 +71,16 @@ export function LiveMonitoring() {
   const { freshCount, waitingCount, totalVehicles } = useMemo(() => {
     let freshCount = 0;
     let totalVehicles = 0;
+    let countedCameras = 0;
     for (const id of ACTIVE_CAMERA_IDS) {
-      const view = cameraView(realtimeCams?.[id]);
-      const edgeView = edgeCameraView(edgeAI?.cameras?.[id], edgeLive);
-      const hasFreshResult = edgeView.fresh || view.fresh;
-      if (hasFreshResult) {
+      const view = selectedCameraView(id, realtimeCams, edgeAI);
+      if (view.fresh) {
         freshCount++;
-        const count = edgeView.fresh ? edgeView.count : view.count;
-        if (count !== null) totalVehicles += count;
+        if (view.count !== null) { totalVehicles += view.count; countedCameras++; }
       }
     }
-    return { freshCount, waitingCount: ACTIVE_CAMERA_IDS.length - freshCount, totalVehicles: freshCount ? totalVehicles : null };
-  }, [realtimeCams, edgeAI, edgeLive, tickCount]);
+    return { freshCount, waitingCount: ACTIVE_CAMERA_IDS.length - freshCount, totalVehicles: countedCameras ? totalVehicles : null };
+  }, [realtimeCams, edgeAI, tickCount]);
 
   return (
     <div className="space-y-5">
@@ -153,25 +149,17 @@ export function LiveMonitoring() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CAMERAS.map((cam, i) => {
             const camData = realtimeCams?.[cam.id] as any;
-            const view = cameraView(camData);
-            const edgeRecord = edgeAI?.cameras?.[cam.id];
-            const edgeView = edgeCameraView(edgeRecord, edgeLive);
+            const view = selectedCameraView(cam.id, realtimeCams, edgeAI);
             const isAiInput = cam.aiInput;
-            const isCamError = isAiInput && camData?.status === "ERROR";
+            const isCamError = isAiInput && view.cls === "red" && !view.ready;
             const dir = DIRECTIONS.find((d) => d.id === cam.direction);
-            const cls = edgeView.fresh ? (edgeView.labelInfo?.cls || "green") : view.cls;
-            const displayCount = edgeView.fresh ? edgeView.count : view.fresh ? view.count : edgeView.count;
-            const displayLabel = edgeView.stabilizationMode === "display"
-              ? edgeView.labelInfo?.text || edgeView.stabilizationText
-              : edgeView.label ? edgeView.labelInfo?.text : view.label ? view.text : null;
-            const observedAt = edgeView.observedAt ?? (Number.isFinite(Number(camData?.last_update)) ? Number(camData.last_update) : null);
+            const cls = isAiInput ? view.cls : "cyan";
+            const displayCount = isAiInput ? view.count : null;
+            const displayLabel = isAiInput ? view.text : "Chỉ xem tham chiếu";
+            const observedAt = view.observedAt;
             const ts = isAiInput && observedAt ? formatClockTime(new Date(observedAt * 1000)) : "—";
-            const statusText = !isAiInput ? "Chỉ xem ảnh tham chiếu" : edgeView.fresh
-              ? `AI mới · ${displayLabel || "đã nhận dạng"}`
-              : edgeView.available ? `Dữ liệu AI cũ · ${displayLabel || "đã nhận dạng"}`
-              : view.fresh ? view.text : isCamError ? "Lỗi thu thập" : "Chưa có kết quả AI mới";
-            const statusColor = !isAiInput ? "cyan" : edgeView.fresh ? (edgeView.labelInfo?.cls || (edgeView.stabilizationMode === "display" ? "cyan" : "green"))
-              : edgeView.available ? "amber" : isCamError ? "red" : view.fresh ? view.cls : "cyan";
+            const statusText = isAiInput ? view.text : "Chỉ xem ảnh tham chiếu";
+            const statusColor = cls;
 
             return (
               <motion.div
@@ -188,7 +176,7 @@ export function LiveMonitoring() {
                     <div className="truncate text-base font-bold text-foreground">{cam.name}</div>
                     <div className="truncate text-sm text-muted-foreground">{cam.label}</div>
                   </div>
-                  <StatusBadge color={statusColor} pulse={edgeView.fresh && edgeView.labelInfo?.cls !== "green"}>
+                  <StatusBadge color={statusColor} pulse={view.ready && cls !== "green"}>
                     {statusText}
                   </StatusBadge>
                 </div>
@@ -245,9 +233,9 @@ export function LiveMonitoring() {
                 </div>
 
                 <div className="px-4">
-                  {isAiInput ? <TrafficVotes record={camData} /> : (
+                  {isAiInput && view.source === "legacy" ? <TrafficVotes record={camData} /> : !isAiInput ? (
                     <p className="py-2 text-xs text-muted-foreground">Camera này chưa được đưa vào luồng AI.</p>
-                  )}
+                  ) : null}
                 </div>
                 {/* Footer info */}
                 <div className="grid grid-cols-2 gap-2 px-4 py-4 text-sm">
@@ -260,12 +248,12 @@ export function LiveMonitoring() {
                   <div className="min-w-0 bg-muted/40 p-2">
                     <div className="text-xs uppercase text-muted-foreground">Nhãn AI</div>
                     <div className="truncate font-semibold text-foreground text-sm" title={displayLabel || undefined}>{displayLabel || "Chưa phân loại"}</div>
-                    {edgeView.label && edgeView.labelSource?.includes("unverified") && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">Tự động · chưa kiểm định</div>}
+                    {view.label && view.labelSource?.includes("unverified") && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">Tự động · chưa kiểm định</div>}
                   </div>
                   <div className="bg-muted/40 p-2">
                     <div className="text-xs uppercase text-muted-foreground">Cập nhật</div>
                     <div className="truncate font-semibold tabular-nums text-foreground text-sm">{ts}</div>
-                    {edgeView.ageSeconds !== null && <div className="mt-0.5 text-[10px] text-muted-foreground">AI {Math.max(0, Math.floor(edgeView.ageSeconds))} giây trước</div>}
+                    {isAiInput && view.ageSeconds !== null && <div className="mt-0.5 text-[10px] text-muted-foreground">AI {Math.max(0, Math.floor(view.ageSeconds))} giây trước</div>}
                   </div>
                 </div>
               </motion.div>
@@ -290,7 +278,7 @@ export function LiveMonitoring() {
               <span className="font-normal text-muted-foreground">— {expandedCamInfo?.label}</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {expandedCamInfo?.aiInput && expandedEdgeView.observedAt ? `Kết quả AI: ${formatClockTime(new Date(expandedEdgeView.observedAt * 1000))} · ${expandedEdgeView.fresh ? "mới" : "dữ liệu cũ"}` : expandedCamInfo?.aiInput && expandedCamData?.timestamp ? `Cập nhật camera: ${expandedCamData.timestamp}` : "Ảnh camera được làm mới khoảng 10 giây/lần."}
+              {expandedCamInfo?.aiInput && expandedView.observedAt ? `Kết quả AI: ${formatClockTime(new Date(expandedView.observedAt * 1000))} · ${expandedView.fresh ? "mới" : "dữ liệu cũ"}` : "Ảnh camera được làm mới khoảng 10 giây/lần."}
               {expandedCamInfo?.url && (
                 <a
                   href={expandedCamInfo.url}
@@ -331,13 +319,13 @@ export function LiveMonitoring() {
               <span className="text-chart-2">Ảnh tự làm mới</span>
             </div>
             {/* Camera status pill */}
-            {expandedCamInfo?.aiInput && (expandedCamData || expandedEdgeView.available) && (
+            {expandedCamInfo?.aiInput && (
               <div className="pointer-events-none absolute right-3 top-3">
                 <StatusBadge
-                  color={expandedEdgeView.fresh ? (expandedEdgeView.labelInfo?.cls || "green") : expandedEdgeView.available ? "amber" : cameraView(expandedCamData).cls}
-                  pulse={expandedEdgeView.fresh}
+                  color={expandedView.cls}
+                  pulse={expandedView.ready}
                 >
-                  {expandedEdgeView.fresh ? `AI · ${expandedEdgeView.labelInfo?.text || "có kết quả"}` : expandedEdgeView.available ? "Dữ liệu AI cũ" : cameraView(expandedCamData).text}
+                  {expandedView.text}
                 </StatusBadge>
               </div>
             )}
