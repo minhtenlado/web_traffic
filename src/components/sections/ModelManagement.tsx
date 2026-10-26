@@ -82,6 +82,14 @@ export function ModelManagement() {
     return { data, cameraIds };
   }, [forecastClassSignature]);
   const forecastReady = recovery.forecastReady;
+  const [lastForecastChart, setLastForecastChart] = useState<typeof forecastChart | null>(null);
+  useEffect(() => {
+    if (forecastChart.cameraIds.length > 0) setLastForecastChart(forecastChart);
+  }, [forecastChart]);
+  const chartToShow = forecastChart.cameraIds.length > 0 ? forecastChart : lastForecastChart;
+  const hasForecastChart = Boolean(chartToShow?.cameraIds.length);
+  const hasCurrentForecast = forecastReady && forecastChart.cameraIds.length > 0;
+  const forecastStatusLabel = !forecastReady && hasForecastChart ? "Kết quả gần nhất" : recovery.label;
   const cameras = Object.entries(edgeAI?.cameras || {}).sort(([a], [b]) => a.localeCompare(b));
 
   return <div className="space-y-6">
@@ -111,12 +119,12 @@ export function ModelManagement() {
     </SectionCard>
 
     <SectionCard title="Dự báo ùn tắc" subtitle="Dự báo 5, 15 và 30 phút; kết quả vẫn được gắn trạng thái kiểm định" icon={Brain}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Cửa sổ TCN 120 phút · bước 10 giây</p><div className="flex flex-wrap items-center gap-2"><StatusBadge color={forecastReady ? "green" : recovery.state === "RESTORING" ? "amber" : "cyan"}>{recovery.label}</StatusBadge>{edgeStatus.history_reason === "estimated_gap_history" && <StatusBadge color="amber">Có mẫu bù ước tính</StatusBadge>}{forecastReady && <StatusBadge color="amber">Thử nghiệm · chưa kiểm định thực địa</StatusBadge>}</div></div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Cửa sổ TCN 120 phút · bước 10 giây</p><div className="flex flex-wrap items-center gap-2"><StatusBadge color={hasCurrentForecast ? "green" : hasForecastChart || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge>{edgeStatus.history_reason === "estimated_gap_history" && <StatusBadge color="amber">Có mẫu bù ước tính</StatusBadge>}{(forecastReady || hasForecastChart) && <StatusBadge color="amber">Thử nghiệm · chưa kiểm định thực địa</StatusBadge>}</div></div>
       <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Mẫu đầu vào đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
         {progress.required > 0 && <div role="progressbar" aria-label="Tiến độ mẫu đầu vào TCN" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} /></div>}
       </div>
-      {forecastReady && forecastChart.cameraIds.length ? <ForecastTrafficChart data={forecastChart.data} cameraIds={forecastChart.cameraIds} /> : forecastReady ? <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa có nhãn dự báo hợp lệ để vẽ đồ thị.</div> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Dự báo 5, 15 và 30 phút sẽ hiển thị khi cửa sổ có đủ 720 mẫu và nhận được ảnh camera mới.</div>}
+      {hasForecastChart && chartToShow ? <ForecastTrafficChart data={chartToShow.data} cameraIds={chartToShow.cameraIds} /> : forecastReady ? <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa có nhãn dự báo hợp lệ để vẽ đồ thị.</div> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Dự báo 5, 15 và 30 phút sẽ hiển thị khi cửa sổ có đủ 720 mẫu và nhận được ảnh camera mới.</div>}
     </SectionCard>
 
     <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Kiểm định TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p><p>Khôi phục TCN: {String(edgeStatus.tcn_state || "chưa có")}</p><p>Lý do: {String(edgeStatus.history_reason || "chưa có")}</p><p>Bước lịch sử cuối: {String(edgeStatus.history_last_timestamp || "chưa có")}</p></div></details>
