@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, Camera, Cloud, Cpu, HardDrive, MemoryStick, Radio, ServerCog, Thermometer, Wifi } from "lucide-react";
+import { Activity, Camera, Cloud, Cpu, MemoryStick, Radio, ServerCog, Thermometer } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { selectedCameraView } from "@/lib/traffic-status";
@@ -64,9 +64,6 @@ export function SystemHealth() {
     { label: "CPU Genio", value: display(telemetryFresh ? health?.cpu : null, "%"), icon: Cpu },
     { label: "RAM Genio", value: display(telemetryFresh ? health?.ram : null, "%"), icon: MemoryStick },
     { label: "Nhiệt độ CPU", value: display(telemetryFresh ? health?.temperature : null, " °C"), icon: Thermometer },
-    { label: "Dung lượng /data", value: display(telemetryFresh ? health?.diskUsage : null, "%"), icon: HardDrive },
-    { label: "Độ trễ mạng", value: display(telemetryFresh ? health?.networkLatency : null, " ms"), icon: Wifi },
-    { label: "FPS camera", value: display(telemetryFresh ? health?.fps : null, " FPS"), icon: Activity },
   ];
 
   return <div className="space-y-6">
