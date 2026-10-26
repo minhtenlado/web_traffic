@@ -2,12 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { Brain, Camera, ShieldCheck } from "lucide-react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { CurrentWeatherCard } from "@/components/shared/CurrentWeatherCard";
 import { edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
 import { selectedCameraView, EDGE_TRAFFIC_LABELS } from "@/lib/traffic-status";
+
+const FORECAST_CAMERA_IDS = ["cam_01", "cam_02", "cam_03", "cam_04"] as const;
+const FORECAST_COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc"];
+const FORECAST_LEVELS = ["Thông thoáng", "Trung bình", "Đông đúc", "Rất đông"];
+const FORECAST_SEVERITY: Record<string, number> = {
+  Khong_ket: 0,
+  Dong: 1,
+  Ket_nhe: 2,
+  Ket_nang: 3,
+};
 
 export function ModelManagement() {
   const edgeAI = useTrafficStore((state) => state.edgeAI);
@@ -21,6 +32,17 @@ export function ModelManagement() {
   const progress = edgeHistoryProgress(edgeStatus);
   const recovery = edgeTcnRecovery(edgeStatus, edgeLive);
   const forecasts = groupEdgeForecasts(edgeAI?.forecasts);
+  const forecastChartData = ([5, 15, 30] as const).map((horizon) => {
+    const point: Record<string, string | number | null> = { horizon };
+    for (const cameraId of FORECAST_CAMERA_IDS) {
+      const prediction = forecasts[horizon].find((row) => row.camera_id === cameraId);
+      point[cameraId] = prediction ? FORECAST_SEVERITY[prediction.predicted_class] ?? null : null;
+    }
+    return point;
+  });
+  const forecastChartCameras = FORECAST_CAMERA_IDS.filter((cameraId) =>
+    ([5, 15, 30] as const).some((horizon) => forecasts[horizon].some((row) => row.camera_id === cameraId)),
+  );
   const forecastReady = recovery.forecastReady;
   const cameras = Object.entries(edgeAI?.cameras || {}).sort(([a], [b]) => a.localeCompare(b));
 
@@ -56,10 +78,29 @@ export function ModelManagement() {
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Mẫu đầu vào đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
         {progress.required > 0 && <div role="progressbar" aria-label="Tiến độ mẫu đầu vào TCN" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} /></div>}
       </div>
-      {forecastReady ? <div className="grid gap-3 md:grid-cols-3">
-        {([5, 15, 30] as const).map((horizon) => <article key={horizon} className="rounded-lg border border-border/80 bg-background/35 p-4"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Sau {horizon} phút</p><div className="mt-3 space-y-3">{forecasts[horizon].length ? forecasts[horizon].map((row) => <div key={`${row.camera_id}-${horizon}`} className="flex items-center justify-between gap-2 border-b border-border/70 pb-2 last:border-0 last:pb-0"><div><p className="text-sm font-medium">{CAMERAS.find((camera) => camera.id === row.camera_id)?.name || row.camera_id}</p><p className="text-xs text-muted-foreground">{EDGE_TRAFFIC_LABELS[row.predicted_class]?.text || "Chưa rõ"}</p></div><span className="text-xs tabular-nums text-muted-foreground">{(row.confidence * 100).toFixed(0)}%</span></div>) : <p className="text-sm text-muted-foreground">Chưa có kết quả hợp lệ ở mốc này.</p>}</div></article>)}
-      </div> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Dự báo 5, 15 và 30 phút sẽ hiển thị khi cửa sổ có đủ 720 mẫu và nhận được ảnh camera mới.</div>}
-      <p className="mt-4 text-xs text-muted-foreground">Phần trăm là độ tin cậy của đầu ra, không phải độ chính xác đã đo. Dự báo không tự điều khiển đèn.</p>
+      {forecastReady && forecastChartCameras.length ? <div>
+        <p className="mb-2 text-sm text-muted-foreground">Mức độ ùn tắc dự báo theo camera</p>
+        <div role="img" aria-label="Đồ thị mức độ ùn tắc dự báo theo camera tại các mốc 5, 15 và 30 phút" className="h-[320px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={forecastChartData} margin={{ top: 12, right: 16, bottom: 4, left: 4 }}>
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
+              <XAxis dataKey="horizon" type="number" domain={[5, 30]} ticks={[5, 15, 30]} tickFormatter={(value) => `${value} phút`} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis type="number" domain={[0, 3]} ticks={[0, 1, 2, 3]} tickFormatter={(value) => FORECAST_LEVELS[Number(value)] || ""} width={112} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(value, name) => [FORECAST_LEVELS[Number(value)] || "Chưa có nhãn", name]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
+              {forecastChartCameras.map((cameraId) => {
+                const cameraIndex = FORECAST_CAMERA_IDS.indexOf(cameraId);
+                return <Line key={cameraId} type="stepAfter" dataKey={cameraId} name={CAMERAS.find((camera) => camera.id === cameraId)?.name || cameraId} stroke={FORECAST_COLORS[cameraIndex]} strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} connectNulls={false} isAnimationActive={false} />;
+              })}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-3">
+          {forecastChartCameras.map((cameraId) => {
+            const cameraIndex = FORECAST_CAMERA_IDS.indexOf(cameraId);
+            return <span key={cameraId} className="inline-flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: FORECAST_COLORS[cameraIndex] }} />{CAMERAS.find((camera) => camera.id === cameraId)?.name || cameraId}</span>;
+          })}
+        </div>
+      </div> : forecastReady ? <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa có nhãn dự báo hợp lệ để vẽ đồ thị.</div> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Dự báo 5, 15 và 30 phút sẽ hiển thị khi cửa sổ có đủ 720 mẫu và nhận được ảnh camera mới.</div>}
     </SectionCard>
 
     <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Kiểm định TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p><p>Khôi phục TCN: {String(edgeStatus.tcn_state || "chưa có")}</p><p>Lý do: {String(edgeStatus.history_reason || "chưa có")}</p><p>Bước lịch sử cuối: {String(edgeStatus.history_last_timestamp || "chưa có")}</p></div></details>
