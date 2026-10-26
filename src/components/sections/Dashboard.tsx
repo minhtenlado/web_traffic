@@ -1,64 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, Camera, CarFront, CloudRain, MapPinned, Radio, Sun } from "lucide-react";
+import { useMemo } from "react";
+import { Activity, AlertTriangle, Camera, CarFront, MapPinned, Radio } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS, SIGNAL_PHASES } from "@/lib/constants";
 import { selectedCameraView } from "@/lib/traffic-status";
-import { describeWeatherCode, fetchOpenMeteoCurrent, type OpenMeteoCurrent } from "@/lib/open-meteo";
 import { formatNumber } from "@/lib/formatters";
 import { SectionCard, StatCard, StatusBadge } from "@/components/shared/ui";
 import { IntersectionMap } from "@/components/shared/IntersectionMap";
+import { CurrentWeatherCard } from "@/components/shared/CurrentWeatherCard";
 import { TrafficHistoryChart } from "./TrafficHistoryChart";
-
-function WeatherPanel() {
-  const [weather, setWeather] = useState<OpenMeteoCurrent | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    const refresh = async () => {
-      try {
-        const result = await fetchOpenMeteoCurrent(fetch, controller.signal);
-        if (active) { setWeather(result); setError(false); setLoading(false); }
-      } catch {
-        if (active && !controller.signal.aborted) { setError(true); setLoading(false); }
-      }
-    };
-    void refresh();
-    const intervalId = window.setInterval(() => { void refresh(); }, 5 * 60 * 1000);
-    return () => { active = false; controller.abort(); window.clearInterval(intervalId); };
-  }, []);
-
-  const sourceTime = weather?.sourceTime;
-  const sourceEpoch = sourceTime ? Date.parse(sourceTime) / 1000 : NaN;
-  const ageSeconds = Number.isFinite(sourceEpoch) ? Date.now() / 1000 - sourceEpoch : null;
-  const available = Boolean(weather) && ageSeconds !== null && ageSeconds >= 0 && ageSeconds <= 3600;
-  const condition = weather ? describeWeatherCode(weather.weatherCode) : "Chưa xác định";
-  const isRaining = weather ? weather.rainMm > 0 || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(weather.weatherCode) : false;
-  const ageText = ageSeconds === null ? "chưa có thời điểm" : ageSeconds < 60 ? `${Math.floor(ageSeconds)} giây trước` : `${Math.floor(ageSeconds / 60)} phút trước`;
-  return <SectionCard title="Thời tiết tại Hàng Xanh" subtitle="Open-Meteo · dữ liệu mô hình tại khu vực, không phải trạm đo tại chỗ" icon={isRaining ? CloudRain : Sun}>
-    {!available ? <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">{loading ? "Đang lấy bản tin thời tiết hiện tại…" : weather ? "Bản tin Open-Meteo đã quá cũ." : error ? "Chưa lấy được bản tin thời tiết từ Open-Meteo." : "Chưa có dữ liệu thời tiết."} Dữ liệu không khả dụng sẽ không được thay bằng số liệu giả.</div> : <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="text-xs uppercase tracking-wider text-muted-foreground">Điều kiện hiện tại</p><p className="mt-1 text-2xl font-semibold">{condition}</p></div>
-        {error && <StatusBadge color="amber">Không tải được bản tin mới</StatusBadge>}
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 border-y border-border py-3 sm:grid-cols-5">
-        <WeatherMetric label="Nhiệt độ · 2 m" value={`${weather!.temperatureC.toFixed(1)} °C`} />
-        <WeatherMetric label="Độ ẩm · 2 m" value={`${weather!.humidityPercent.toFixed(0)}%`} />
-        <WeatherMetric label={`Lượng mưa / ${Math.round(weather!.intervalSeconds / 60)} phút`} value={`${weather!.precipitationMm.toFixed(2)} mm`} />
-        <WeatherMetric label="Gió · 10 m" value={`${weather!.windSpeedKmh.toFixed(1)} km/h`} />
-        <WeatherMetric label="Nguồn" value={weather!.source} />
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">Bản tin API lúc {new Date(sourceTime!).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} · {ageText} · cập nhật lại mỗi 5 phút</p>
-      <p className="mt-1 text-xs text-muted-foreground">Mưa trong kỳ {Math.round(weather!.intervalSeconds / 60)} phút: {weather!.rainMm.toFixed(2)} mm · <a className="underline underline-offset-2" href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a></p>
-    </>}</SectionCard>;
-}
-
-function WeatherMetric({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-1 truncate text-sm font-medium tabular-nums" title={value}>{value}</p></div>;
-}
 
 export function Dashboard() {
   const metrics = useTrafficStore((state) => state.metrics);
@@ -106,7 +57,7 @@ export function Dashboard() {
         <IntersectionMap />
       </SectionCard>
       <div className="space-y-6">
-        <WeatherPanel />
+        <CurrentWeatherCard />
         <SectionCard title="Tình trạng các hướng" subtitle="Nhãn phân loại và số xe từ các camera còn dữ liệu mới" icon={Activity}>
           <div className="space-y-4">
             {routeStats.map((route) => {

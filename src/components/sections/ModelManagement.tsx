@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Brain, Camera, CloudRain, Cpu, ShieldCheck } from "lucide-react";
+import { Brain, Camera, Cpu, ShieldCheck } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
+import { CurrentWeatherCard } from "@/components/shared/CurrentWeatherCard";
 import { edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
 import { selectedCameraView, EDGE_TRAFFIC_LABELS } from "@/lib/traffic-status";
 
@@ -31,13 +32,6 @@ export function ModelManagement() {
   const forecasts = groupEdgeForecasts(edgeAI?.forecasts);
   const forecastReady = recovery.forecastReady;
   const cameras = Object.entries(edgeAI?.cameras || {}).sort(([a], [b]) => a.localeCompare(b));
-  const rainFlag = edgeWeather?.is_raining;
-  const isRaining = typeof rainFlag === "boolean" ? rainFlag : rainFlag === 0 || rainFlag === 1 ? Boolean(rainFlag) : null;
-  const rainRate = typeof edgeWeather?.precipitation === "number" ? edgeWeather.precipitation : null;
-  const rainAmount = typeof edgeWeather?.raw_precipitation_mm === "number" ? edgeWeather.raw_precipitation_mm : null;
-  const rainInterval = typeof edgeWeather?.interval_seconds === "number" ? edgeWeather.interval_seconds : null;
-  const temperature = edgeWeather?.temperature_c ?? edgeWeather?.temperature ?? edgeWeather?.temperature_2m;
-  const humidity = edgeWeather?.humidity_percent ?? edgeWeather?.humidity ?? edgeWeather?.relative_humidity_2m;
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
@@ -62,14 +56,7 @@ export function ModelManagement() {
         {edgeStatus.model_version && <details className="mt-3 text-xs text-muted-foreground"><summary className="cursor-pointer">Mã phiên bản và trạng thái kiểm định</summary><p className="mt-2 break-all font-mono">Model: {edgeStatus.model_version}</p><p>Mã trạng thái: {String(edgeStatus.validation_status || "chưa có")}</p><p>Runtime: {status?.runtime_version || edgeStatus.runtime_version || "chưa có telemetry"}</p></details>}
       </SectionCard>
 
-      <SectionCard title="Thời tiết hiện tại" subtitle="Ước tính API tại khu vực; không phải số đo từ trạm tại chỗ" icon={CloudRain}>
-        {edgeStatus.weather_status === "AVAILABLE" && edgeWeather ? <>
-          <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Điều kiện</p><p className="mt-1 text-2xl font-semibold">{isRaining === true ? "Có mưa" : isRaining === false ? "Không ghi nhận mưa" : "Chưa xác định"}</p></div>{typeof temperature === "number" && Number.isFinite(temperature) && <p className="text-3xl font-semibold tabular-nums">{temperature.toFixed(1)} °C</p>}</div>
-          <div className="mt-4 grid gap-3 border-y border-border py-3 sm:grid-cols-5"><WeatherValue label="Nhiệt độ · 2 m" value={typeof temperature === "number" && Number.isFinite(temperature) ? `${temperature.toFixed(1)} °C` : "Thiếu từ API"} /><WeatherValue label="Mưa" value={rainRate === null ? "—" : `${rainRate.toFixed(2)} mm/giờ`} /><WeatherValue label={rainInterval === 900 ? "Lượng mưa / 15 phút" : "Lượng mưa theo kỳ"} value={rainAmount === null ? "—" : `${rainAmount.toFixed(2)} mm${rainInterval === null ? "" : ` / ${rainInterval}s`}`} /><WeatherValue label="Độ ẩm · 2 m" value={typeof humidity === "number" && Number.isFinite(humidity) ? `${humidity.toFixed(0)}%` : "Thiếu từ API"} /><WeatherValue label="Nguồn" value={String(edgeWeather.source || "Không rõ")} /></div>
-          <p className="mt-3 text-xs text-muted-foreground">Bản tin API lúc {edgeWeather.source_time ? new Date(String(edgeWeather.source_time)).toLocaleString("vi-VN") : "không rõ thời điểm"}. Nếu API thiếu trường nhiệt độ hoặc độ ẩm, giao diện để trống thay vì tự ước lượng.</p>
-          <p className="mt-3 text-xs text-muted-foreground">Nếu API không có dữ liệu mưa, hệ thống để trống đặc trưng thời tiết thay vì tự tạo giá trị.</p>
-        </> : <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Thời tiết hiện không khả dụng; dự báo không được điền giả dữ liệu mưa.</div>}
-      </SectionCard>
+      <CurrentWeatherCard title="Thời tiết hiện tại" subtitle="Open-Meteo · ước tính cho khu vực Hàng Xanh, không phải trạm đo tại chỗ" />
     </div>
 
     <SectionCard title="Nhận dạng từ camera" subtitle={`${cameras.length} nguồn camera có bản tin trong payload gần nhất`} icon={Camera}>
@@ -106,5 +93,3 @@ export function ModelManagement() {
     <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Kiểm định TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p><p>Khôi phục TCN: {String(edgeStatus.tcn_state || "chưa có")}</p><p>Lý do: {String(edgeStatus.history_reason || "chưa có")}</p><p>Bước lịch sử cuối: {String(edgeStatus.history_last_timestamp || "chưa có")}</p></div></details>
   </div>;
 }
-
-function WeatherValue({ label, value }: { label: string; value: string }) { return <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-1 text-sm font-medium tabular-nums">{value}</p></div>; }

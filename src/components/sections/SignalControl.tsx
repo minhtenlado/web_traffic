@@ -150,7 +150,6 @@ export function SignalControl() {
       <SectionCard title="Khẩn cấp" subtitle="STM32 đưa tất cả tín hiệu về đỏ" icon={ShieldAlert}>
         <button className={`${button} bg-destructive text-destructive-foreground`} disabled={!online || readOnlyTelemetry}
           onClick={() => run(emergency)}>DỪNG KHẨN CẤP</button>
-        <p className="mt-3 text-sm text-muted-foreground">Nhả nút KHẨN CẤP, sau đó nhấn giữ KHÔI PHỤC (PB3) đủ 3 giây. STM32 giữ toàn đỏ rồi về AUTO. Nút KHẨN CẤP tại mạch hoạt động độc lập với Web.</p>
       </SectionCard>
       <SectionCard title="Điều khiển thích ứng Fuzzy" subtitle="Nhu cầu hai hướng và thời lượng đèn" icon={Timer}
         action={<div className="flex flex-wrap justify-end gap-2">
