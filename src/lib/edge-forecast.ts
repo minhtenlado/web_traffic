@@ -23,8 +23,11 @@ export function edgeHistoryProgress(status: Record<string, unknown> | null | und
 }
 
 const HISTORY_REASONS: Record<string, string> = {
+  estimated_gap_history: "Lịch sử có mẫu ước tính bù gián đoạn, dùng cho đèn mô hình.",
+  gap_exceeds_30_minutes: "Gián đoạn quá 30 phút; đang thu lại lịch sử.",
   loading_snapshot: "Đang kiểm tra lịch sử đã lưu.",
   restored: "Đã khôi phục lịch sử; đang chờ kết quả dự báo mới.",
+  resumed_with_gaps: "Đã nối tiếp mẫu đã lưu qua khoảng thời gian mất điện/mất mạng; không tạo mẫu bù.",
   history_gap: "Lịch sử bị gián đoạn; đang thu thập lại chuỗi dữ liệu liên tục.",
   stale_history: "Lịch sử đã cũ; đang chờ dữ liệu mới từ camera.",
   incompatible_checkpoint: "Lịch sử đã lưu không phù hợp với mô hình hiện tại; đang thu thập lại.",
@@ -45,6 +48,8 @@ export function edgeTcnRecovery(status: Record<string, unknown> | null | undefin
   const label = state === "FORECASTING" ? "Đang dự báo" : state === "RESTORING"
     ? "Đang khôi phục" : "Chưa đủ dữ liệu";
   const reason = !live ? "Đang chờ bản tin mới từ Genio."
+    : status?.history_reason === "estimated_gap_history" ? HISTORY_REASONS.estimated_gap_history
+    : forecastReady && status?.history_reason === "resumed_with_gaps" ? HISTORY_REASONS.resumed_with_gaps
     : forecastReady ? "Lịch sử đầu vào đã sẵn sàng."
     : HISTORY_REASONS[String(status?.history_reason)] || (state === "RESTORING"
       ? "Đang kiểm tra lịch sử đã lưu."
