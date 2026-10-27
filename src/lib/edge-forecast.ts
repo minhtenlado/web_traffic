@@ -22,6 +22,32 @@ export function edgeHistoryProgress(status: Record<string, unknown> | null | und
   };
 }
 
+export function edgeForecastSession(status: Record<string, unknown> | null | undefined) {
+  const parts = [status?.runtime_session_id, status?.boot_id, status?.history_contract_id, status?.model_version]
+    .map((value) => typeof value === "string" && value.length ? value : "");
+  return parts.some(Boolean) ? parts.join("|") : "legacy-session";
+}
+
+export function edgeForecastHistoryCanRetain(status: Record<string, unknown> | null | undefined) {
+  if (status?.clock_synchronized === false || status?.history_gaps_detected === true) return false;
+  const required = Number(status?.history_required);
+  const contiguous = Number(status?.history_contiguous_steps);
+  if (Number.isFinite(required) && required > 0 && Number.isFinite(contiguous) && contiguous < required) return false;
+  return !["gap_exceeds_30_minutes", "history_gap", "incompatible_checkpoint", "invalid_snapshot"]
+    .includes(String(status?.history_reason || ""));
+}
+
+export function edgeForecastIssuedAt(status: Record<string, unknown> | null | undefined, forecasts: unknown) {
+  const raw = status?.forecast_issued_at ?? (Array.isArray(forecasts) ? forecasts.find((row) =>
+    row && typeof row === "object" && "issued_at" in row)?.issued_at : undefined);
+  if (typeof raw === "string" && !/^\d+(\.\d+)?$/.test(raw)) {
+    const milliseconds = Date.parse(raw);
+    return Number.isFinite(milliseconds) ? milliseconds / 1000 : null;
+  }
+  const timestamp = Number(raw);
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
 const HISTORY_REASONS: Record<string, string> = {
   estimated_gap_history: "Lịch sử có mẫu ước tính bù gián đoạn, dùng cho đèn mô hình.",
   gap_exceeds_30_minutes: "Gián đoạn quá 30 phút; đang thu lại lịch sử.",
@@ -40,7 +66,8 @@ export function edgeTcnRecovery(status: Record<string, unknown> | null | undefin
   const historyComplete = progress.required > 0 && progress.steps === progress.required;
   // Old devices omit tcn_state. Explicit recovery/invalid states always take precedence
   // over a cached forecast_status, so an interrupted history cannot appear as ready.
-  const forecastReady = live && historyComplete && status?.weather_status === "AVAILABLE" &&
+  const forecastReady = live && historyComplete && edgeForecastHistoryCanRetain(status) &&
+    status?.history_ready !== false && status?.history_fresh !== false && status?.weather_status === "AVAILABLE" &&
     status?.forecast_status === "EXPERIMENTAL" &&
     (status?.tcn_state === "FORECASTING" || status?.tcn_state === undefined);
   const state = forecastReady ? "FORECASTING" : live && status?.tcn_state === "RESTORING"
