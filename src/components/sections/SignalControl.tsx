@@ -12,6 +12,18 @@ const TIMING_LABELS: Record<TimingKey, string> = {
   left: "Xanh rẽ trái (hai trục)", allred: "Khoảng toàn đỏ",
 };
 const MODE_LABELS = { auto: "Tự động", manual: "Thủ công", setting: "Cài đặt tại mạch", emergency: "Khẩn cấp — toàn đỏ" };
+const AXIS_PLAN_FIELDS: { display: keyof AxisPlan; controller: keyof AxisPlan; label: string; min: number; max: number }[] = [
+  { display: "greenNS", controller: "greenEW", label: "Xanh thẳng Bắc–Nam", min: 5, max: 90 },
+  { display: "greenEW", controller: "greenNS", label: "Xanh thẳng Đông–Tây", min: 5, max: 90 },
+  { display: "leftNS", controller: "leftEW", label: "Xanh rẽ trái Bắc–Nam", min: 5, max: 30 },
+  { display: "leftEW", controller: "leftNS", label: "Xanh rẽ trái Đông–Tây", min: 5, max: 30 },
+  { display: "yellow", controller: "yellow", label: "Vàng", min: 2, max: 9 },
+  { display: "allred", controller: "allred", label: "Toàn đỏ", min: 1, max: 9 },
+];
+
+function displayPhysicalAxes<T extends { greenNS?: number; greenEW?: number; leftNS?: number; leftEW?: number }>(plan: T) {
+  return { ...plan, greenNS: plan.greenEW, greenEW: plan.greenNS, leftNS: plan.leftEW, leftEW: plan.leftNS };
+}
 
 export function SignalControl() {
   const signal = useTrafficStore((s) => s.signalState);
@@ -153,6 +165,7 @@ export function SignalControl() {
     leftNS: signal.phaseDurations.left, leftEW: signal.leftEW,
     yellow: signal.phaseDurations.yellow, allred: signal.phaseDurations.allred,
   } : null;
+  const livePhysicalPlan = liveSignalPlan ? displayPhysicalAxes(liveSignalPlan) : null;
   return (
     <div className="space-y-5">
       <SectionCard title="Bộ điều khiển đèn STM32F105RCT6" icon={Cpu}
@@ -195,11 +208,10 @@ export function SignalControl() {
         </div>
       </SectionCard>
       <SectionCard title="Kế hoạch riêng từng trục" icon={Settings2}>
-        <p className="mb-3 text-sm">Kế hoạch đang áp dụng: {signal.planId || 0} · Xanh thẳng NS/EW: {signal.phaseDurations.green}/{signal.greenEW ?? signal.phaseDurations.green} s · Rẽ NS/EW: {signal.phaseDurations.left}/{signal.leftEW ?? signal.phaseDurations.left} s</p>
+        <p className="mb-3 text-sm">Kế hoạch đang áp dụng: {signal.planId || 0} · Xanh thẳng Bắc–Nam/Đông–Tây: {livePhysicalPlan?.greenNS ?? signal.greenEW ?? signal.phaseDurations.green}/{livePhysicalPlan?.greenEW ?? signal.phaseDurations.green} s · Rẽ trái Bắc–Nam/Đông–Tây: {livePhysicalPlan?.leftNS ?? signal.leftEW ?? signal.phaseDurations.left}/{livePhysicalPlan?.leftEW ?? signal.phaseDurations.left} s</p>
         <div className="grid gap-3 sm:grid-cols-3">
-          {(Object.keys(axisPlan) as (keyof AxisPlan)[]).map((key) => {
-            const range = key.startsWith('green') ? [5,90] : key.startsWith('left') ? [5,30] : key === 'yellow' ? [2,9] : [1,9];
-            return <label key={key} className="text-sm">{key}<input type="number" className="ml-2 w-20 rounded border bg-background p-1" min={range[0]} max={range[1]} value={axisPlan[key]} disabled={timingDisabled || user?.role !== "admin" || signal.mode !== "auto" || signal.protocol !== 2} onChange={(e) => setAxisPlan({...axisPlan,[key]:Number(e.target.value)})} /></label>;
+          {AXIS_PLAN_FIELDS.map(({ display, controller, label, min, max }) => {
+            return <label key={display} className="text-sm">{label}<input type="number" className="ml-2 w-20 rounded border bg-background p-1" min={min} max={max} value={axisPlan[controller]} disabled={timingDisabled || user?.role !== "admin" || signal.mode !== "auto" || signal.protocol !== 2} onChange={(e) => setAxisPlan({...axisPlan,[controller]:Number(e.target.value)})} /></label>;
           })}
         </div>
         <button className={`${button} mt-3`} disabled={timingDisabled || user?.role !== 'admin' || signal.mode !== 'auto' || signal.protocol !== 2}
@@ -260,8 +272,8 @@ export function SignalControl() {
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {[
-            { title: "Thời lượng đang chạy", plan: online ? liveSignalPlan : null, badge: signal.planId ? `Kế hoạch #${signal.planId}` : "STM32" },
-            { title: fuzzyPlanQueuedOrApplied ? "Kế hoạch Fuzzy" : "Đề xuất Fuzzy", plan: visibleFuzzyPlan, badge: visibleFuzzyPlan ? `#${fuzzy?.planId ?? "—"}` : "Chưa có" },
+            { title: "Thời lượng đang chạy", plan: online ? livePhysicalPlan : null, badge: signal.planId ? `Kế hoạch #${signal.planId}` : "STM32" },
+            { title: fuzzyPlanQueuedOrApplied ? "Kế hoạch Fuzzy" : "Đề xuất Fuzzy", plan: visibleFuzzyPlan ? displayPhysicalAxes(visibleFuzzyPlan) : null, badge: visibleFuzzyPlan ? `#${fuzzy?.planId ?? "—"}` : "Chưa có" },
           ].map((item) => (
             <div key={item.title} className="rounded-lg border border-border/80 p-3">
               <div className="mb-3 flex items-center justify-between gap-2">
@@ -269,8 +281,8 @@ export function SignalControl() {
                 <span className="text-xs text-muted-foreground">{item.badge}</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-md bg-muted/40 p-2"><span className="block text-xs text-muted-foreground">Xanh thẳng NS / EW</span><span className="font-medium tabular-nums">{item.plan ? `${item.plan.greenNS ?? "—"} / ${item.plan.greenEW ?? "—"} giây` : "—"}</span></div>
-                <div className="rounded-md bg-muted/40 p-2"><span className="block text-xs text-muted-foreground">Rẽ trái NS / EW</span><span className="font-medium tabular-nums">{item.plan ? `${item.plan.leftNS ?? "—"} / ${item.plan.leftEW ?? "—"} giây` : "—"}</span></div>
+                <div className="rounded-md bg-muted/40 p-2"><span className="block text-xs text-muted-foreground">Xanh thẳng Bắc–Nam / Đông–Tây</span><span className="font-medium tabular-nums">{item.plan ? `${item.plan.greenNS ?? "—"} / ${item.plan.greenEW ?? "—"} giây` : "—"}</span></div>
+                <div className="rounded-md bg-muted/40 p-2"><span className="block text-xs text-muted-foreground">Rẽ trái Bắc–Nam / Đông–Tây</span><span className="font-medium tabular-nums">{item.plan ? `${item.plan.leftNS ?? "—"} / ${item.plan.leftEW ?? "—"} giây` : "—"}</span></div>
               </div>
             </div>
           ))}

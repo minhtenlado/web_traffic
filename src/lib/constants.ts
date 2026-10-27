@@ -90,7 +90,8 @@ export const CAMERAS = [
   },
 ];
 
-// Road names below are the existing map display mapping; verify against physical wiring.
+// The web display axes are mirrored to match the physical model. Keep STM32 phase IDs
+// unchanged: only the web-facing road labels and light groups are remapped here.
 export const SIGNAL_PHASES: { id: string; name: string; shortName: string; directions: string[]; leftTurnDirections: string[]; color: string }[] = [
   {
     "id": "boot_allred",
@@ -102,55 +103,6 @@ export const SIGNAL_PHASES: { id: string; name: string; shortName: string; direc
   },
   {
     "id": "ns_green",
-    "name": "Bắc–Nam: xanh thẳng",
-    "shortName": "Bắc–Nam: xanh thẳng",
-    "directions": [
-      "bach_dang",
-      "xo_viet_nghe_tinh"
-    ],
-    "leftTurnDirections": [],
-    "color": "var(--primary)"
-  },
-  {
-    "id": "ns_yellow",
-    "name": "Bắc–Nam: vàng",
-    "shortName": "Bắc–Nam: vàng",
-    "directions": [
-      "bach_dang",
-      "xo_viet_nghe_tinh"
-    ],
-    "leftTurnDirections": [],
-    "color": "var(--primary)"
-  },
-  {
-    "id": "after_ns_allred",
-    "name": "Toàn đỏ sau Bắc–Nam",
-    "shortName": "Toàn đỏ sau Bắc–Nam",
-    "directions": [],
-    "leftTurnDirections": [],
-    "color": "var(--primary)"
-  },
-  {
-    "id": "ns_left",
-    "name": "Bắc–Nam: xanh rẽ trái",
-    "shortName": "Bắc–Nam: xanh rẽ trái",
-    "directions": [],
-    "leftTurnDirections": [
-      "bach_dang",
-      "xo_viet_nghe_tinh"
-    ],
-    "color": "var(--primary)"
-  },
-  {
-    "id": "after_ns_left_allred",
-    "name": "Toàn đỏ sau rẽ Bắc–Nam",
-    "shortName": "Toàn đỏ sau rẽ Bắc–Nam",
-    "directions": [],
-    "leftTurnDirections": [],
-    "color": "var(--primary)"
-  },
-  {
-    "id": "ew_green",
     "name": "Đông–Tây: xanh thẳng",
     "shortName": "Đông–Tây: xanh thẳng",
     "directions": [
@@ -161,7 +113,7 @@ export const SIGNAL_PHASES: { id: string; name: string; shortName: string; direc
     "color": "var(--primary)"
   },
   {
-    "id": "ew_yellow",
+    "id": "ns_yellow",
     "name": "Đông–Tây: vàng",
     "shortName": "Đông–Tây: vàng",
     "directions": [
@@ -172,7 +124,7 @@ export const SIGNAL_PHASES: { id: string; name: string; shortName: string; direc
     "color": "var(--primary)"
   },
   {
-    "id": "after_ew_allred",
+    "id": "after_ns_allred",
     "name": "Toàn đỏ sau Đông–Tây",
     "shortName": "Toàn đỏ sau Đông–Tây",
     "directions": [],
@@ -180,7 +132,7 @@ export const SIGNAL_PHASES: { id: string; name: string; shortName: string; direc
     "color": "var(--primary)"
   },
   {
-    "id": "ew_left",
+    "id": "ns_left",
     "name": "Đông–Tây: xanh rẽ trái",
     "shortName": "Đông–Tây: xanh rẽ trái",
     "directions": [],
@@ -191,9 +143,58 @@ export const SIGNAL_PHASES: { id: string; name: string; shortName: string; direc
     "color": "var(--primary)"
   },
   {
-    "id": "after_ew_left_allred",
+    "id": "after_ns_left_allred",
     "name": "Toàn đỏ sau rẽ Đông–Tây",
     "shortName": "Toàn đỏ sau rẽ Đông–Tây",
+    "directions": [],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "ew_green",
+    "name": "Bắc–Nam: xanh thẳng",
+    "shortName": "Bắc–Nam: xanh thẳng",
+    "directions": [
+      "bach_dang",
+      "xo_viet_nghe_tinh"
+    ],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "ew_yellow",
+    "name": "Bắc–Nam: vàng",
+    "shortName": "Bắc–Nam: vàng",
+    "directions": [
+      "bach_dang",
+      "xo_viet_nghe_tinh"
+    ],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "after_ew_allred",
+    "name": "Toàn đỏ sau Bắc–Nam",
+    "shortName": "Toàn đỏ sau Bắc–Nam",
+    "directions": [],
+    "leftTurnDirections": [],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "ew_left",
+    "name": "Bắc–Nam: xanh rẽ trái",
+    "shortName": "Bắc–Nam: xanh rẽ trái",
+    "directions": [],
+    "leftTurnDirections": [
+      "bach_dang",
+      "xo_viet_nghe_tinh"
+    ],
+    "color": "var(--primary)"
+  },
+  {
+    "id": "after_ew_left_allred",
+    "name": "Toàn đỏ sau rẽ Bắc–Nam",
+    "shortName": "Toàn đỏ sau rẽ Bắc–Nam",
     "directions": [],
     "leftTurnDirections": [],
     "color": "var(--primary)"
