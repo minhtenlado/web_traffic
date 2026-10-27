@@ -79,8 +79,6 @@ export function SignalControl() {
     : fuzzy?.planStatus === "QUEUED" || fuzzy?.planStatus === "SHADOW_READY" || fuzzy?.planStatus?.startsWith("WAITING") ? "amber"
       : fuzzy?.planStatus?.startsWith("READY") ? "green" : "amber";
   const fuzzyFresh = !!fuzzy?.timestamp && Date.now() - fuzzy.timestamp * 1000 < 30000;
-  const fuzzyValidationLabel = fuzzy?.validationStatus === "validated" || fuzzy?.validationStatus === "field_validated"
-    ? "Đã kiểm định" : "Chưa kiểm định";
   const situationLabels: Record<string, string> = {
     NORMAL: "Lưu lượng ổn định", BOTH_HEAVY: "Hai hướng đông",
     A_HEAVY: "Bắc–Nam đông", B_HEAVY: "Đông–Tây đông",
@@ -154,8 +152,6 @@ export function SignalControl() {
       <SectionCard title="Điều khiển thích ứng Fuzzy" icon={Timer}
         action={<div className="flex flex-wrap justify-end gap-2">
           <StatusBadge color={fuzzyFresh ? fuzzyStatusColor : "amber"} pulse={fuzzyFresh}>{fuzzyFresh ? fuzzyStatusLabel : "Dữ liệu cũ"}</StatusBadge>
-          {fuzzy?.advisoryOnly && <StatusBadge color="amber">Chỉ theo dõi</StatusBadge>}
-          <StatusBadge color={fuzzyValidationLabel === "Đã kiểm định" ? "green" : "amber"}>{fuzzyValidationLabel}</StatusBadge>
         </div>}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
           <span className="text-sm font-medium">{fuzzyFresh ? situationLabel : "Đang chờ dữ liệu mới"}</span>
