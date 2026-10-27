@@ -52,7 +52,7 @@ export function isControllerSignal(value: unknown): value is ControllerSignal {
 export type AxisPlan = { greenNS: number; greenEW: number; leftNS: number; leftEW: number; yellow: number; allred: number };
 export type ControllerCommand =
   | { action: "set_mode"; mode: "auto" | "manual" }
-  | { action: "next" | "emergency" }
+  | { action: "next" | "emergency" | "clear_emergency" }
   | { action: "set_plan"; plan: AxisPlan; planId: number; validUntil: number }
   | { action: "set_duration"; phase: TimingKey; duration: number };
 export async function sendControllerCommand(command: ControllerCommand): Promise<string> {
@@ -62,6 +62,9 @@ export async function sendControllerCommand(command: ControllerCommand): Promise
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...command, id, timestamp: Date.now() }),
   });
-  if (!response.ok) throw new Error("Không gửi được yêu cầu điều khiển STM32");
+  if (!response.ok) {
+    const result = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(result?.error || "Không gửi được yêu cầu điều khiển STM32");
+  }
   return id;
 }

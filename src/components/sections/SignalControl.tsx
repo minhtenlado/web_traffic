@@ -20,11 +20,13 @@ export function SignalControl() {
   const setDuration = useTrafficStore((s) => s.setSignalDuration);
   const next = useTrafficStore((s) => s.nextSignalPhase);
   const emergency = useTrafficStore((s) => s.emergencyStop);
+  const clearEmergency = useTrafficStore((s) => s.clearEmergencyStop);
   const user = useTrafficStore((s) => s.user);
   const [axisPlan, setAxisPlan] = useState<AxisPlan>({greenNS:30,greenEW:30,leftNS:10,leftEW:10,yellow:3,allred:2});
   const fuzzy = useTrafficStore((s) => s.fuzzyStatus);
   const [pending, setPending] = useState("");
   const [message, setMessage] = useState("");
+  const [emergencyUi, setEmergencyUi] = useState<{ target: boolean; commandId?: string; confirmed: boolean } | null>(null);
   const [values, setValues] = useState(signal.phaseDurations);
   // Store ticks each second, so online/freshness updates even without new telemetry.
   const tick = useTrafficStore((s) => s._tickCount);
@@ -44,13 +46,29 @@ export function SignalControl() {
         if (response.ok) {
           const result = await response.json();
           setMessage(`${result.status}: ${result.message || 'Đang xử lý'}`);
-          if (!["PENDING", "QUEUED"].includes(result.status)) setPending("");
+          if (!["PENDING", "QUEUED"].includes(result.status)) {
+            if (emergencyUi?.commandId === pending) {
+              if (result.status === "APPLIED") {
+                setEmergencyUi((current) => current?.commandId === pending
+                  ? { target: current.target, confirmed: true } : current);
+                setMessage(emergencyUi.target
+                  ? "STM32 đã xác nhận dừng khẩn cấp."
+                  : "STM32 đã xác nhận hủy dừng khẩn cấp.");
+              } else {
+                setEmergencyUi(null);
+              }
+            }
+            setPending("");
+          }
         }
       } catch {}
       if (Date.now()-started > 310000) { setPending(""); setMessage('Chưa có kết quả cuối. Kiểm tra trạng thái trước khi gửi lại.'); }
     }, 500);
     return () => clearInterval(timer);
-  }, [pending]);
+  }, [pending, emergencyUi]);
+  useEffect(() => {
+    if (emergencyUi?.confirmed && (signal.mode === "emergency") === emergencyUi.target) setEmergencyUi(null);
+  }, [emergencyUi, signal.mode]);
   async function run(action: () => Promise<string>) {
     setPending("sending");
     setMessage("");
@@ -60,6 +78,23 @@ export function SignalControl() {
     } catch (error) {
       setPending("");
       setMessage(error instanceof Error ? error.message : "Không gửi được lệnh");
+    }
+  }
+  async function toggleEmergency() {
+    const active = emergencyUi?.target ?? (signal.mode === "emergency");
+    const target = !active;
+    setEmergencyUi({ target, confirmed: false });
+    setPending("sending");
+    setMessage("");
+    try {
+      const commandId = await (target ? emergency() : clearEmergency());
+      setEmergencyUi({ target, commandId, confirmed: false });
+      setPending(commandId);
+      setMessage(target ? "Đã gửi yêu cầu dừng. Đang chờ STM32 xác nhận." : "Đã gửi yêu cầu hủy dừng. Đang chờ STM32 xác nhận.");
+    } catch (error) {
+      setEmergencyUi(null);
+      setPending("");
+      setMessage(error instanceof Error ? error.message : "Không gửi được lệnh khẩn cấp");
     }
   }
   const button = "rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed";
@@ -146,8 +181,10 @@ export function SignalControl() {
           onClick={() => run(() => sendControllerCommand({action:'set_plan',plan:axisPlan,planId:(crypto.getRandomValues(new Uint32Array(1))[0]%0xFFFFFF)+1,validUntil:Math.floor(Date.now()/1000)+300}))}>Gửi kế hoạch cho chu kỳ tiếp theo</button>
       </SectionCard>
       <SectionCard title="Khẩn cấp" icon={ShieldAlert}>
-        <button className={`${button} bg-destructive text-destructive-foreground`} disabled={!online || readOnlyTelemetry}
-          onClick={() => run(emergency)}>DỪNG KHẨN CẤP</button>
+        <button className={`${button} bg-destructive text-destructive-foreground`}
+          disabled={!online || readOnlyTelemetry || !!pending || (!!emergencyUi?.confirmed && (signal.mode === "emergency") !== emergencyUi.target)}
+          aria-pressed={emergencyUi?.target ?? (signal.mode === "emergency")}
+          onClick={toggleEmergency}>{(emergencyUi?.target ?? (signal.mode === "emergency")) ? "Hủy dừng khẩn cấp" : "Dừng khẩn cấp"}</button>
       </SectionCard>
       <SectionCard title="Điều khiển thích ứng Fuzzy" icon={Timer}
         action={<div className="flex flex-wrap justify-end gap-2">

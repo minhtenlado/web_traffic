@@ -36,14 +36,14 @@ test('stale/absent status is offline even if cloud still says online', () => {
   assert.equal(controller.isControllerOnline({ online: true, lastSeen: 96 }, 100000), false);
 });
 test('API authenticates, queues by ID, rejects unsupported commands', async () => {
-  const writes = []; let authenticated = true; let controlStatus = null;
+  const writes = []; let authenticated = true; let controlStatus = null; let currentMode = 'auto';
   const route = load('src/app/api/signal/route.ts', {
     require: (name) => name === 'next/server' ? { NextResponse: { json: (v, init) => new Response(JSON.stringify(v), init) } }
       : name.endsWith('/controller') ? controller
       : name.endsWith('/auth') ? { session: async () => authenticated ? { id: 'test', role: 'admin' } : null, sameOrigin: () => true }
       : name.endsWith('/audit') ? { appendAuditEvent: async () => {} }
       : { database: () => ({ ref: (url) => ({
-        get: async () => ({ val: () => controlStatus }),
+        get: async () => ({ val: () => url.endsWith('controllerStatus') ? controlStatus : { mode: currentMode, timestamp: Math.floor(Date.now() / 1000) } }),
         transaction: async (callback) => { writes.push({ url, data: callback(null) }); return { committed: true }; },
       }) }) },
   });
@@ -57,6 +57,12 @@ test('API authenticates, queues by ID, rejects unsupported commands', async () =
   }
   assert.ok(writes.every((w) => w.url.startsWith('traffic/commands/')));
   assert.ok(writes.every((w) => w.data.actor === 'test' && w.data.status === 'PENDING'));
+  controlStatus = { online: true, controlEnabled: true };
+  assert.equal((await route.POST(request({ action: 'clear_emergency' }))).status, 409);
+  currentMode = 'emergency';
+  assert.equal((await route.POST(request({ action: 'clear_emergency' }))).status, 202);
+  assert.equal(writes.at(-1).data.action, 'clear_emergency');
+  currentMode = 'auto';
   const before = writes.length;
   controlStatus = { readOnlyTelemetry: true, controlEnabled: false };
   assert.equal((await route.POST(request({ action: 'next' }))).status, 423);

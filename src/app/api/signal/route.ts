@@ -20,6 +20,16 @@ export async function POST(request: Request) {
         !Number.isSafeInteger(timestamp) || Math.abs(Date.now() - timestamp) > 10000) {
       return NextResponse.json({ error: "Yêu cầu không hợp lệ hoặc hết hạn" }, { status: 400 });
     }
+    if (action === "clear_emergency") {
+      if (controllerStatus?.online !== true || controllerStatus?.controlEnabled !== true) {
+        return NextResponse.json({ error: "STM32 chưa sẵn sàng nhận lệnh hủy khẩn cấp" }, { status: 423 });
+      }
+      const signalState = (await database().ref("traffic/signalState").get()).val();
+      if (signalState?.mode !== "emergency" || !Number.isFinite(signalState?.timestamp) ||
+          Math.abs(Date.now() / 1000 - signalState.timestamp) > 3) {
+        return NextResponse.json({ error: "STM32 chưa xác nhận trạng thái dừng khẩn cấp" }, { status: 409 });
+      }
+    }
     let command: Record<string, unknown> = { id, timestamp, action };
     if (action === "set_mode" && ["auto", "manual"].includes(body.mode)) {
       command.mode = body.mode;
@@ -37,7 +47,7 @@ export async function POST(request: Request) {
       const remaining = body.validUntil-Math.floor(Date.now()/1000);
       if (!valid || !Number.isInteger(body.planId) || body.planId<1 || body.planId>0xFFFFFF || !Number.isInteger(remaining) || remaining<1 || remaining>300) return new Response(null, { status: 400 });
       command = { ...command, plan: Object.fromEntries(keys.map((key) => [key,body.plan[key]])), planId: body.planId, validUntil: body.validUntil };
-    } else if (action !== "next" && action !== "emergency") {
+    } else if (action !== "next" && action !== "emergency" && action !== "clear_emergency") {
       return NextResponse.json({ error: "Lệnh không được STM32 hỗ trợ" }, { status: 400 });
     }
     command = { ...command, status: "PENDING", actor: user.id, queueKey: `${action === "emergency" ? 0 : 1}:${timestamp}:${id}`, expiresAt: timestamp+10000 };
@@ -46,7 +56,8 @@ export async function POST(request: Request) {
     const actionLabel = action === "set_mode" ? `Xếp hàng yêu cầu đổi chế độ ${String(command.mode)}` :
       action === "set_duration" ? `Xếp hàng yêu cầu đặt ${String(command.phase)} = ${String(command.duration)} giây` :
       action === "set_plan" ? "Xếp hàng kế hoạch pha đèn" :
-      action === "emergency" ? "Xếp hàng lệnh khẩn cấp" : "Xếp hàng yêu cầu chuyển pha";
+      action === "emergency" ? "Xếp hàng lệnh khẩn cấp" :
+      action === "clear_emergency" ? "Xếp hàng yêu cầu hủy dừng khẩn cấp" : "Xếp hàng yêu cầu chuyển pha";
     await appendAuditEvent(request, user, "control", actionLabel, { commandId: id, status: "PENDING" });
     return NextResponse.json({ id, status: "PENDING" }, { status: 202 });
   } catch {

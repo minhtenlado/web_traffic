@@ -141,6 +141,7 @@ interface TrafficState {
   setSignalDuration: (phase: TimingKey, duration: number) => Promise<string>;
   nextSignalPhase: () => Promise<string>;
   emergencyStop: () => Promise<string>;
+  clearEmergencyStop: () => Promise<string>;
   acknowledgeAlert: (id: string) => Promise<void>;
   acknowledgeAllAlerts: () => Promise<void>;
   addDevice: (device: DeviceItem) => void;
@@ -432,6 +433,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   setSignalDuration: (phase, duration) => sendControllerCommand({ action: "set_duration", phase, duration }),
   nextSignalPhase: () => sendControllerCommand({ action: "next" }),
   emergencyStop: () => sendControllerCommand({ action: "emergency" }),
+  clearEmergencyStop: () => sendControllerCommand({ action: "clear_emergency" }),
   acknowledgeAlert: async (id) => {
     const before = get();
     if (!before.alerts.some((alert) => alert.id === id && !alert.acknowledged)) return;
