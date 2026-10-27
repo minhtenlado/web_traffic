@@ -21,9 +21,41 @@ const FORECAST_SEVERITY: Record<string, number> = {
 };
 
 type ForecastCameraId = (typeof FORECAST_CAMERA_IDS)[number];
-type ForecastChartPoint = Record<string, string | number | null>;
+type ForecastChartPoint = { horizon: number } & Partial<Record<ForecastCameraId, number | null>>;
+type ForecastCameraPoint = { horizon: number; severity: number | null };
 
-const ForecastTrafficChart = memo(function ForecastTrafficChart({
+const ForecastCameraChart = memo(function ForecastCameraChart({
+  cameraId,
+  data,
+}: {
+  cameraId: ForecastCameraId;
+  data: ForecastCameraPoint[];
+}) {
+  const cameraIndex = FORECAST_CAMERA_IDS.indexOf(cameraId);
+  const cameraName = CAMERAS.find((camera) => camera.id === cameraId)?.name || cameraId;
+  const hasValues = data.some((point) => point.severity !== null);
+
+  return <article className="min-w-0 rounded-xl border border-border/80 bg-background/25 p-3 sm:p-4">
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <h3 className="font-medium">{cameraName}</h3>
+      <span className="inline-flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: FORECAST_COLORS[cameraIndex] }} />Dự báo</span>
+    </div>
+    <div role="img" aria-label={`Dự báo mức độ ùn tắc ${cameraName} tại các mốc 5, 15 và 30 phút`} className="h-[230px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 12, bottom: 2, left: 0 }}>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
+          <XAxis dataKey="horizon" type="number" domain={[5, 30]} ticks={[5, 15, 30]} tickFormatter={(value) => `${value}p`} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis type="number" domain={[0, 3]} ticks={[0, 1, 2, 3]} tickFormatter={(value) => FORECAST_LEVELS[Number(value)] || ""} width={92} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
+          <Tooltip labelFormatter={(value) => `Sau ${value} phút`} formatter={(value) => [value === null ? "Chưa có dự báo" : FORECAST_LEVELS[Number(value)] || "Chưa có nhãn", "Mức độ"]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
+          <Line type="stepAfter" dataKey="severity" name={cameraName} stroke={FORECAST_COLORS[cameraIndex]} strokeWidth={3} dot={{ r: 5, fill: "var(--card)", strokeWidth: 2 }} activeDot={{ r: 7 }} connectNulls={false} isAnimationActive animationDuration={500} animationEasing="ease-in-out" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+    {!hasValues && <p className="-mt-5 text-center text-xs text-muted-foreground">Chưa có dữ liệu dự báo</p>}
+  </article>;
+});
+
+const ForecastTrafficCharts = memo(function ForecastTrafficCharts({
   data,
   cameraIds,
   message,
@@ -33,28 +65,12 @@ const ForecastTrafficChart = memo(function ForecastTrafficChart({
   message: string | null;
 }) {
   return <div>
-    <p className="mb-2 text-sm text-muted-foreground">Mức độ ùn tắc dự báo theo camera</p>
-    {message && <p aria-live="polite" className="mb-2 min-h-5 text-sm text-muted-foreground">{message}</p>}
-    <div role="img" aria-label="Đồ thị mức độ ùn tắc dự báo theo camera tại các mốc 5, 15 và 30 phút" className="h-[320px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 12, right: 16, bottom: 4, left: 4 }}>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
-          <XAxis dataKey="horizon" type="number" domain={[5, 30]} ticks={[5, 15, 30]} tickFormatter={(value) => `${value} phút`} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
-          <YAxis type="number" domain={[0, 3]} ticks={[0, 1, 2, 3]} tickFormatter={(value) => FORECAST_LEVELS[Number(value)] || ""} width={112} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
-          <Tooltip formatter={(value, name) => [FORECAST_LEVELS[Number(value)] || "Chưa có nhãn", name]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
-          {cameraIds.map((cameraId) => {
-            const cameraIndex = FORECAST_CAMERA_IDS.indexOf(cameraId);
-            return <Line key={cameraId} type="stepAfter" dataKey={cameraId} name={CAMERAS.find((camera) => camera.id === cameraId)?.name || cameraId} stroke={FORECAST_COLORS[cameraIndex]} strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} connectNulls={false} isAnimationActive animationDuration={700} animationEasing="ease-in-out" />;
-          })}
-        </LineChart>
-      </ResponsiveContainer>
+    <p className="mb-2 text-sm text-muted-foreground">Mức độ ùn tắc dự báo · mỗi camera một biểu đồ</p>
+    {message && <p aria-live="polite" className="mb-3 min-h-5 text-sm text-muted-foreground">{message}</p>}
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      {cameraIds.map((cameraId) => <ForecastCameraChart key={cameraId} cameraId={cameraId} data={data.map((point) => ({ horizon: point.horizon, severity: point[cameraId] ?? null }))} />)}
     </div>
-    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-3">
-      {cameraIds.map((cameraId) => {
-        const cameraIndex = FORECAST_CAMERA_IDS.indexOf(cameraId);
-        return <span key={cameraId} className="inline-flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: FORECAST_COLORS[cameraIndex] }} />{CAMERAS.find((camera) => camera.id === cameraId)?.name || cameraId}</span>;
-      })}
-    </div>
+    <div className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">Mức độ: Thông thoáng → Trung bình → Đông đúc → Rất đông · Dự báo sau 5, 15 và 30 phút</div>
   </div>;
 });
 
@@ -80,11 +96,13 @@ export function ModelManagement() {
     const rows = JSON.parse(forecastClassSignature) as Array<[5 | 15 | 30, ForecastCameraId, string]>;
     const classes = new Map(rows.map(([horizon, cameraId, predictedClass]) => [`${horizon}:${cameraId}`, FORECAST_SEVERITY[predictedClass] ?? null]));
     const cameraIds = [...FORECAST_CAMERA_IDS];
-    const data = ([5, 15, 30] as const).map((horizon) => {
-      const point: ForecastChartPoint = { horizon };
-      for (const cameraId of FORECAST_CAMERA_IDS) point[cameraId] = classes.get(`${horizon}:${cameraId}`) ?? null;
-      return point;
-    });
+    const data = ([5, 15, 30] as const).map((horizon) => ({
+      horizon,
+      ...Object.fromEntries(FORECAST_CAMERA_IDS.map((cameraId) => [
+        cameraId,
+        classes.get(`${horizon}:${cameraId}`) ?? null,
+      ])),
+    })) as ForecastChartPoint[];
     return { data, cameraIds };
   }, [forecastClassSignature]);
   const currentForecastValid = recovery.forecastReady && forecastHasRows && issuedAt !== null &&
@@ -144,7 +162,7 @@ export function ModelManagement() {
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Mẫu đầu vào đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
         {progress.required > 0 && <div role="progressbar" aria-label="Tiến độ mẫu đầu vào TCN" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} /></div>}
       </div>
-      <ForecastTrafficChart data={chartToShow?.data || forecastChart.data.map((point) => ({ ...point, cam_01: null, cam_02: null, cam_03: null, cam_04: null }))} cameraIds={FORECAST_CAMERA_IDS} message={chartMessage} />
+      <ForecastTrafficCharts data={chartToShow?.data || forecastChart.data.map((point) => ({ ...point, cam_01: null, cam_02: null, cam_03: null, cam_04: null }))} cameraIds={FORECAST_CAMERA_IDS} message={chartMessage} />
     </SectionCard>
 
     <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Kiểm định TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p><p>Khôi phục TCN: {String(edgeStatus.tcn_state || "chưa có")}</p><p>Lý do: {String(edgeStatus.history_reason || "chưa có")}</p><p>Bước lịch sử cuối: {String(edgeStatus.history_last_timestamp || "chưa có")}</p></div></details>
