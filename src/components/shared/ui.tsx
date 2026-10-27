@@ -161,7 +161,6 @@ export function StatCard({
 
 export function SectionCard({
   title,
-  subtitle,
   icon: Icon,
   action,
   children,
@@ -201,9 +200,6 @@ export function SectionCard({
                 <h3 className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
                   {title}
                 </h3>
-              )}
-              {subtitle && (
-                <p className="mt-0.5 truncate text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
               )}
             </div>
           </div>

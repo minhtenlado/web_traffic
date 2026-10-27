@@ -8,17 +8,17 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { formatLongDate, formatClockTime } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
-const SECTION_TITLES: Record<string, { title: string; subtitle: string }> = {
-  dashboard: { title: "Tổng quan", subtitle: "Trung tâm điều khiển giao thông" },
-  camera: { title: "Giám sát Camera", subtitle: "Theo dõi trực tiếp 7 camera" },
-  analytics: { title: "Thống kê & Phân tích", subtitle: "Dữ liệu lưu lượng & dự báo AI" },
-  signal: { title: "Điều khiển đèn", subtitle: "Quản lý pha đèn giao thông" },
-  model: { title: "Mô hình AI", subtitle: "Quản lý & đánh giá mô hình" },
-  alerts: { title: "Cảnh báo", subtitle: "Sự kiện & cảnh báo hệ thống" },
-  audit: { title: "Nhật ký hoạt động", subtitle: "Lịch sử thao tác người dùng" },
-  admin: { title: "Quản trị", subtitle: "Quản lý hệ thống" },
-  profile: { title: "Hồ sơ", subtitle: "Thông tin tài khoản" },
-  health: { title: "Giám sát Hệ thống", subtitle: "Trạng thái phần cứng & dịch vụ" },
+const SECTION_TITLES: Record<string, { title: string }> = {
+  dashboard: { title: "Tổng quan" },
+  camera: { title: "Giám sát Camera" },
+  analytics: { title: "Thống kê & Phân tích" },
+  signal: { title: "Điều khiển đèn" },
+  model: { title: "Mô hình AI" },
+  alerts: { title: "Cảnh báo" },
+  audit: { title: "Nhật ký hoạt động" },
+  admin: { title: "Quản trị" },
+  profile: { title: "Hồ sơ" },
+  health: { title: "Giám sát Hệ thống" },
 };
 
 export function Header() {
@@ -78,7 +78,6 @@ export function Header() {
               </h1>
             </motion.div>
           </AnimatePresence>
-          <p className="hidden truncate text-xs text-muted-foreground sm:block">{meta.subtitle}</p>
         </div>
       </div>
 

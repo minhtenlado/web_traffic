@@ -28,7 +28,6 @@ export function TrafficHistoryChart() {
   return (
     <SectionCard
       title="Diễn biến số xe trong ảnh"
-      subtitle="Ước lượng từ các ảnh camera AI mới nhận; không phải lưu lượng xe qua đường"
       icon={BarChart3}
       action={<div className="flex rounded-lg border border-border bg-background/60 p-1" aria-label="Khoảng thời gian biểu đồ">
         {WINDOWS.map((window) => <button key={window.id} onClick={() => setWindowId(window.id)}
@@ -42,7 +41,6 @@ export function TrafficHistoryChart() {
         <div className="flex min-h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background/30 px-6 text-center">
           <BarChart3 className="h-8 w-8 text-muted-foreground/60" />
           <p className="font-medium">Đang chờ thêm ảnh mới để vẽ xu hướng</p>
-          <p className="max-w-lg text-sm text-muted-foreground">Biểu đồ chỉ ghi nhận mẫu mới có thời điểm quan sát. Dữ liệu được tích lũy trong phiên hiện tại; chưa có lịch sử dài hạn tại Firebase.</p>
         </div>
       ) : (
         <>
@@ -73,7 +71,6 @@ export function TrafficHistoryChart() {
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index] }} />{direction.name}
             </span>)}
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">Mỗi điểm là tổng số xe AI ước lượng trong các ảnh mới còn hiệu lực của hướng tương ứng. Mẫu cũ/trùng không được tính lại.</p>
         </>
       )}
     </SectionCard>

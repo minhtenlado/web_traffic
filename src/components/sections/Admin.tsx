@@ -100,7 +100,7 @@ export function Admin() {
   };
   useEffect(() => { void refreshAccounts(); }, []);
   return <div className="space-y-6">
-    <div className="border-b border-border pb-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Quản trị</p><h2 className="mt-1 text-2xl font-semibold">Tài khoản, thiết bị và vận hành</h2><p className="mt-1 text-sm text-muted-foreground">Tài khoản lưu phía máy chủ; thiết bị lấy từ telemetry đang nhận.</p></div>
+    <div className="border-b border-border pb-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Quản trị</p><h2 className="mt-1 text-2xl font-semibold">Tài khoản, thiết bị và vận hành</h2></div>
     <Tabs defaultValue="account" className="w-full">
       <TabsList className="mb-4 h-auto flex-wrap bg-muted/60 p-1">
         <TabsTrigger value="account" className="gap-2"><Users className="h-4 w-4" />Tài khoản</TabsTrigger>
@@ -163,7 +163,6 @@ export function Admin() {
             <Info label="Camera" value={`${CAMERAS.length} camera · ${aiCount} camera phân tích AI`} />
             <Info label="Triển khai model" value="Thủ công sau kiểm định và phê duyệt" />
           </div>
-          <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">Thay đổi cấu hình hệ thống hoặc checkpoint cần được thực hiện qua quy trình triển khai có kiểm thử.</p>
         </SectionCard>
       </TabsContent>
     </Tabs>

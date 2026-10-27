@@ -65,12 +65,10 @@ const ForecastTrafficCharts = memo(function ForecastTrafficCharts({
   message: string | null;
 }) {
   return <div>
-    <p className="mb-2 text-sm text-muted-foreground">Mức độ ùn tắc dự báo · mỗi camera một biểu đồ</p>
     {message && <p aria-live="polite" className="mb-3 min-h-5 text-sm text-muted-foreground">{message}</p>}
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       {cameraIds.map((cameraId) => <ForecastCameraChart key={cameraId} cameraId={cameraId} data={data.map((point) => ({ horizon: point.horizon, severity: point[cameraId] ?? null }))} />)}
     </div>
-    <div className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">Mức độ: Thông thoáng → Trung bình → Đông đúc → Rất đông · Dự báo sau 5, 15 và 30 phút</div>
   </div>;
 });
 
@@ -132,7 +130,7 @@ export function ModelManagement() {
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Nhận dạng & dự báo</p><h2 className="mt-1 text-2xl font-semibold">AI tại Hàng Xanh</h2><p className="mt-1 text-sm text-muted-foreground">Kết quả mới nhất từ camera và mô hình trên Genio 350.</p></div>
+      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Nhận dạng & dự báo</p><h2 className="mt-1 text-2xl font-semibold">AI tại Hàng Xanh</h2></div>
       <StatusBadge color={edgeLive ? "green" : edgeAI ? "amber" : "cyan"}>{edgeLive ? "Genio có tín hiệu mới" : edgeAI ? "Đang chờ tín hiệu mới" : "Chưa nhận dữ liệu AI"}</StatusBadge>
     </div>
 
@@ -157,7 +155,7 @@ export function ModelManagement() {
     </SectionCard>
 
     <SectionCard title="Dự báo ùn tắc" subtitle="Dự báo 5, 15 và 30 phút" icon={Brain}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Cửa sổ TCN 120 phút · bước 10 giây</p><div className="flex flex-wrap items-center gap-2"><StatusBadge color={hasCurrentForecast ? "green" : retainedForecastValid || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge>{edgeStatus.history_reason === "estimated_gap_history" && <StatusBadge color="amber">Có mẫu bù ước tính</StatusBadge>}{(hasCurrentForecast || retainedForecastValid) && <StatusBadge color="amber">Thử nghiệm · chưa kiểm định thực địa</StatusBadge>}</div></div>
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-3"><div className="flex flex-wrap items-center gap-2"><StatusBadge color={hasCurrentForecast ? "green" : retainedForecastValid || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge>{edgeStatus.history_reason === "estimated_gap_history" && <StatusBadge color="amber">Có mẫu bù ước tính</StatusBadge>}{(hasCurrentForecast || retainedForecastValid) && <StatusBadge color="amber">Thử nghiệm · chưa kiểm định thực địa</StatusBadge>}</div></div>
       <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Mẫu đầu vào đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
         {progress.required > 0 && <div role="progressbar" aria-label="Tiến độ mẫu đầu vào TCN" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} /></div>}

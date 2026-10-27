@@ -135,7 +135,6 @@ export function LiveMonitoring() {
             <Radio className="h-3.5 w-3.5 text-success" />
             Trạng thái: <span className={`font-semibold ${freshCount ? "text-success" : "text-warning"}`}>{freshCount ? "Đang nhận ảnh" : "Chưa có ảnh mới"}</span>
           </span>
-          <span className="ml-auto text-[10px] text-muted-foreground">Bấm vào camera để xem toàn màn hình</span>
         </div>
       </SectionCard>
 
@@ -261,12 +260,6 @@ export function LiveMonitoring() {
           })}
         </div>
       )}
-
-      {/* External link hint */}
-      <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
-        <AlertCircle className="h-3.5 w-3.5" />
-        Nguồn ảnh: HTGT TP.HCM — mỗi ảnh được tải mới sau 10 giây; đây không phải video live.
-      </div>
 
       {/* Expanded camera dialog */}
       <Dialog open={!!expandedCam} onOpenChange={(o) => !o && setExpandedCam(null)}>

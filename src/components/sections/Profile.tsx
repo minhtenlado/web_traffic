@@ -12,7 +12,7 @@ export function Profile() {
   const initials = user.fullName.split(/\s+/).filter(Boolean).slice(-2).map((word) => word[0]).join("").toUpperCase();
 
   return <div className="space-y-6">
-    <div className="border-b border-border pb-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Tài khoản</p><h2 className="mt-1 text-2xl font-semibold">Hồ sơ và phiên đăng nhập</h2><p className="mt-1 text-sm text-muted-foreground">Thông tin lấy từ phiên đã xác thực trên máy chủ.</p></div>
+    <div className="border-b border-border pb-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Tài khoản</p><h2 className="mt-1 text-2xl font-semibold">Hồ sơ và phiên đăng nhập</h2></div>
     <SectionCard title="Thông tin cá nhân" subtitle="Tài khoản đang sử dụng" icon={UserRound}>
       <div className="flex flex-wrap items-center gap-4 border-b border-border pb-5"><div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/15 text-lg font-semibold text-primary">{initials}</div><div className="min-w-0 flex-1"><h3 className="text-lg font-semibold">{user.fullName}</h3><p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><Mail className="h-4 w-4" />{user.email}</p></div><StatusBadge color={user.role === "admin" ? "green" : "cyan"}>{user.role === "admin" ? "Quản trị viên" : "Vận hành viên"}</StatusBadge></div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3"><Info label="Tên đăng nhập" value={user.username} /><Info label="Mã tài khoản" value={user.id} /><Info label="Phiên" value="Đã xác thực" /></div>

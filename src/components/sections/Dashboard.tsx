@@ -37,7 +37,6 @@ export function Dashboard() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Trung tâm điều hành · TP. Hồ Chí Minh</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Ngã tư Hàng Xanh</h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Theo dõi ảnh camera, tình trạng các hướng và dự báo giao thông theo dữ liệu đang nhận.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <StatusBadge color={isOffline ? "amber" : "green"}><Radio className="mr-1 h-3.5 w-3.5" />Genio {isOffline ? "chưa có tín hiệu mới" : "đang kết nối"}</StatusBadge>
@@ -53,7 +52,7 @@ export function Dashboard() {
     </section>
 
     <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
-      <SectionCard title="Bản đồ giám sát" subtitle={activePhase ? `Pha đèn hiện tại: ${activePhase} · còn ${signalState.countdown}s` : "Sơ đồ vị trí camera và tình trạng giao lộ"} icon={MapPinned} noPadding bodyClassName="p-3 sm:p-4">
+      <SectionCard title="Bản đồ giám sát" action={activePhase ? <StatusBadge color="green">{activePhase} · còn {signalState.countdown}s</StatusBadge> : undefined} icon={MapPinned} noPadding bodyClassName="p-3 sm:p-4">
         <IntersectionMap />
       </SectionCard>
       <div className="space-y-6">

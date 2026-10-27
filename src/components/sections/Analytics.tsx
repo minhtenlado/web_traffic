@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Activity, BarChart3, Camera, CircleHelp } from "lucide-react";
+import { Activity, BarChart3, Camera } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { selectedCameraView } from "@/lib/traffic-status";
@@ -25,7 +25,6 @@ export function Analytics() {
       <div>
         <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Hàng Xanh · Dữ liệu trực tiếp</p>
         <h2 className="text-2xl font-semibold tracking-tight">Lưu lượng quan sát & dự báo</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Chỉ hiển thị phép đo có nguồn và thời điểm; số xe là ước lượng trên ảnh camera.</p>
       </div>
       <StatusBadge color={freshCount === cameras.length && cameras.length ? "green" : freshCount ? "amber" : "cyan"}>
         {freshCount}/{cameras.length} camera AI đang có ảnh mới
@@ -62,10 +61,6 @@ export function Analytics() {
     </SectionCard>
 
     <SectionCard title="Dự báo TCN" subtitle="Quan sát và dự báo chỉ xuất hiện khi payload còn hiệu lực; trạng thái kiểm định được giữ nguyên." icon={BarChart3}>
-      <div className="mb-4 flex items-start gap-2 rounded-lg border border-border bg-background/40 p-3 text-sm text-muted-foreground">
-        <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <p>Biểu đồ TCN là kết quả thử nghiệm của mô hình. Độ tin cậy đầu ra không đồng nghĩa với độ chính xác đã được kiểm chứng thực địa.</p>
-      </div>
       <AICameraCharts />
     </SectionCard>
   </div>;

@@ -68,7 +68,7 @@ export function SystemHealth() {
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Giám sát thiết bị</p><h2 className="mt-1 text-2xl font-semibold">Tình trạng vận hành</h2><p className="mt-1 text-sm text-muted-foreground">Chỉ số Genio lấy từ cảm biến và bộ lấy mẫu hệ thống; dữ liệu quá 20 giây sẽ không hiển thị như số hiện tại.</p></div>
+      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Giám sát thiết bị</p><h2 className="mt-1 text-2xl font-semibold">Tình trạng vận hành</h2></div>
       <div className="text-right text-xs text-muted-foreground">
         <p>{telemetryFresh && health?.observedAt ? `Đo lúc ${new Date(health.observedAt).toLocaleTimeString("vi-VN")}` : "Chưa có telemetry phần cứng mới"}</p>
         <p className="mt-1">{telemetryFresh ? health?.source : telemetryAge !== null ? `Mẫu gần nhất cách đây ${telemetryAge} giây · đã hết hạn` : "Nguồn: chưa xác định"}</p>

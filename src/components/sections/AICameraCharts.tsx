@@ -27,10 +27,6 @@ export function AICameraCharts() {
     </p>
   );
   return <div className="mt-5 space-y-4">
-    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-      Thử nghiệm · Đường liền: số lượng từ detector đã làm mượt; đường đứt: dự báo TCN.
-      Đây là số lượng trong ảnh, không phải lưu lượng xe qua vạch hay nhãn kẹt xe.
-    </p>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {TCN_OUTPUT_CAMERAS.map((cam, i) => <div key={cam} className="min-w-0 rounded-xl border border-border p-4">
         <h3 className="text-sm font-semibold" style={{ color: COLORS[i] }}>{CAMERAS.find(c => c.id === cam)?.name || cam}</h3>

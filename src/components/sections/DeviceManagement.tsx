@@ -26,7 +26,7 @@ export function DeviceManagement() {
   const freshAiCount = aiCameras.filter((camera) => selectedCameraView(camera.id, cams, edge).fresh).length;
 
   return <div className="space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Thiết bị hiện có</p><h2 className="mt-1 text-2xl font-semibold">Kết nối tại Hàng Xanh</h2><p className="mt-1 text-sm text-muted-foreground">Trạng thái được suy ra từ ảnh mới và heartbeat đã nhận; không có danh mục thiết bị riêng để đăng ký.</p></div><StatusBadge color={freshAiCount ? "green" : "cyan"}>{freshAiCount}/{aiCameras.length} camera AI có ảnh mới</StatusBadge></div>
+    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Thiết bị hiện có</p><h2 className="mt-1 text-2xl font-semibold">Kết nối tại Hàng Xanh</h2></div><StatusBadge color={freshAiCount ? "green" : "cyan"}>{freshAiCount}/{aiCameras.length} camera AI có ảnh mới</StatusBadge></div>
 
     <div className="grid gap-6 xl:grid-cols-2">
       <SectionCard title="Camera giao thông" subtitle="5 camera phân tích AI · 2 camera chỉ xem tham chiếu" icon={Camera}>
@@ -52,7 +52,6 @@ export function DeviceManagement() {
           <DeviceRow icon={Cpu} title="MediaTek Genio 350" subtitle={edgeAt ? `Heartbeat ${ageText(edgeAt)}` : "Chưa có heartbeat"} online={genioLive} known={Boolean(edge)} />
           <DeviceRow icon={Radio} title="STM32F105RCT6" subtitle={controllerAt ? `Telemetry ${ageText(controllerAt)}` : "Chưa có telemetry"} online={stm32Live} known={Boolean(controller)} />
         </div>
-        <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">Quản lý thêm/xóa thiết bị chưa được kết nối với API cấu hình. Trang này đang ở chế độ theo dõi chỉ đọc.</p>
       </SectionCard>
     </div>
   </div>;
