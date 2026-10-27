@@ -9,8 +9,7 @@ const RAIN_CODES = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 
 
 export function CurrentWeatherCard({
   title = "Thời tiết tại Hàng Xanh",
-  subtitle = "Open-Meteo · ước tính mô hình khu vực, không phải trạm đo tại chỗ",
-}: { title?: string; subtitle?: string }) {
+}: { title?: string }) {
   const [weather, setWeather] = useState<OpenMeteoCurrent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -41,7 +40,7 @@ export function CurrentWeatherCard({
   const rainRate = weather ? weather.rainMm * 3600 / weather.intervalSeconds : null;
   const ageText = ageSeconds === null ? "chưa rõ thời điểm" : ageSeconds < 60 ? `${Math.floor(ageSeconds)} giây trước` : `${Math.floor(ageSeconds / 60)} phút trước`;
 
-  return <SectionCard title={title} subtitle={subtitle} icon={raining ? CloudRain : Sun}>
+  return <SectionCard title={title} icon={raining ? CloudRain : Sun}>
     {!available ? <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">
       {loading ? "Đang lấy dữ liệu thời tiết từ Open-Meteo…" : weather ? "Bản tin Open-Meteo đã quá cũ." : error ? "Không lấy được dữ liệu thời tiết từ Open-Meteo." : "Chưa có dữ liệu thời tiết."}
     </div> : <>

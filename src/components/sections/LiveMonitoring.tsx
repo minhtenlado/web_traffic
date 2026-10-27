@@ -87,7 +87,6 @@ export function LiveMonitoring() {
       {/* Header bar */}
       <SectionCard
         title="Lưới ảnh camera"
-        subtitle="5 camera có AI · 2 camera chỉ xem tham chiếu · ảnh làm mới mỗi 10 giây"
         icon={Video}
         action={
           <div className="flex flex-wrap items-center gap-2">

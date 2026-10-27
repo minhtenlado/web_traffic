@@ -191,7 +191,6 @@ export function AuditLog() {
       {/* Audit log table */}
       <SectionCard
         title="Nhật ký hoạt động hệ thống"
-        subtitle={loadedAt ? `Nhật ký bền vững từ Firebase · 500 thao tác gần nhất · tải lúc ${new Date(loadedAt).toLocaleTimeString("vi-VN")}` : "Đang kết nối nhật ký máy chủ"}
         icon={ShieldCheck}
         action={
           <div className="flex gap-2">

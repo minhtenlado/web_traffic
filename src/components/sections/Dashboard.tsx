@@ -57,7 +57,7 @@ export function Dashboard() {
       </SectionCard>
       <div className="space-y-6">
         <CurrentWeatherCard />
-        <SectionCard title="Tình trạng các hướng" subtitle="Nhãn phân loại và số xe từ các camera còn dữ liệu mới" icon={Activity}>
+        <SectionCard title="Tình trạng các hướng" icon={Activity}>
           <div className="space-y-4">
             {routeStats.map((route) => {
               const fill = route.severity === null ? 0 : Math.max(8, Math.min(100, route.severity / 3 * 100));
@@ -75,7 +75,7 @@ export function Dashboard() {
 
     <TrafficHistoryChart />
 
-    <SectionCard title="Camera AI tại giao lộ" subtitle="Số xe và nhãn lấy từ bản tin nhận diện mới nhất trên Genio; nhãn tự động chưa được xác minh độc lập" icon={Camera} action={<button onClick={() => setActive("camera")} className="text-xs font-medium text-primary hover:underline">Mở giám sát camera →</button>}>
+    <SectionCard title="Camera AI tại giao lộ" icon={Camera} action={<button onClick={() => setActive("camera")} className="text-xs font-medium text-primary hover:underline">Mở giám sát camera →</button>}>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {cameras.map((camera) => {
           const { view } = camera;

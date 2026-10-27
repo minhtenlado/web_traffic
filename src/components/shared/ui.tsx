@@ -169,7 +169,6 @@ export function SectionCard({
   noPadding,
 }: {
   title?: string;
-  subtitle?: string;
   icon?: LucideIcon;
   action?: React.ReactNode;
   children: React.ReactNode;

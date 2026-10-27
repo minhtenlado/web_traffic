@@ -82,7 +82,7 @@ export function SystemHealth() {
     </div>
 
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-      <SectionCard title="Mức sử dụng CPU và RAM" subtitle="Mẫu đo thật nhận trong phiên mở trang này · tối đa 60 điểm, không phải lịch sử lưu trữ dài hạn" icon={ServerCog}>
+      <SectionCard title="Mức sử dụng CPU và RAM" icon={ServerCog}>
         {points.length < 2 ? <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border px-6 text-center text-sm text-muted-foreground">Cần nhận thêm telemetry phần cứng để vẽ diễn biến. Không có chuỗi lịch sử dài hạn trong nguồn dữ liệu hiện tại.</div> : <div className="h-64">
           <ResponsiveContainer width="100%" height="100%"><AreaChart data={points} margin={{ top: 8, right: 12, bottom: 2, left: -16 }}>
             <defs><linearGradient id="cpuArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity={0.26} /><stop offset="100%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient><linearGradient id="ramArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.22} /><stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} /></linearGradient></defs>
@@ -94,7 +94,7 @@ export function SystemHealth() {
         </div>}
       </SectionCard>
 
-      <SectionCard title="Kết nối thiết bị" subtitle="Tình trạng suy ra từ heartbeat và thời điểm dữ liệu gần nhất" icon={Radio}>
+      <SectionCard title="Kết nối thiết bị" icon={Radio}>
         <div className="divide-y divide-border">
           {statuses.map(({ name, detail, icon: Icon, ok, known }) => <div key={name} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
@@ -105,7 +105,7 @@ export function SystemHealth() {
       </SectionCard>
     </div>
 
-    <SectionCard title="Thời gian hoạt động" subtitle="Lấy từ bản tin hệ thống, không suy ra từ uptime của trình duyệt" icon={Activity}>
+    <SectionCard title="Thời gian hoạt động" icon={Activity}>
       <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Genio 350</p><p className="mt-1 text-2xl font-semibold tabular-nums">{duration(telemetryFresh ? health?.uptime : null)}</p></div><StatusBadge color={genioFresh && telemetryFresh ? "green" : "amber"}>{genioFresh && telemetryFresh ? "Heartbeat và telemetry mới" : genioFresh ? "AI còn heartbeat · telemetry phần cứng cũ" : "Chưa xác nhận hoạt động"}</StatusBadge></div>
       {modelStatus?.runtime_version && <p className="mt-3 text-xs text-muted-foreground">Runtime: {modelStatus.runtime_version}</p>}
     </SectionCard>

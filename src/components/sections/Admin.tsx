@@ -108,7 +108,7 @@ export function Admin() {
         <TabsTrigger value="config" className="gap-2"><Settings2 className="h-4 w-4" />Vận hành</TabsTrigger>
       </TabsList>
       <TabsContent value="account">
-        <SectionCard title="Tài khoản được cấp quyền" subtitle="Tài khoản lưu phía máy chủ; mật khẩu không hiển thị trong danh sách" icon={ShieldCheck}
+        <SectionCard title="Tài khoản được cấp quyền" icon={ShieldCheck}
           action={<div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => { setCreateOpen((open) => !open); setCreateError(""); setCreateMessage(""); }}><UserPlus className="h-3.5 w-3.5" />Tạo vận hành viên</Button><Button size="sm" variant="outline" onClick={() => void refreshAccounts()} disabled={accountState === "loading"}><RefreshCw className="h-3.5 w-3.5" />Làm mới</Button></div>}>
           {createMessage && <p className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary" role="status">{createMessage}</p>}
           {createOpen && <form onSubmit={createAccount} className="mb-5 space-y-4 rounded-lg border border-border bg-background/35 p-4">
@@ -138,7 +138,7 @@ export function Admin() {
           {user && <div className="mt-4 grid gap-3 sm:grid-cols-2"><Info label="Phiên hiện tại" value={`${user.fullName} · ${user.username}`} /><Info label="Quyền hiện tại" value={user.role === "admin" ? "Quản trị viên" : "Vận hành viên"} /></div>}
           <div className="mt-5 flex items-start gap-3 rounded-lg border border-border bg-background/35 p-4"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div><p className="text-sm font-medium">Tài khoản mới có quyền Vận hành viên</p><p className="mt-1 text-xs text-muted-foreground">Mật khẩu được băm bằng scrypt trước khi lưu. Việc tạo tài khoản được ghi vào nhật ký hoạt động; không gửi mật khẩu qua email.</p></div><StatusBadge color="green">Lưu trên máy chủ</StatusBadge></div>
         </SectionCard>
-        {user?.role === "admin" && <SectionCard title="Mật khẩu quản trị" subtitle="Đổi mật khẩu của tài khoản Admin đang đăng nhập" icon={LockKeyhole}>
+        {user?.role === "admin" && <SectionCard title="Mật khẩu quản trị" icon={LockKeyhole}>
           <form onSubmit={changeAdminPassword} className="space-y-4">
             <p className="text-sm text-muted-foreground">Mật khẩu mới được lưu dưới dạng băm an toàn. Sau khi đổi, các phiên Admin khác sẽ phải đăng nhập lại.</p>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -154,7 +154,7 @@ export function Admin() {
       </TabsContent>
       <TabsContent value="devices"><DeviceManagement /></TabsContent>
       <TabsContent value="config">
-        <SectionCard title="Thiết lập vận hành hiện tại" subtitle="Các giá trị bên dưới phản ánh cấu hình ứng dụng; không phải biểu mẫu lưu giả" icon={Settings2}>
+        <SectionCard title="Thiết lập vận hành hiện tại" icon={Settings2}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Info label="Khu vực" value="Ngã tư Hàng Xanh, TP. Hồ Chí Minh" />
             <Info label="Múi giờ hiển thị" value="Asia/Ho_Chi_Minh (UTC+7)" />

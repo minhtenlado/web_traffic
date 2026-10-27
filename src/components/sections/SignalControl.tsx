@@ -97,7 +97,7 @@ export function SignalControl() {
   } : null;
   return (
     <div className="space-y-5">
-      <SectionCard title="Bộ điều khiển đèn STM32F105RCT6" subtitle="Genio ↔ UART ↔ STM32" icon={Cpu}
+      <SectionCard title="Bộ điều khiển đèn STM32F105RCT6" icon={Cpu}
         action={<StatusBadge color={online ? "green" : "amber"} pulse={online}>{online ? "STM32: Online" : "STM32: Chưa có kết nối mới"}</StatusBadge>}>
         <div className="space-y-4">
           {localControl && <p className="rounded-lg border border-amber-500 p-3 text-sm text-amber-600">Điều khiển tại mạch — nhấn TỰ ĐỘNG (PC11) trên bo để trả quyền điều khiển cho Web. Dừng khẩn cấp vẫn có hiệu lực.</p>}
@@ -115,11 +115,11 @@ export function SignalControl() {
           <p role="status" className="text-sm">{message}</p>
         </div>
       </SectionCard>
-      <SectionCard title="Tài nguyên và đường truyền STM32" subtitle="Số đo từ firmware đang chạy" icon={Cpu}>
+      <SectionCard title="Tài nguyên và đường truyền STM32" icon={Cpu}>
         <p className="text-sm">Khung đã nhận: {status?.framesReceived ?? '—'} · Khoảng heartbeat lớn nhất: {status?.maxHeartbeatGapMs ?? '—'} ms</p>
         <p className="mt-2 text-sm">Heap trống tối thiểu: {status?.metrics?.minFreeHeap ?? '—'} byte · Stack trống thấp nhất Traffic/UART/Display: {status?.metrics?.trafficStackFree ?? '—'}/{status?.metrics?.uartStackFree ?? '—'}/{status?.metrics?.displayStackFree ?? '—'} byte</p>
       </SectionCard>
-      <SectionCard title="Thời lượng trên STM32" subtitle="Thông số áp dụng cho các pha tiếp theo" icon={Settings2}>
+      <SectionCard title="Thời lượng trên STM32" icon={Settings2}>
         <div className="grid gap-4 sm:grid-cols-2">
           {(Object.keys(TIMING_LIMITS) as TimingKey[]).map((key) => {
             const [min, max] = TIMING_LIMITS[key];
@@ -136,7 +136,7 @@ export function SignalControl() {
           })}
         </div>
       </SectionCard>
-      <SectionCard title="Kế hoạch riêng từng trục" subtitle="Áp dụng nguyên gói ở đầu chu kỳ Bắc–Nam tiếp theo" icon={Settings2}>
+      <SectionCard title="Kế hoạch riêng từng trục" icon={Settings2}>
         <p className="mb-3 text-sm">Kế hoạch đang áp dụng: {signal.planId || 0} · Xanh thẳng NS/EW: {signal.phaseDurations.green}/{signal.greenEW ?? signal.phaseDurations.green} s · Rẽ NS/EW: {signal.phaseDurations.left}/{signal.leftEW ?? signal.phaseDurations.left} s</p>
         <div className="grid gap-3 sm:grid-cols-3">
           {(Object.keys(axisPlan) as (keyof AxisPlan)[]).map((key) => {
@@ -147,11 +147,11 @@ export function SignalControl() {
         <button className={`${button} mt-3`} disabled={disabled || user?.role !== 'admin' || signal.mode !== 'auto' || signal.protocol !== 2}
           onClick={() => run(() => sendControllerCommand({action:'set_plan',plan:axisPlan,planId:(crypto.getRandomValues(new Uint32Array(1))[0]%0xFFFFFF)+1,validUntil:Math.floor(Date.now()/1000)+300}))}>Gửi kế hoạch cho chu kỳ tiếp theo</button>
       </SectionCard>
-      <SectionCard title="Khẩn cấp" subtitle="STM32 đưa tất cả tín hiệu về đỏ" icon={ShieldAlert}>
+      <SectionCard title="Khẩn cấp" icon={ShieldAlert}>
         <button className={`${button} bg-destructive text-destructive-foreground`} disabled={!online || readOnlyTelemetry}
           onClick={() => run(emergency)}>DỪNG KHẨN CẤP</button>
       </SectionCard>
-      <SectionCard title="Điều khiển thích ứng Fuzzy" subtitle="Nhu cầu hai hướng và thời lượng đèn" icon={Timer}
+      <SectionCard title="Điều khiển thích ứng Fuzzy" icon={Timer}
         action={<div className="flex flex-wrap justify-end gap-2">
           <StatusBadge color={fuzzyFresh ? fuzzyStatusColor : "amber"} pulse={fuzzyFresh}>{fuzzyFresh ? fuzzyStatusLabel : "Dữ liệu cũ"}</StatusBadge>
           {fuzzy?.advisoryOnly && <StatusBadge color="amber">Chỉ theo dõi</StatusBadge>}

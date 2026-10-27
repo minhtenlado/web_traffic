@@ -130,7 +130,6 @@ export function Alerts() {
       {/* Filter bar + bulk action */}
       <SectionCard
         title="Danh sách cảnh báo"
-        subtitle={hasCameraData ? `${filtered.length} cảnh báo đang mở` : "Chưa nhận dữ liệu camera để xác định cảnh báo"}
         icon={Bell}
         action={
           <Button

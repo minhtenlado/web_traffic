@@ -33,7 +33,7 @@ export function Analytics() {
 
     <TrafficHistoryChart />
 
-    <SectionCard title="Camera phân tích AI" subtitle="Số xe và tình trạng giao thông theo từng camera" icon={Camera}>
+    <SectionCard title="Camera phân tích AI" icon={Camera}>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {cameras.map(({ id, name, label, view, record }) => <article key={id} className="min-w-0 rounded-xl border border-border/80 bg-background/35 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -50,7 +50,7 @@ export function Analytics() {
       </div>
     </SectionCard>
 
-    <SectionCard title="Tình trạng theo hướng" subtitle="Tổng hợp từ camera AI còn dữ liệu hiệu lực; mức ùn tắc là nhãn phân loại, không phải mật độ đo được." icon={Activity}>
+    <SectionCard title="Tình trạng theo hướng" icon={Activity}>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {routes.map((route) => <article key={route.id} className="rounded-xl border border-border/80 bg-background/35 p-4">
           <div className="flex items-center justify-between gap-2"><h3 className="font-medium">{route.name}</h3><StatusBadge color={route.statusColor}>{route.status}</StatusBadge></div>
@@ -60,7 +60,7 @@ export function Analytics() {
       </div>
     </SectionCard>
 
-    <SectionCard title="Dự báo TCN" subtitle="Quan sát và dự báo chỉ xuất hiện khi payload còn hiệu lực; trạng thái kiểm định được giữ nguyên." icon={BarChart3}>
+    <SectionCard title="Dự báo TCN" icon={BarChart3}>
       <AICameraCharts />
     </SectionCard>
   </div>;

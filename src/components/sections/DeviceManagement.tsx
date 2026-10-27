@@ -29,7 +29,7 @@ export function DeviceManagement() {
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Thiết bị hiện có</p><h2 className="mt-1 text-2xl font-semibold">Kết nối tại Hàng Xanh</h2></div><StatusBadge color={freshAiCount ? "green" : "cyan"}>{freshAiCount}/{aiCameras.length} camera AI có ảnh mới</StatusBadge></div>
 
     <div className="grid gap-6 xl:grid-cols-2">
-      <SectionCard title="Camera giao thông" subtitle="5 camera phân tích AI · 2 camera chỉ xem tham chiếu" icon={Camera}>
+      <SectionCard title="Camera giao thông" icon={Camera}>
         <div className="divide-y divide-border">
           {CAMERAS.map((camera) => {
             const record = cams?.[camera.id];
@@ -47,7 +47,7 @@ export function DeviceManagement() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Bộ xử lý và điều khiển" subtitle="Hai thiết bị được giám sát độc lập" icon={Cpu}>
+      <SectionCard title="Bộ xử lý và điều khiển" icon={Cpu}>
         <div className="space-y-3">
           <DeviceRow icon={Cpu} title="MediaTek Genio 350" subtitle={edgeAt ? `Heartbeat ${ageText(edgeAt)}` : "Chưa có heartbeat"} online={genioLive} known={Boolean(edge)} />
           <DeviceRow icon={Radio} title="STM32F105RCT6" subtitle={controllerAt ? `Telemetry ${ageText(controllerAt)}` : "Chưa có telemetry"} online={stm32Live} known={Boolean(controller)} />
