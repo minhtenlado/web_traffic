@@ -4,7 +4,8 @@ import { create } from "zustand";
 import { readTCNChart } from "./tcn-forecast";
 import { buildRouteStats, buildCameraAlerts, selectedCameraView, appendCameraHistory, ACTIVE_CAMERA_IDS, edgePayloadIsFresh } from "./traffic-status";
 import { isControllerSignal, sendControllerCommand,
-  type ControllerSignal, type ControllerStatus, type CommandResult, type TimingKey } from "./controller";
+  requestFuzzyControlMode, type ControllerSignal, type ControllerStatus, type CommandResult, type TimingKey,
+  type FuzzyControlMode } from "./controller";
 
 import { initUnifiedFirebase, firebaseGet } from "./firebase";
 import { genioTelemetry, legacyHardwareTelemetry, newestTelemetry } from "./hardware-telemetry";
@@ -99,6 +100,7 @@ interface TrafficState {
     plannerStatus?: string;
     reason?: string;
     autoEnabled?: boolean;
+    controlMode?: FuzzyControlMode | "UNKNOWN";
     advisoryOnly?: boolean;
     validationStatus?: string;
     inputSemantics?: string;
@@ -114,6 +116,7 @@ interface TrafficState {
     planId?: number;
     controllerState?: { mode?: string; currentPhase?: string; planId?: number };
   } | null;
+  fuzzyControl: { mode: FuzzyControlMode; updatedAt?: number; actor?: string } | null;
 
   // Chart history
   chartHistory: ({ timestamp: number; time: string; total?: number } & Record<string, number | string | undefined>)[];
@@ -142,6 +145,7 @@ interface TrafficState {
   nextSignalPhase: () => Promise<string>;
   emergencyStop: () => Promise<string>;
   clearEmergencyStop: () => Promise<string>;
+  setFuzzyControlMode: (mode: FuzzyControlMode) => Promise<void>;
   acknowledgeAlert: (id: string) => Promise<void>;
   acknowledgeAllAlerts: () => Promise<void>;
   addDevice: (device: DeviceItem) => void;
@@ -197,6 +201,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   edgeAI: null,
   modelStatus: null,
   fuzzyStatus: null,
+  fuzzyControl: null,
   alerts: [],
   alertAcknowledgements: {},
   alertAcknowledgementsLoaded: false,
@@ -324,6 +329,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         if (data.traffic?.controllerStatus) processControllerData(data.traffic.controllerStatus);
         if (data.traffic?.commandResult) set({ commandResult: data.traffic.commandResult });
         if (data.traffic?.fuzzyStatus) set({ fuzzyStatus: data.traffic.fuzzyStatus });
+        if (data.traffic?.fuzzyControl) set({ fuzzyControl: data.traffic.fuzzyControl });
 
         if (data.realtime?.weather) {
           set((s) => ({
@@ -380,6 +386,8 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
         processEdgeAI(data);
       } else if (path.startsWith('/traffic/fuzzyStatus')) {
         set({ fuzzyStatus: data });
+      } else if (path.startsWith('/traffic/fuzzyControl')) {
+        set({ fuzzyControl: data });
       }
     });
   },
@@ -434,6 +442,11 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   nextSignalPhase: () => sendControllerCommand({ action: "next" }),
   emergencyStop: () => sendControllerCommand({ action: "emergency" }),
   clearEmergencyStop: () => sendControllerCommand({ action: "clear_emergency" }),
+  setFuzzyControlMode: async (mode) => {
+    await requestFuzzyControlMode(mode);
+    const existing = get().fuzzyControl;
+    set({ fuzzyControl: { ...existing, mode, updatedAt: Date.now() } });
+  },
   acknowledgeAlert: async (id) => {
     const before = get();
     if (!before.alerts.some((alert) => alert.id === id && !alert.acknowledged)) return;

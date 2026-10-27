@@ -30,6 +30,30 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "STM32 chưa xác nhận trạng thái dừng khẩn cấp" }, { status: 409 });
       }
     }
+    if (action === "set_duration" || action === "set_plan") {
+      const [signalSnapshot, fuzzySnapshot, controlSnapshot] = await Promise.all([
+        database().ref("traffic/signalState").get(),
+        database().ref("traffic/fuzzyStatus").get(),
+        database().ref("traffic/fuzzyControl").get(),
+      ]);
+      const liveSignal = signalSnapshot.val();
+      const fuzzy = fuzzySnapshot.val();
+      const control = controlSnapshot.val();
+      if (liveSignal?.mode === "auto" && fuzzy?.autoEnabled !== false) {
+        const now = Date.now();
+        const controllerFresh = controllerStatus?.online === true && controllerStatus?.controlEnabled === true &&
+          controllerStatus?.readOnlyTelemetry !== true && Number.isFinite(controllerStatus?.lastSeen) &&
+          now - controllerStatus.lastSeen * 1000 < 3000;
+        const signalFresh = liveSignal?.localControl === false && Number.isFinite(liveSignal?.timestamp) &&
+          Math.abs(now / 1000 - liveSignal.timestamp) < 3;
+        const fuzzyConfirmedPaused = controllerFresh && signalFresh && control?.mode === "MANUAL_OVERRIDE" &&
+          fuzzy?.controlMode === "MANUAL_OVERRIDE" && Number.isFinite(fuzzy?.timestamp) &&
+          now / 1000 - fuzzy.timestamp < 30 && fuzzy?.planStatus !== "QUEUED";
+        if (!fuzzyConfirmedPaused) {
+          return NextResponse.json({ error: "Fuzzy đang giữ quyền ở AUTO. Hãy bật ghi đè thủ công và đợi Genio xác nhận trước khi chỉnh thời lượng." }, { status: 423 });
+        }
+      }
+    }
     let command: Record<string, unknown> = { id, timestamp, action };
     if (action === "set_mode" && ["auto", "manual"].includes(body.mode)) {
       command.mode = body.mode;

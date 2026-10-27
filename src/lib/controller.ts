@@ -5,6 +5,7 @@ export const CONTROLLER_PHASES = [
   "ew_left", "after_ew_left_allred",
 ] as const;
 export type ControllerMode = "auto" | "manual" | "setting" | "emergency";
+export type FuzzyControlMode = "AUTO" | "MANUAL_OVERRIDE";
 export type TimingKey = "green" | "yellow" | "left" | "allred";
 export const TIMING_LIMITS: Record<TimingKey, [number, number]> = {
   green: [5, 90], yellow: [2, 9], left: [5, 30], allred: [1, 9],
@@ -55,6 +56,17 @@ export type ControllerCommand =
   | { action: "next" | "emergency" | "clear_emergency" }
   | { action: "set_plan"; plan: AxisPlan; planId: number; validUntil: number }
   | { action: "set_duration"; phase: TimingKey; duration: number };
+
+export async function requestFuzzyControlMode(mode: FuzzyControlMode): Promise<void> {
+  const response = await fetch("/api/fuzzy-control", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(result?.error || "Không đổi được quyền điều khiển Fuzzy");
+  }
+}
 export async function sendControllerCommand(command: ControllerCommand): Promise<string> {
   const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID()
     : Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");

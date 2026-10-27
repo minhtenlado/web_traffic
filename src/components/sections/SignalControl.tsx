@@ -21,12 +21,15 @@ export function SignalControl() {
   const next = useTrafficStore((s) => s.nextSignalPhase);
   const emergency = useTrafficStore((s) => s.emergencyStop);
   const clearEmergency = useTrafficStore((s) => s.clearEmergencyStop);
+  const setFuzzyControlMode = useTrafficStore((s) => s.setFuzzyControlMode);
+  const fuzzyControl = useTrafficStore((s) => s.fuzzyControl);
   const user = useTrafficStore((s) => s.user);
   const [axisPlan, setAxisPlan] = useState<AxisPlan>({greenNS:30,greenEW:30,leftNS:10,leftEW:10,yellow:3,allred:2});
   const fuzzy = useTrafficStore((s) => s.fuzzyStatus);
   const [pending, setPending] = useState("");
   const [message, setMessage] = useState("");
   const [emergencyUi, setEmergencyUi] = useState<{ target: boolean; commandId?: string; confirmed: boolean } | null>(null);
+  const [fuzzyControlPending, setFuzzyControlPending] = useState(false);
   const [values, setValues] = useState(signal.phaseDurations);
   // Store ticks each second, so online/freshness updates even without new telemetry.
   const tick = useTrafficStore((s) => s._tickCount);
@@ -97,6 +100,20 @@ export function SignalControl() {
       setMessage(error instanceof Error ? error.message : "Không gửi được lệnh khẩn cấp");
     }
   }
+  async function changeFuzzyControlMode(mode: "AUTO" | "MANUAL_OVERRIDE") {
+    setFuzzyControlPending(true);
+    setMessage("");
+    try {
+      await setFuzzyControlMode(mode);
+      setMessage(mode === "MANUAL_OVERRIDE"
+        ? "Đã lưu yêu cầu ghi đè. Chờ Genio xác nhận tạm dừng Fuzzy trước khi chỉnh tay."
+        : "Đã trả quyền AUTO cho Fuzzy. Genio sẽ xác nhận trước khi tiếp tục điều chỉnh.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không đổi được quyền điều khiển Fuzzy");
+    } finally {
+      setFuzzyControlPending(false);
+    }
+  }
   const button = "rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed";
   const fuzzyLabels: Record<string, string> = {
     APPLIED: "STM32 đã áp dụng", QUEUED: "Đang chờ STM32 áp dụng",
@@ -108,12 +125,20 @@ export function SignalControl() {
     RATE_LIMITED: "Đang giới hạn tần suất", COMMAND_QUEUE_UNAVAILABLE: "Không đọc được hàng lệnh",
     REJECTED: "STM32 từ chối kế hoạch", UNCERTAIN: "Chưa xác nhận kết quả",
     DISCONNECTED: "Mất UART", PLANNER_ERROR: "Planner lỗi",
+    MANUAL_OVERRIDE: "Đã nhường quyền chỉnh tay",
+    FUZZY_CONTROL_STATE_UNKNOWN: "Chưa xác minh quyền điều khiển",
   };
   const fuzzyStatusLabel = (fuzzy?.planStatus && fuzzyLabels[fuzzy.planStatus]) || fuzzy?.planStatus || "Chờ dữ liệu";
   const fuzzyStatusColor: "green" | "amber" = fuzzy?.planStatus === "APPLIED" ? "green"
     : fuzzy?.planStatus === "QUEUED" || fuzzy?.planStatus === "SHADOW_READY" || fuzzy?.planStatus?.startsWith("WAITING") ? "amber"
       : fuzzy?.planStatus?.startsWith("READY") ? "green" : "amber";
   const fuzzyFresh = !!fuzzy?.timestamp && Date.now() - fuzzy.timestamp * 1000 < 30000;
+  const fuzzyControlMode = fuzzyControl?.mode || "AUTO";
+  const fuzzyOverrideAcknowledged = fuzzyFresh && fuzzyControlMode === "MANUAL_OVERRIDE" && fuzzy?.controlMode === "MANUAL_OVERRIDE";
+  const fuzzyOverrideConfirmed = fuzzyOverrideAcknowledged && fuzzy?.planStatus !== "QUEUED";
+  const fuzzyOwnsAuto = signal.mode === "auto" && fuzzy?.autoEnabled !== false;
+  const manualTimingBlocked = fuzzyOwnsAuto && !fuzzyOverrideConfirmed;
+  const timingDisabled = disabled || signal.mode === "emergency" || manualTimingBlocked;
   const situationLabels: Record<string, string> = {
     NORMAL: "Lưu lượng ổn định", BOTH_HEAVY: "Hai hướng đông",
     A_HEAVY: "Bắc–Nam đông", B_HEAVY: "Đông–Tây đông",
@@ -160,9 +185,9 @@ export function SignalControl() {
               <label htmlFor={`timing-${key}`} className="block text-sm font-medium">{TIMING_LABELS[key]} · hiện tại {signal.phaseDurations[key]} s</label>
               <div className="flex gap-2">
                 <input id={`timing-${key}`} type="number" min={min} max={max} step={1} value={values[key]}
-                  className="w-24 rounded border bg-background px-2" disabled={disabled || signal.mode === "emergency"}
+                  className="w-24 rounded border bg-background px-2" disabled={timingDisabled}
                   onChange={(e) => setValues({ ...values, [key]: Number(e.target.value) })} />
-                <button className={button} disabled={disabled || signal.mode === "emergency" || !Number.isInteger(values[key]) || values[key] < min || values[key] > max}
+                <button className={button} disabled={timingDisabled || !Number.isInteger(values[key]) || values[key] < min || values[key] > max}
                   onClick={() => run(() => setDuration(key, values[key]))}>Gửi</button>
               </div>
             </div>;
@@ -174,10 +199,10 @@ export function SignalControl() {
         <div className="grid gap-3 sm:grid-cols-3">
           {(Object.keys(axisPlan) as (keyof AxisPlan)[]).map((key) => {
             const range = key.startsWith('green') ? [5,90] : key.startsWith('left') ? [5,30] : key === 'yellow' ? [2,9] : [1,9];
-            return <label key={key} className="text-sm">{key}<input type="number" className="ml-2 w-20 rounded border bg-background p-1" min={range[0]} max={range[1]} value={axisPlan[key]} onChange={(e) => setAxisPlan({...axisPlan,[key]:Number(e.target.value)})} /></label>;
+            return <label key={key} className="text-sm">{key}<input type="number" className="ml-2 w-20 rounded border bg-background p-1" min={range[0]} max={range[1]} value={axisPlan[key]} disabled={timingDisabled || user?.role !== "admin" || signal.mode !== "auto" || signal.protocol !== 2} onChange={(e) => setAxisPlan({...axisPlan,[key]:Number(e.target.value)})} /></label>;
           })}
         </div>
-        <button className={`${button} mt-3`} disabled={disabled || user?.role !== 'admin' || signal.mode !== 'auto' || signal.protocol !== 2}
+        <button className={`${button} mt-3`} disabled={timingDisabled || user?.role !== 'admin' || signal.mode !== 'auto' || signal.protocol !== 2}
           onClick={() => run(() => sendControllerCommand({action:'set_plan',plan:axisPlan,planId:(crypto.getRandomValues(new Uint32Array(1))[0]%0xFFFFFF)+1,validUntil:Math.floor(Date.now()/1000)+300}))}>Gửi kế hoạch cho chu kỳ tiếp theo</button>
       </SectionCard>
       <SectionCard title="Khẩn cấp" icon={ShieldAlert}>
@@ -190,6 +215,29 @@ export function SignalControl() {
         action={<div className="flex flex-wrap justify-end gap-2">
           <StatusBadge color={fuzzyFresh ? fuzzyStatusColor : "amber"} pulse={fuzzyFresh}>{fuzzyFresh ? fuzzyStatusLabel : "Dữ liệu cũ"}</StatusBadge>
         </div>}>
+        {(fuzzyOwnsAuto || fuzzyControlMode === "MANUAL_OVERRIDE") && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 p-3">
+          <div className="min-w-0 text-sm">
+            <p className="font-medium">{fuzzyOverrideConfirmed
+              ? "Đã nhường quyền cho chỉnh tay"
+              : fuzzyControlMode === "MANUAL_OVERRIDE"
+                ? fuzzyOverrideAcknowledged
+                  ? "Đã dừng lệnh Fuzzy mới; đang chờ kế hoạch đã gửi kết thúc"
+                  : "Đang chờ Genio xác nhận tạm dừng Fuzzy"
+                : fuzzy?.controlMode === "MANUAL_OVERRIDE"
+                  ? "Đang chờ Genio nhận lệnh trả quyền Fuzzy"
+                  : "Fuzzy đang giữ quyền điều chỉnh khi STM32 ở AUTO"}</p>
+            <p className="mt-1 text-muted-foreground">{fuzzyOverrideConfirmed
+              ? "Có thể chỉnh thời lượng; Fuzzy sẽ không gửi kế hoạch cho đến khi trả quyền AUTO."
+              : fuzzyOverrideAcknowledged
+                ? "Chỉnh tay vẫn khóa đến khi kế hoạch đang chờ được STM32 xác nhận hoặc hết hạn."
+              : "Các mục chỉnh thời lượng đang khóa để tránh hai nguồn cùng thay đổi kế hoạch."}</p>
+          </div>
+          {user?.role === "admin" && <button type="button" className={button}
+            disabled={fuzzyControlPending || (fuzzyControlMode !== "MANUAL_OVERRIDE" && (!online || readOnlyTelemetry || localControl))}
+            onClick={() => void changeFuzzyControlMode(fuzzyControlMode === "MANUAL_OVERRIDE" ? "AUTO" : "MANUAL_OVERRIDE")}>
+            {fuzzyControlPending ? "Đang lưu..." : fuzzyControlMode === "MANUAL_OVERRIDE" ? "Trả quyền AUTO cho Fuzzy" : "Bật ghi đè thủ công"}
+          </button>}
+        </div>}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
           <span className="text-sm font-medium">{fuzzyFresh ? situationLabel : "Đang chờ dữ liệu mới"}</span>
           <span className="text-sm text-muted-foreground">STM32 · {MODE_LABELS[fuzzy?.controllerState?.mode as keyof typeof MODE_LABELS] || MODE_LABELS[signal.mode]}</span>
