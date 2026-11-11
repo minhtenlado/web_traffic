@@ -1,6 +1,6 @@
 "use client";
 
-import { ACTIVE_CAMERA_IDS, selectedCameraView } from "@/lib/traffic-status";
+import { ACTIVE_CAMERA_IDS, selectedCameraView, vehicleCountLevel } from "@/lib/traffic-status";
 import { TrafficVotes } from "@/components/shared/TrafficVotes";
 import { CameraSnapshot } from "@/components/shared/CameraSnapshot";
 import { useMemo, useState } from "react";
@@ -153,11 +153,12 @@ export function LiveMonitoring() {
             const dir = DIRECTIONS.find((d) => d.id === cam.direction);
             const cls = isAiInput ? view.cls : "cyan";
             const displayCount = isAiInput ? view.count : null;
-            const displayLabel = isAiInput ? view.text : "Chỉ xem tham chiếu";
+            const countLevel = isAiInput ? vehicleCountLevel(displayCount) : null;
+            const displayLabel = isAiInput ? countLevel?.label || view.text : "Chỉ xem tham chiếu";
             const observedAt = view.observedAt;
             const ts = isAiInput && observedAt ? formatClockTime(new Date(observedAt * 1000)) : "—";
-            const statusText = isAiInput ? view.text : "Chỉ xem ảnh tham chiếu";
-            const statusColor = cls;
+            const statusText = isAiInput ? displayLabel : "Chỉ xem ảnh tham chiếu";
+            const statusColor = countLevel?.color || cls;
 
             return (
               <motion.div
@@ -244,14 +245,21 @@ export function LiveMonitoring() {
                     </div>
                   </div>
                   <div className="min-w-0 bg-muted/40 p-2">
-                    <div className="text-xs uppercase text-muted-foreground">Nhãn AI</div>
-                    <div className="truncate font-semibold text-foreground text-sm" title={displayLabel || undefined}>{displayLabel || "Chưa phân loại"}</div>
-                    {view.label && view.labelSource?.includes("unverified") && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">Tự động · chưa kiểm định</div>}
+                    <div className="text-xs uppercase text-muted-foreground">{countLevel ? "Mức theo số xe" : "Nhãn nhận diện"}</div>
+                    <div className="truncate font-semibold text-foreground text-sm" title={displayLabel || undefined}>{displayLabel || "Chưa có dữ liệu nhận diện"}</div>
+                    {isAiInput && view.fresh && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">YOLO: {view.rawLabelInfo?.text || "đã đếm xe, chưa phát nhãn phân loại"}{view.label && view.labelSource?.includes("unverified") ? " · tự động, chưa kiểm định" : ""}</div>}
                   </div>
                   <div className="bg-muted/40 p-2">
                     <div className="text-xs uppercase text-muted-foreground">Cập nhật</div>
                     <div className="truncate font-semibold tabular-nums text-foreground text-sm">{ts}</div>
                     {isAiInput && view.ageSeconds !== null && <div className="mt-0.5 text-[10px] text-muted-foreground">AI {Math.max(0, Math.floor(view.ageSeconds))} giây trước</div>}
+                  </div>
+                  <div className="col-span-2 bg-muted/40 p-2">
+                    <div className="text-xs uppercase text-muted-foreground">ID · ngưỡng khởi tạo</div>
+                    <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                      {countLevel ? <StatusBadge color={countLevel.color} className="!px-2 !py-0.5 text-xs">ID {countLevel.id}</StatusBadge> : <span className="text-sm text-muted-foreground">{isAiInput ? "Chưa có số đếm mới" : "Không áp dụng cho camera tham chiếu"}</span>}
+                      {countLevel && <span className="text-xs tabular-nums text-muted-foreground">{countLevel.range}</span>}
+                    </div>
                   </div>
                 </div>
               </motion.div>

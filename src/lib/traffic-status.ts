@@ -5,6 +5,21 @@ export const EDGE_TTL_SECONDS = 30;
 export const EDGE_CAMERA_TTL_SECONDS = 45;
 export const ACTIVE_CAMERA_IDS = CAMERAS.filter(c => c.aiInput).map(c => c.id);
 
+/** Display-only congestion bands derived from a fresh vehicle count, not YOLO classes. */
+export const VEHICLE_COUNT_LEVELS = [
+  { id: 0, label: "Thông thoáng", min: 0, max: 10, range: "≤ 10 xe", color: "green" },
+  { id: 1, label: "Bình thường", min: 11, max: 20, range: "11–20 xe", color: "cyan" },
+  { id: 2, label: "Đông xe", min: 21, max: 40, range: "21–40 xe", color: "amber" },
+  { id: 3, label: "Kẹt xe", min: 41, max: null, range: "≥ 41 xe", color: "red" },
+] as const;
+
+export type VehicleCountLevel = (typeof VEHICLE_COUNT_LEVELS)[number];
+
+export function vehicleCountLevel(count: number | null | undefined): VehicleCountLevel | null {
+  if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0) return null;
+  return VEHICLE_COUNT_LEVELS.find(level => count >= level.min && (level.max === null || count <= level.max)) ?? null;
+}
+
 export { EDGE_TRAFFIC_LABELS } from "./constants";
 
 export function edgePayloadIsFresh(data: any, nowMs = Date.now()) {
@@ -99,7 +114,8 @@ export function selectedCameraView(id: string, records: Record<string, any> | nu
   if (edgeAI != null) {
     const view = edgeCameraView(edgeAI.cameras?.[id], edgePayloadIsFresh(edgeAI, nowMs), nowMs);
     const text = view.labelInfo?.text || (!view.fresh ? view.available ? "Dữ liệu AI đã cũ" : "Chưa có kết quả AI"
-      : view.stabilizationMode === "display" ? view.stabilizationText || "Đang xác nhận nhãn" : "Chưa phân loại");
+      : view.stabilizationMode === "display" ? view.stabilizationText || "Đang xác nhận nhãn"
+      : view.count !== null ? "Đã đếm xe · chưa có nhãn YOLO" : "Chưa có nhãn YOLO");
     return { ...view, ready: view.label !== null, text,
       cls: view.labelInfo?.cls || (!view.fresh && view.available ? "amber" as const : "cyan" as const),
       source: "edge" as const, aggregation: null };

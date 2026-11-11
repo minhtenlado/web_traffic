@@ -18,6 +18,18 @@ const status = load('src/lib/traffic-status.ts');
 const constants = load('src/lib/constants.ts');
 const hardware = load('src/lib/hardware-telemetry.ts');
 const now = 1000000;
+test('vehicle-count display bands honor requested boundaries and reject invalid values', () => {
+  for (const [count, id] of [[0, 0], [10, 0], [11, 1], [20, 1], [21, 2], [40, 2], [41, 3], [150, 3]]) {
+    assert.equal(status.vehicleCountLevel(count).id, id);
+  }
+  for (const count of [null, undefined, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(status.vehicleCountLevel(count), null);
+  }
+  assert.deepEqual(status.VEHICLE_COUNT_LEVELS.map(({ id, label, range }) => [id, label, range]), [
+    [0, 'Thông thoáng', '≤ 10 xe'], [1, 'Bình thường', '11–20 xe'],
+    [2, 'Đông xe', '21–40 xe'], [3, 'Kẹt xe', '≥ 41 xe'],
+  ]);
+});
 function record(label = 'Ket_xe') {
   const counts = { Duong_vang: 0, Binh_thuong: 0, Dong_xe: 0, Sap_ket: 0, Ket_xe: 0 };
   counts[label] = 10;
@@ -178,6 +190,13 @@ test('stable label expiry is evaluated locally and cannot revive a stale detecto
   const labelOnly = status.edgeCameraView({ ...r, status: 'unavailable', observed_at: undefined }, true, now);
   assert.equal(labelOnly.label, 'Ket_nhe'); assert.equal(labelOnly.count, null);
   assert.equal(status.edgeCameraView(r, false, now).label, null);
+});
+test('count-only edge results are described as count data, not an unclassified YOLO result', () => {
+  const countOnly = { status: 'fresh', observed_at: 999, vehicle_count: 30 };
+  const view = status.selectedCameraView('cam_01', null, edgePayload({ cam_01: countOnly }), now);
+  assert.equal(view.count, 30);
+  assert.equal(view.text, 'Đã đếm xe · chưa có nhãn YOLO');
+  assert.doesNotMatch(view.text, /Chưa phân loại/);
 });
 test('all camera views, routes and alerts prefer current edge data and share the four labels', () => {
   const legacy = { cam_01: record(), cam_05: record() };
