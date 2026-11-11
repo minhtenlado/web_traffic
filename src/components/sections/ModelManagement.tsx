@@ -157,7 +157,7 @@ export function ModelManagement() {
     <SectionCard title="Dự báo ùn tắc" icon={Brain}>
       <div className="mb-4 flex flex-wrap items-center justify-end gap-3"><StatusBadge color={hasCurrentForecast ? "green" : retainedForecastValid || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge></div>
       <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
-        <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Mẫu đầu vào đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
+        <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Chuỗi đầu vào liên tục đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
         {progress.required > 0 && <div role="progressbar" aria-label="Tiến độ mẫu đầu vào TCN" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} /></div>}
       </div>
       <ForecastTrafficCharts data={chartToShow?.data || forecastChart.data.map((point) => ({ ...point, cam_01: null, cam_02: null, cam_03: null, cam_04: null }))} cameraIds={FORECAST_CAMERA_IDS} message={chartMessage} />

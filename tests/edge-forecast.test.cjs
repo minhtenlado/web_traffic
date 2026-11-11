@@ -18,6 +18,12 @@ test('history progress reports remaining input and clamps displayed progress', (
     { steps: 0, required: 0, remaining: 0, percent: 0 });
 });
 
+test('history progress uses the contiguous suffix rather than retained samples', () => {
+  assert.deepEqual({ ...edgeHistoryProgress({
+    history_steps: 60, history_contiguous_steps: 19, history_required: 120,
+  }) }, { steps: 19, required: 120, remaining: 101, percent: 16 });
+});
+
 test('groups only supported camera, horizon, class and finite confidence rows', () => {
   const rows = [
     { camera_id: 'cam_01', horizon_minutes: 5, predicted_class: 'Ket_nhe', confidence: 0.82 },

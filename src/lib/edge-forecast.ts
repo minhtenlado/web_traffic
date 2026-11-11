@@ -10,7 +10,9 @@ export type EdgeForecastRow = {
 };
 
 export function edgeHistoryProgress(status: Record<string, unknown> | null | undefined) {
-  const rawSteps = Number(status?.history_steps);
+  // A sequence forecast needs a contiguous suffix; samples retained from before
+  // an outage must not inflate the current usable input progress.
+  const rawSteps = Number(status?.history_contiguous_steps ?? status?.history_steps);
   const rawRequired = Number(status?.history_required);
   const required = Number.isFinite(rawRequired) && rawRequired > 0 ? Math.floor(rawRequired) : 0;
   const steps = Number.isFinite(rawSteps) && rawSteps >= 0 ? Math.floor(rawSteps) : 0;
