@@ -34,6 +34,29 @@ export interface ControllerStatus {
   timestamp: number;
 }
 export interface CommandResult { id: string; status: string; message: string; timestamp: number }
+
+export function emergencyCommandFeedback(target: boolean, status: string, detail = "") {
+  if (status === "APPLIED") {
+    return target
+      ? "STM32 đã xác nhận dừng khẩn cấp."
+      : "STM32 đã xác nhận hủy dừng khẩn cấp; đang chờ telemetry xác nhận chế độ AUTO.";
+  }
+
+  if (!target && status === "REJECTED") {
+    if (/nhả công tắc|physical emergency|PB4/i.test(detail)) {
+      return "STM32 từ chối hủy: nhả công tắc KHẨN CẤP vật lý PB4 rồi thử lại.";
+    }
+    const usefulDetail = detail && !["REJECTED", "Kết quả thực thi STM32"].includes(detail) ? ` (${detail})` : "";
+    return `STM32 từ chối lệnh hủy${usefulDetail}. Nhả PB4 nếu công tắc đang nhấn; nếu đã nhả, hãy cập nhật firmware STM32 hỗ trợ CLEAR_EMERGENCY.`;
+  }
+
+  if (!target && ["TIMEOUT", "UNCERTAIN", "DISCONNECTED", "OFFLINE"].includes(status)) {
+    return "Chưa nhận được xác nhận hủy từ STM32. Hãy nhả PB4; nếu vẫn lỗi, dùng nút KHÔI PHỤC PB3 giữ 3 giây hoặc cập nhật firmware STM32 hỗ trợ CLEAR_EMERGENCY.";
+  }
+
+  return `${status}${detail ? `: ${detail}` : " — STM32 chưa xác nhận lệnh."}`;
+}
+
 export function isControllerOnline(status: ControllerStatus | null, now = Date.now()) {
   return !!status?.online && now >= status.lastSeen * 1000 - 2000 && now - status.lastSeen * 1000 < 3000;
 }

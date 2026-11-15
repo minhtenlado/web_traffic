@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Cpu, Timer, ShieldAlert, Settings2 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { SIGNAL_PHASES } from "@/lib/constants";
-import { isControllerOnline, sendControllerCommand, TIMING_LIMITS, type TimingKey, type AxisPlan } from "@/lib/controller";
+import { emergencyCommandFeedback, isControllerOnline, sendControllerCommand, TIMING_LIMITS, type TimingKey, type AxisPlan } from "@/lib/controller";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 
 const TIMING_LABELS: Record<TimingKey, string> = {
@@ -40,6 +40,7 @@ export function SignalControl() {
   const fuzzy = useTrafficStore((s) => s.fuzzyStatus);
   const [pending, setPending] = useState("");
   const [message, setMessage] = useState("");
+  const [emergencyMessage, setEmergencyMessage] = useState("");
   const [emergencyUi, setEmergencyUi] = useState<{ target: boolean; commandId?: string; confirmed: boolean } | null>(null);
   const [fuzzyControlPending, setFuzzyControlPending] = useState(false);
   const [values, setValues] = useState(signal.phaseDurations);
@@ -66,10 +67,9 @@ export function SignalControl() {
               if (result.status === "APPLIED") {
                 setEmergencyUi((current) => current?.commandId === pending
                   ? { target: current.target, confirmed: true } : current);
-                setMessage(emergencyUi.target
-                  ? "STM32 đã xác nhận dừng khẩn cấp."
-                  : "STM32 đã xác nhận hủy dừng khẩn cấp.");
+                setEmergencyMessage(emergencyCommandFeedback(emergencyUi.target, result.status, result.message));
               } else {
+                setEmergencyMessage(emergencyCommandFeedback(emergencyUi.target, result.status, result.message));
                 setEmergencyUi(null);
               }
             }
@@ -99,17 +99,18 @@ export function SignalControl() {
     const active = emergencyUi?.target ?? (signal.mode === "emergency");
     const target = !active;
     setEmergencyUi({ target, confirmed: false });
+    setEmergencyMessage("");
     setPending("sending");
     setMessage("");
     try {
       const commandId = await (target ? emergency() : clearEmergency());
       setEmergencyUi({ target, commandId, confirmed: false });
       setPending(commandId);
-      setMessage(target ? "Đã gửi yêu cầu dừng. Đang chờ STM32 xác nhận." : "Đã gửi yêu cầu hủy dừng. Đang chờ STM32 xác nhận.");
+      setEmergencyMessage(target ? "Đã gửi yêu cầu dừng. Đang chờ STM32 xác nhận." : "Đã gửi yêu cầu hủy dừng. Đang chờ STM32 xác nhận.");
     } catch (error) {
       setEmergencyUi(null);
       setPending("");
-      setMessage(error instanceof Error ? error.message : "Không gửi được lệnh khẩn cấp");
+      setEmergencyMessage(error instanceof Error ? error.message : "Không gửi được lệnh khẩn cấp");
     }
   }
   async function changeFuzzyControlMode(mode: "AUTO" | "MANUAL_OVERRIDE") {
@@ -222,6 +223,10 @@ export function SignalControl() {
           disabled={!online || readOnlyTelemetry || !!pending || (!!emergencyUi?.confirmed && (signal.mode === "emergency") !== emergencyUi.target)}
           aria-pressed={emergencyUi?.target ?? (signal.mode === "emergency")}
           onClick={toggleEmergency}>{(emergencyUi?.target ?? (signal.mode === "emergency")) ? "Hủy dừng khẩn cấp" : "Dừng khẩn cấp"}</button>
+        {emergencyMessage && <p role="status" aria-live="polite" className="mt-3 text-sm text-amber-600">{emergencyMessage}</p>}
+        {!online && <p className="mt-3 text-sm text-amber-600">STM32 chưa gửi trạng thái mới trong 3 giây; lệnh đèn đang khóa để tránh điều khiển theo dữ liệu cũ.</p>}
+        {online && readOnlyTelemetry && <p className="mt-3 text-sm text-amber-600">STM32 đang ở chế độ chỉ đọc; chờ đường điều khiển và heartbeat Genio sẵn sàng rồi thử lại.</p>}
+        {emergencyUi?.confirmed && (signal.mode === "emergency") !== emergencyUi.target && <p className="mt-3 text-sm text-amber-600">Lệnh đã được STM32 xác nhận; đang chờ telemetry mới xác nhận trạng thái đèn.</p>}
       </SectionCard>
       <SectionCard title="Điều khiển thích ứng Fuzzy" icon={Timer}
         action={<div className="flex flex-wrap justify-end gap-2">

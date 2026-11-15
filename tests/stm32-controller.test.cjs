@@ -35,6 +35,12 @@ test('stale/absent status is offline even if cloud still says online', () => {
   assert.equal(controller.isControllerOnline({ online: true, lastSeen: 99 }, 100000), true);
   assert.equal(controller.isControllerOnline({ online: true, lastSeen: 96 }, 100000), false);
 });
+test('emergency clear reports the STM32 interlock and unsupported-firmware recovery path', () => {
+  assert.match(controller.emergencyCommandFeedback(false, 'REJECTED', 'STM32 từ chối hủy: hãy nhả công tắc KHẨN CẤP vật lý trên mạch rồi thử lại'), /nhả công tắc.*PB4/);
+  assert.match(controller.emergencyCommandFeedback(false, 'REJECTED', 'Kết quả thực thi STM32'), /Nhả PB4.*cập nhật firmware.*CLEAR_EMERGENCY/);
+  assert.match(controller.emergencyCommandFeedback(false, 'TIMEOUT'), /PB3 giữ 3 giây.*CLEAR_EMERGENCY/);
+  assert.match(controller.emergencyCommandFeedback(false, 'APPLIED'), /đã xác nhận hủy.*AUTO/);
+});
 test('API authenticates, queues by ID, rejects unsupported commands', async () => {
   const writes = []; let authenticated = true; let controlStatus = null; let currentMode = 'auto';
   const route = load('src/app/api/signal/route.ts', {
