@@ -7,7 +7,7 @@ import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
 import { edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeForecastComparison, readEdgeMinuteForecast } from "@/lib/edge-quality";
 import { VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
-import { SectionCard, StatusBadge } from "./ui";
+import { SectionCard } from "./ui";
 
 const COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc", "#f472b6"];
 const COMPARISON_HORIZONS = [1, 5, 15, 30] as const;
@@ -20,7 +20,7 @@ export function EdgeRecoverySummary({ data, nowMs }: { data: any; nowMs: number 
   const progress = edgeHistoryProgress(data?.status);
   const generatedAt = data?.generated_at;
   return <div className="rounded-lg border border-border/80 bg-background/35 p-4">
-    <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-sm font-medium">Lịch sử đầu vào TCN</span><StatusBadge color={health.color}>{health.label}</StatusBadge></div>
+    <div className="text-sm font-medium">Lịch sử đầu vào TCN</div>
     <p className="mt-2 text-sm tabular-nums">{progress.required ? `${progress.steps}/${progress.required} bước liên tục · ${progress.percent}%` : "Chưa nhận tiến độ"}{quality.interval ? ` · mỗi bước ${quality.interval} giây` : ""}{!health.fresh ? " · bản tin cuối" : ""}</p>
     {progress.required > 0 && <div role="progressbar" aria-label="Tiến độ lịch sử TCN" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${progress.percent}%` }} /></div>}
     <p className="mt-2 text-xs text-muted-foreground">Cập nhật: {typeof generatedAt === "number" && Number.isFinite(generatedAt) && generatedAt > 0 ? new Date(generatedAt * 1000).toLocaleString("vi-VN") : "chưa có heartbeat hợp lệ"}{health.ageSeconds !== null ? ` · ${Math.floor(health.ageSeconds)} giây trước` : ""}</p>
