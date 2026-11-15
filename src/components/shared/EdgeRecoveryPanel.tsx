@@ -13,7 +13,6 @@ const COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc", "#f472b6"];
 const COMPARISON_HORIZONS = [1, 5, 15, 30] as const;
 const OBSERVED_COLOR = "#34d399";
 const PREDICTED_COLOR = "#60a5fa";
-const IMPUTED_COLOR = "#fbbf24";
 const CURRENT_COLOR = "#f472b6";
 
 export function EdgeRecoverySummary({ data, nowMs }: { data: any; nowMs: number }) {
@@ -57,7 +56,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
     </div>
     <div className="mt-4 grid grid-cols-1 gap-4">
       {comparisons.map(({ camera, name, color, result, current }) => {
-        type TimelinePoint = { timestamp: number; observed?: number; imputed?: number; current?: number; future?: number };
+        type TimelinePoint = { timestamp: number; history?: number; current?: number; future?: number };
         const rows = new Map<number, TimelinePoint>();
         const at = (timestamp: number): TimelinePoint => {
           const existing = rows.get(timestamp);
@@ -69,8 +68,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
         for (const point of history) {
           const value = point.counts[camera];
           if (value?.count === null || !value) continue;
-          if (value.source === "observed") at(point.timestamp).observed = value.count;
-          else if (value.source === "imputed") at(point.timestamp).imputed = value.count;
+          if (value.source === "observed" || value.source === "imputed") at(point.timestamp).history = value.count;
         }
         if (current) at(current.timestamp).current = current.count;
         if (forecast.ready) for (const point of forecast.points) at(point.timestamp).future = point[camera];
@@ -97,8 +95,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
               <Tooltip labelFormatter={value => value ? new Date(Number(value) * 1000).toLocaleString("vi-VN") : ""}
                 formatter={(value, seriesName) => [`${value} xe`, seriesName]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
               {current && <ReferenceLine x={current.timestamp} stroke={CURRENT_COLOR} strokeDasharray="3 4" label={{ value: "Hiện tại", fill: CURRENT_COLOR, position: "insideTopRight", fontSize: 11 }} />}
-              <Line type="monotone" dataKey="observed" name="Lịch sử · YOLO quan sát (trung bình phút)" stroke={OBSERVED_COLOR} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="imputed" name="Lịch sử · dữ liệu ước lượng bù" stroke={IMPUTED_COLOR} strokeWidth={2} strokeDasharray="3 4" dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
+              <Line type="monotone" dataKey="history" name="Lịch sử · số xe theo phút (quan sát + bù)" stroke={OBSERVED_COLOR} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
               <Line type="monotone" dataKey="current" name="Hiện tại · số xe trong ảnh mới" stroke={CURRENT_COLOR} strokeWidth={0} dot={{ r: 6, fill: CURRENT_COLOR, stroke: "var(--card)", strokeWidth: 2 }} activeDot={{ r: 8 }} connectNulls={false} isAnimationActive={false} />
               <Line type="monotone" dataKey="future" name="Tương lai · TCN dự báo (trung bình phút)" stroke={PREDICTED_COLOR} strokeWidth={2.5} strokeDasharray="7 5" dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
             </LineChart></ResponsiveContainer>
@@ -107,8 +104,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
       })}
     </div>
     <div className="mt-4 flex flex-wrap gap-5 text-xs text-muted-foreground">
-      <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2" style={{ borderColor: OBSERVED_COLOR }} />Lịch sử quan sát · trung bình phút</span>
-      <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2 border-dashed" style={{ borderColor: IMPUTED_COLOR }} />Lịch sử ước lượng bù</span>
+      <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2" style={{ borderColor: OBSERVED_COLOR }} />Số xe lịch sử · quan sát và bù theo phút</span>
       <span className="inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CURRENT_COLOR }} />Hiện tại · ảnh mới</span>
       <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2 border-dashed" style={{ borderColor: PREDICTED_COLOR }} />Dự báo TCN · 30 phút</span>
     </div>
