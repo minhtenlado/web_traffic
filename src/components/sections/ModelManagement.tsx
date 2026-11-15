@@ -7,7 +7,9 @@ import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { SectionCard, StatusBadge } from "@/components/shared/ui";
 import { CurrentWeatherCard } from "@/components/shared/CurrentWeatherCard";
+import { EdgeMinuteForecastPanel } from "@/components/shared/EdgeRecoveryPanel";
 import { edgeForecastHistoryCanRetain, edgeForecastIssuedAt, edgeForecastSession, edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
+import { usesMinuteCountForecast } from "@/lib/edge-quality";
 import { selectedCameraView, EDGE_TRAFFIC_LABELS, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
 
 const FORECAST_CAMERA_IDS = ["cam_01", "cam_02", "cam_03", "cam_04"] as const;
@@ -75,6 +77,7 @@ const ForecastTrafficCharts = memo(function ForecastTrafficCharts({
 export function ModelManagement() {
   const edgeAI = useTrafficStore((state) => state.edgeAI);
   const edgeStatus = edgeAI?.status || {};
+  const minuteCountForecast = usesMinuteCountForecast(edgeAI);
   const edgeWeather = edgeAI?.weather;
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now() / 1000), 5000); return () => clearInterval(timer); }, []);
@@ -175,14 +178,15 @@ export function ModelManagement() {
       </div> : <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa nhận được kết quả nhận dạng mới.</p>}
     </SectionCard>
 
-    <SectionCard title="Dự báo ùn tắc" icon={Brain}>
+    {minuteCountForecast ? <EdgeMinuteForecastPanel data={edgeAI} nowMs={now * 1000} /> : <SectionCard title="Dự báo nhãn ùn tắc (TCN cũ)" icon={Brain}>
+      <p className="mb-3 text-sm text-muted-foreground">Kết quả phân loại; không phải dự báo số xe.</p>
       <div className="mb-4 flex flex-wrap items-center justify-end gap-3"><StatusBadge color={hasCurrentForecast ? "green" : retainedForecastValid || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge></div>
       <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Chuỗi đầu vào liên tục đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>
         {progress.required > 0 && <div role="progressbar" aria-label="Tiến độ mẫu đầu vào TCN" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={Math.min(progress.steps, progress.required)} className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} /></div>}
       </div>
       <ForecastTrafficCharts data={chartToShow?.data || forecastChart.data.map((point) => ({ ...point, cam_01: null, cam_02: null, cam_03: null, cam_04: null }))} cameraIds={FORECAST_CAMERA_IDS} message={chartMessage} />
-    </SectionCard>
+    </SectionCard>}
 
     <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Kiểm định TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p><p>Khôi phục TCN: {String(edgeStatus.tcn_state || "chưa có")}</p><p>Lý do: {String(edgeStatus.history_reason || "chưa có")}</p><p>Bước lịch sử cuối: {String(edgeStatus.history_last_timestamp || "chưa có")}</p></div></details>
   </div>;
