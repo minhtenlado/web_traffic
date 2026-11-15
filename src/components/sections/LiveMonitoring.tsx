@@ -247,12 +247,10 @@ export function LiveMonitoring() {
                   <div className="min-w-0 bg-muted/40 p-2">
                     <div className="text-xs uppercase text-muted-foreground">{countLevel ? "Mức theo số xe" : "Nhãn nhận diện"}</div>
                     <div className="truncate font-semibold text-foreground text-sm" title={displayLabel || undefined}>{displayLabel || "Chưa có dữ liệu nhận diện"}</div>
-                    {isAiInput && view.fresh && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">YOLO: {view.rawLabelInfo?.text || "đã đếm xe, chưa phát nhãn phân loại"}{view.label && view.labelSource?.includes("unverified") ? " · tự động, chưa kiểm định" : ""}</div>}
                   </div>
                   <div className="bg-muted/40 p-2">
                     <div className="text-xs uppercase text-muted-foreground">Cập nhật</div>
                     <div className="truncate font-semibold tabular-nums text-foreground text-sm">{ts}</div>
-                    {isAiInput && view.ageSeconds !== null && <div className="mt-0.5 text-[10px] text-muted-foreground">AI {Math.max(0, Math.floor(view.ageSeconds))} giây trước</div>}
                   </div>
                   <div className="col-span-2 bg-muted/40 p-2">
                     <div className="text-xs uppercase text-muted-foreground">ID · ngưỡng khởi tạo</div>

@@ -129,7 +129,7 @@ export function SignalControl() {
   const button = "rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed";
   const fuzzyLabels: Record<string, string> = {
     APPLIED: "STM32 đã áp dụng", QUEUED: "Đang chờ STM32 áp dụng",
-    SHADOW_READY: "Đã tính thử · chưa gửi", READY_NO_MATERIAL_CHANGE: "Đang chạy · giữ thời lượng",
+    SHADOW_READY: "Đang theo dõi · chưa gửi", READY_NO_MATERIAL_CHANGE: "Đang chạy · giữ thời lượng",
     WAITING_FOR_AUTO_MODE: "Chờ AUTO", WAITING_FOR_NEW_CAMERA_SAMPLE: "Chờ ảnh mới",
     WAITING_FOR_VALID_CAMERA_DATA: "Chờ đủ ảnh mới", STM32_OFFLINE: "STM32 mất kết nối",
     LOCAL_CONTROL_ACTIVE_OR_UNKNOWN: "Điều khiển tại mạch", GENIO_HEARTBEAT_STALE: "Genio heartbeat cũ",

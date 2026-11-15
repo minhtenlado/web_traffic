@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useMemo, useState } from "react";
-import { Brain, Camera, ShieldCheck } from "lucide-react";
+import { Brain, Camera } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
@@ -10,7 +10,7 @@ import { CurrentWeatherCard } from "@/components/shared/CurrentWeatherCard";
 import { EdgeMinuteForecastPanel } from "@/components/shared/EdgeRecoveryPanel";
 import { edgeForecastHistoryCanRetain, edgeForecastIssuedAt, edgeForecastSession, edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
 import { usesMinuteCountForecast } from "@/lib/edge-quality";
-import { selectedCameraView, EDGE_TRAFFIC_LABELS, vehicleCountLevel } from "@/lib/traffic-status";
+import { selectedCameraView, vehicleCountLevel } from "@/lib/traffic-status";
 
 const FORECAST_CAMERA_IDS = ["cam_01", "cam_02", "cam_03", "cam_04"] as const;
 const FORECAST_COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc"];
@@ -78,7 +78,6 @@ export function ModelManagement() {
   const edgeAI = useTrafficStore((state) => state.edgeAI);
   const edgeStatus = edgeAI?.status || {};
   const minuteCountForecast = usesMinuteCountForecast(edgeAI);
-  const edgeWeather = edgeAI?.weather;
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now() / 1000), 5000); return () => clearInterval(timer); }, []);
   const generatedAt = Number(edgeAI?.generated_at);
@@ -141,9 +140,8 @@ export function ModelManagement() {
 
     <SectionCard title="Nhận dạng từ camera" icon={Camera}>
       {cameras.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {cameras.map(([id, value]: [string, any]) => {
+        {cameras.map(([id]: [string, any]) => {
           const camera = selectedCameraView(id, null, edgeAI, now * 1000);
-          const stability = value?.classification_stability;
           const countLevel = vehicleCountLevel(camera.count);
           const labelText = countLevel?.label || camera.text;
           const cameraFresh = camera.fresh;
@@ -151,9 +149,6 @@ export function ModelManagement() {
             <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{CAMERAS.find((item) => item.id === id)?.name || id.replace("_", " ")}</h3><p className="text-xs text-muted-foreground">{CAMERAS.find((item) => item.id === id)?.label || ""}</p></div><StatusBadge color={cameraFresh ? "green" : "amber"}>{cameraFresh ? "Ảnh mới" : "Đang chờ"}</StatusBadge></div>
             <div className="mt-4 flex items-end justify-between border-t border-border/70 pt-3"><div><p className="text-xs text-muted-foreground">{countLevel ? "Mức độ theo số xe" : `Tình trạng${camera.stabilizationMode === "display" ? " ổn định" : " nhận diện"}`}</p><p className="mt-1 text-lg font-semibold">{labelText}</p></div><p className="text-right text-sm tabular-nums">{camera.count ?? "—"}<span className="ml-1 text-xs text-muted-foreground">xe trong ảnh</span></p></div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3"><p className="text-xs text-muted-foreground">ID · ngưỡng khởi tạo</p>{countLevel ? <StatusBadge color={countLevel.color}>ID {countLevel.id} · {countLevel.range}</StatusBadge> : <span className="text-xs text-muted-foreground">Chưa có số đếm mới</span>}</div>
-            <p className="mt-2 text-xs text-muted-foreground">YOLO: {camera.rawLabelInfo?.text || (camera.fresh ? "Đã đếm xe; chưa phát nhãn phân loại" : "Chưa có kết quả mới")} · tin cậy {camera.fresh && Number.isFinite(value.classification_confidence) && value.classification_confidence >= 0 && value.classification_confidence <= 1 ? `${(value.classification_confidence * 100).toFixed(0)}%` : "—"} · ảnh {Number.isFinite(value.image_age_seconds) ? `${Number(value.image_age_seconds).toFixed(0)} giây trước` : "chưa rõ thời điểm"}</p>
-            {stability && <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Chi tiết trạng thái theo thời gian</summary><p className="mt-1">Chế độ: {stability.mode || "legacy"} · dữ liệu: {stability.data_status || "UNKNOWN"}</p><p>YOLO hiện tại: {EDGE_TRAFFIC_LABELS[stability.raw_state]?.text || EDGE_TRAFFIC_LABELS[value.label]?.text || "Chưa có nhãn YOLO"} · {Number.isFinite(stability.raw_confidence) ? `${(Number(stability.raw_confidence) * 100).toFixed(0)}%` : "—"}</p><p>Ổn định: {stability.data_status === "VALID" ? EDGE_TRAFFIC_LABELS[stability.stable_state]?.text || "—" : "Chưa hợp lệ"} · {Number.isFinite(stability.stable_confidence) ? `${(Number(stability.stable_confidence) * 100).toFixed(0)}%` : "—"}</p><p>Ảnh hợp lệ gần nhất: {Number.isFinite(stability.last_valid_timestamp) ? new Date(Number(stability.last_valid_timestamp) * 1000).toLocaleString("vi-VN") : "—"}</p>{stability.pending_transition && <p>Đang xác nhận: {EDGE_TRAFFIC_LABELS[stability.pending_transition.state]?.text || stability.pending_transition.state} ({stability.pending_transition.count}/{stability.pending_transition.required} ảnh)</p>}</details>}
-            {value.label_source && <p className="mt-1 text-[11px] text-muted-foreground">Nhãn tự động từ YOLO</p>}
           </article>;
         })}
       </div> : <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa nhận được kết quả nhận dạng mới.</p>}
@@ -169,6 +164,5 @@ export function ModelManagement() {
       <ForecastTrafficCharts data={chartToShow?.data || forecastChart.data.map((point) => ({ ...point, cam_01: null, cam_02: null, cam_03: null, cam_04: null }))} cameraIds={FORECAST_CAMERA_IDS} message={chartMessage} />
     </SectionCard>}
 
-    <details className="rounded-xl border border-border bg-card/70 p-4 text-sm"><summary className="cursor-pointer font-medium"><ShieldCheck className="mr-2 inline h-4 w-4 text-primary" />Thông tin kỹ thuật</summary><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2"><p>Kiểm định TCN: {String(edgeStatus.validation_status || "chưa có")}</p><p>Trạng thái thời tiết: {String(edgeStatus.weather_status || "chưa có")}</p><p>Trạng thái dự báo: {String(edgeStatus.forecast_status || "chưa có")}</p><p>Thời tiết code: {edgeWeather?.weather_code ?? "—"}</p><p>Khôi phục TCN: {String(edgeStatus.tcn_state || "chưa có")}</p><p>Lý do: {String(edgeStatus.history_reason || "chưa có")}</p><p>Bước lịch sử cuối: {String(edgeStatus.history_last_timestamp || "chưa có")}</p></div></details>
   </div>;
 }

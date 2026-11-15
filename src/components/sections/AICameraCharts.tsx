@@ -38,7 +38,7 @@ export function AICameraCharts() {
             <YAxis domain={[0, "auto"]} width={36} tick={{ fontSize: 10 }} />
             <ReferenceLine x={history?.[119]?.timestamp} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
             <Tooltip labelFormatter={value => timeLabel(Number(value))}
-              formatter={(value: number, name: string) => [Number(value).toFixed(1), name.endsWith("_history") ? "Quan sát" : "Dự báo thử nghiệm"]}
+              formatter={(value: number, name: string) => [Number(value).toFixed(1), name.endsWith("_history") ? "Quan sát" : "Dự báo"]}
               contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
             <Line type="linear" dataKey={`${cam}_history`} stroke={COLORS[i]} dot={false} isAnimationActive={false} connectNulls={false} />
             <Line type="linear" dataKey={`${cam}_forecast`} stroke={COLORS[i]} strokeDasharray="5 5" dot={false} isAnimationActive={false} connectNulls={false} />

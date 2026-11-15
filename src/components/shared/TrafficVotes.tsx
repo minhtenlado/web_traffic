@@ -17,6 +17,5 @@ export function TrafficVotes({ record }: { record: any }) {
         {text}: <strong className="text-foreground">{count}</strong>
       </span>)}
     </div>
-    <p className="mt-1 text-[10px]">Bản tổng hợp cũ · 10 ảnh gần nhất</p>
   </div>;
 }
