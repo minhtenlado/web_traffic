@@ -92,6 +92,18 @@ test('forecast comparison aligns the same target minute and calculates errors fo
   assert.equal(readEdgeForecastComparison({ source: 'unknown', points: evaluation.points }, 'cam_01', 5).samples, 0);
 });
 
+test('forecast comparison can populate five independent camera panels at one shared horizon', () => {
+  assert.equal(MINUTE_CAMERA_IDS.length, 5);
+  const evaluation = { source: 'observed_only_visible_count', points: { '15': [
+    { target_minute: '1970-01-12T13:46:00Z', observed_counts: Object.fromEntries(MINUTE_CAMERA_IDS.map((id, i) => [id, 10 + i])),
+      forecast_counts: Object.fromEntries(MINUTE_CAMERA_IDS.map((id, i) => [id, 11 + i * 2])) },
+  ] } };
+  const panels = MINUTE_CAMERA_IDS.map(id => readEdgeForecastComparison(evaluation, id, 15));
+  assert.equal(panels.length, 5);
+  assert.ok(panels.every(panel => panel.samples === 1));
+  assert.deepEqual(panels.map(panel => panel.mae), [1, 2, 3, 4, 5]);
+});
+
 test('V3 count payload selects the numeric forecast while legacy class-only data stays separate', () => {
   assert.equal(usesMinuteCountForecast(payload()), true);
   assert.equal(usesMinuteCountForecast({ status: { history_required: 120 }, forecast: { valid: false } }), true);

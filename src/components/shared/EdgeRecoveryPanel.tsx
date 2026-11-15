@@ -28,56 +28,60 @@ export function EdgeRecoverySummary({ data, nowMs }: { data: any; nowMs: number 
 }
 
 function ForecastComparison({ data }: { data: any }) {
-  const [camera, setCamera] = useState<string>(MINUTE_CAMERA_IDS[0]);
   const [horizon, setHorizon] = useState<number>(1);
-  const comparison = readEdgeForecastComparison(data, camera, horizon);
-  const chartData = comparison.points.map(point => ({
-    time: new Date(point.timestamp * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-    timestamp: point.timestamp,
-    actual: point.actual,
-    forecast: point.forecast,
+  const comparisons = MINUTE_CAMERA_IDS.map((camera, index) => ({
+    camera,
+    name: CAMERAS.find(item => item.id === camera)?.name || `Camera ${index + 1}`,
+    color: COLORS[index],
+    result: readEdgeForecastComparison(data, camera, horizon),
   }));
   const selectClass = "rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
   return <div className="mt-6 border-t border-border/70 pt-5">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><h3 className="font-semibold">Đối chiếu dự báo với số xe quan sát</h3>
-        <p className="mt-1 text-xs text-muted-foreground">So sánh cùng camera, cùng thời điểm sau khi mốc dự báo đã xảy ra</p></div>
-      <div className="flex flex-wrap gap-3">
-        <label className="grid gap-1 text-xs text-muted-foreground">Camera
-          <select aria-label="Camera so sánh" className={selectClass} value={camera} onChange={event => setCamera(event.target.value)}>
-            {MINUTE_CAMERA_IDS.map((id, index) => <option key={id} value={id}>{CAMERAS.find(item => item.id === id)?.name || `Camera ${index + 1}`}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">Dự báo trước
-          <select aria-label="Khoảng dự báo so sánh" className={selectClass} value={horizon} onChange={event => setHorizon(Number(event.target.value))}>
-            {COMPARISON_HORIZONS.map(value => <option key={value} value={value}>{value} phút</option>)}
-          </select>
-        </label>
-      </div>
+        <p className="mt-1 text-xs text-muted-foreground">Cả 5 camera · so sánh dự báo và số xe quan sát tại cùng mốc thời gian</p></div>
+      <label className="grid gap-1 text-xs text-muted-foreground">Dự báo trước
+        <select aria-label="Khoảng dự báo so sánh" className={selectClass} value={horizon} onChange={event => setHorizon(Number(event.target.value))}>
+          {COMPARISON_HORIZONS.map(value => <option key={value} value={value}>{value} phút</option>)}
+        </select>
+      </label>
     </div>
-    {comparison.samples > 0 ? <>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-border/80 p-3"><p className="text-xs text-muted-foreground">Mốc đã đối chiếu</p><p className="mt-1 text-xl font-semibold tabular-nums">{comparison.samples}</p></div>
-        <div className="rounded-lg border border-border/80 p-3"><p className="text-xs text-muted-foreground">Sai số tuyệt đối TB · MAE</p><p className="mt-1 text-xl font-semibold tabular-nums">{comparison.mae!.toFixed(2)} xe</p></div>
-        <div className="rounded-lg border border-border/80 p-3"><p className="text-xs text-muted-foreground">Sai số căn phương TB · RMSE</p><p className="mt-1 text-xl font-semibold tabular-nums">{comparison.rmse!.toFixed(2)} xe</p></div>
-      </div>
-      <div role="img" aria-label={`Đối chiếu số xe dự báo và quan sát của ${camera}, trước ${horizon} phút`} className="mt-4 h-[290px] w-full">
-        <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 12, right: 16, bottom: 4, left: 4 }}>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
-          <XAxis dataKey="time" minTickGap={24} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis allowDecimals={false} width={42} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
-          <Tooltip labelFormatter={(_, items) => items?.[0]?.payload?.timestamp ? new Date(items[0].payload.timestamp * 1000).toLocaleString("vi-VN") : ""}
-            formatter={(value, name) => [`${value} xe`, name]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
-          <Line type="monotone" dataKey="actual" name="Số xe quan sát" stroke={OBSERVED_COLOR} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
-          <Line type="monotone" dataKey="forecast" name={`TCN dự báo · ${horizon} phút`} stroke={PREDICTED_COLOR} strokeWidth={2.5} strokeDasharray="7 5" dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
-        </LineChart></ResponsiveContainer>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-5 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2" style={{ borderColor: OBSERVED_COLOR }} />Quan sát YOLO</span>
-        <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2 border-dashed" style={{ borderColor: PREDICTED_COLOR }} />Dự báo TCN</span>
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">MAE/RMSE chỉ tính các mốc có quan sát YOLO thật; phút dữ liệu bù không được tính là thực tế. Đây là so sánh số xe nhìn thấy trong ảnh, chưa phải kiểm định lưu lượng ngoài đường.</p>
-    </> : <p className="mt-4 rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground" aria-live="polite">Chưa có mốc dự báo {horizon} phút đã đến thời điểm và có số xe quan sát thật để đối chiếu. Biểu đồ sẽ tự cập nhật khi camera ghi nhận các mốc tiếp theo.</p>}
+    <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+      {comparisons.map(({ camera, name, color, result }) => {
+        const chartData = result.points.map(point => ({
+          time: new Date(point.timestamp * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+          timestamp: point.timestamp,
+          actual: point.actual,
+          forecast: point.forecast,
+        }));
+        return <article key={camera} className="min-w-0 rounded-xl border border-border/80 bg-background/25 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold" style={{ color }}>{name}</h4>
+            <span className="text-xs tabular-nums text-muted-foreground">{result.samples} mốc</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.mae === null ? "—" : `${result.mae.toFixed(2)} xe`}</p></div>
+            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.rmse === null ? "—" : `${result.rmse.toFixed(2)} xe`}</p></div>
+          </div>
+          {result.samples > 0 ? <div role="img" aria-label={`Đối chiếu số xe dự báo và quan sát của ${name}, trước ${horizon} phút`} className="mt-3 h-[230px] w-full">
+            <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
+              <XAxis dataKey="time" minTickGap={24} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} width={34} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
+              <Tooltip labelFormatter={(_, items) => items?.[0]?.payload?.timestamp ? new Date(items[0].payload.timestamp * 1000).toLocaleString("vi-VN") : ""}
+                formatter={(value, seriesName) => [`${value} xe`, seriesName]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
+              <Line type="monotone" dataKey="actual" name="Số xe quan sát" stroke={OBSERVED_COLOR} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
+              <Line type="monotone" dataKey="forecast" name={`TCN dự báo · ${horizon} phút`} stroke={PREDICTED_COLOR} strokeWidth={2.5} strokeDasharray="7 5" dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
+            </LineChart></ResponsiveContainer>
+          </div> : <p className="mt-3 flex h-[230px] items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-xs text-muted-foreground" aria-live="polite">Chưa có mốc đối chiếu {horizon} phút cho camera này.</p>}
+        </article>;
+      })}
+    </div>
+    <div className="mt-4 flex flex-wrap gap-5 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2" style={{ borderColor: OBSERVED_COLOR }} />Quan sát YOLO</span>
+      <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2 border-dashed" style={{ borderColor: PREDICTED_COLOR }} />Dự báo TCN</span>
+    </div>
+    <p className="mt-3 text-xs text-muted-foreground">MAE/RMSE chỉ tính các mốc có quan sát YOLO thật; phút dữ liệu bù không được tính là thực tế. Đây là so sánh số xe nhìn thấy trong ảnh, chưa phải kiểm định lưu lượng ngoài đường.</p>
   </div>;
 }
 
