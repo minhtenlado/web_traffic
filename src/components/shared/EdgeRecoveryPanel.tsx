@@ -46,7 +46,7 @@ function ForecastComparison({ data }: { data: any }) {
         </select>
       </label>
     </div>
-    <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+    <div className="mt-4 grid grid-cols-1 gap-4">
       {comparisons.map(({ camera, name, color, result }) => {
         const chartData = result.points.map(point => ({
           time: new Date(point.timestamp * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
@@ -63,7 +63,7 @@ function ForecastComparison({ data }: { data: any }) {
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.mae === null ? "—" : `${result.mae.toFixed(2)} xe`}</p></div>
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.rmse === null ? "—" : `${result.rmse.toFixed(2)} xe`}</p></div>
           </div>
-          {result.samples > 0 ? <div role="img" aria-label={`Đối chiếu số xe dự báo và quan sát của ${name}, trước ${horizon} phút`} className="mt-3 h-[230px] w-full">
+          {result.samples > 0 ? <div role="img" aria-label={`Đối chiếu số xe dự báo và quan sát của ${name}, trước ${horizon} phút`} className="mt-3 h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
               <XAxis dataKey="time" minTickGap={24} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -73,7 +73,7 @@ function ForecastComparison({ data }: { data: any }) {
               <Line type="monotone" dataKey="actual" name="Số xe quan sát" stroke={OBSERVED_COLOR} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
               <Line type="monotone" dataKey="forecast" name={`TCN dự báo · ${horizon} phút`} stroke={PREDICTED_COLOR} strokeWidth={2.5} strokeDasharray="7 5" dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
             </LineChart></ResponsiveContainer>
-          </div> : <p className="mt-3 flex h-[230px] items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-xs text-muted-foreground" aria-live="polite">Chưa có mốc đối chiếu {horizon} phút cho camera này.</p>}
+          </div> : <p className="mt-3 flex h-[300px] items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-xs text-muted-foreground" aria-live="polite">Chưa có mốc đối chiếu {horizon} phút cho camera này.</p>}
         </article>;
       })}
     </div>
