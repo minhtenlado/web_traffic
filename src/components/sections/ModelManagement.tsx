@@ -10,7 +10,7 @@ import { CurrentWeatherCard } from "@/components/shared/CurrentWeatherCard";
 import { EdgeMinuteForecastPanel } from "@/components/shared/EdgeRecoveryPanel";
 import { edgeForecastHistoryCanRetain, edgeForecastIssuedAt, edgeForecastSession, edgeHistoryProgress, edgeTcnRecovery, groupEdgeForecasts } from "@/lib/edge-forecast";
 import { usesMinuteCountForecast } from "@/lib/edge-quality";
-import { selectedCameraView, EDGE_TRAFFIC_LABELS, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
+import { selectedCameraView, EDGE_TRAFFIC_LABELS, vehicleCountLevel } from "@/lib/traffic-status";
 
 const FORECAST_CAMERA_IDS = ["cam_01", "cam_02", "cam_03", "cam_04"] as const;
 const FORECAST_COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc"];
@@ -140,25 +140,6 @@ export function ModelManagement() {
     <CurrentWeatherCard title="Thời tiết hiện tại" />
 
     <SectionCard title="Nhận dạng từ camera" icon={Camera}>
-      <div className="mb-4 overflow-hidden rounded-lg border border-border/80">
-        <div className="border-b border-border/70 px-4 py-3">
-          <h3 className="text-sm font-semibold">Ngưỡng khởi tạo theo số xe</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Nhãn suy ra từ số xe trong ảnh mới; đây là quy tắc hiển thị riêng, không phải nhãn phân loại YOLO.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-left text-sm">
-            <caption className="sr-only">ID, tên nhãn và ngưỡng số xe để khởi tạo mức giao thông</caption>
-            <thead className="bg-muted/30 text-xs text-muted-foreground">
-              <tr><th scope="col" className="px-4 py-2 font-medium">ID</th><th scope="col" className="px-4 py-2 font-medium">Tên nhãn</th><th scope="col" className="px-4 py-2 font-medium">Ngưỡng khởi tạo</th></tr>
-            </thead>
-            <tbody>
-              {VEHICLE_COUNT_LEVELS.map((level) => <tr key={level.id} className="border-t border-border/60">
-                <td className="px-4 py-2 tabular-nums">{level.id}</td><td className="px-4 py-2 font-medium">{level.label}</td><td className="px-4 py-2 tabular-nums">{level.range}</td>
-              </tr>)}
-            </tbody>
-          </table>
-        </div>
-      </div>
       {cameras.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {cameras.map(([id, value]: [string, any]) => {
           const camera = selectedCameraView(id, null, edgeAI, now * 1000);
