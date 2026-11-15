@@ -7,7 +7,8 @@ const context = { exports: {}, Date };
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/edge-quality.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, context);
-const { edgeHistoryQuality, edgeSystemHealth, edgeMinuteView, readEdgeMinuteForecast, usesMinuteCountForecast, MINUTE_CAMERA_IDS } = context.exports;
+const { edgeHistoryQuality, edgeSystemHealth, edgeMinuteView, readEdgeMinuteForecast,
+  readEdgeForecastComparison, usesMinuteCountForecast, MINUTE_CAMERA_IDS } = context.exports;
 const now = 1_000_000;
 const status = () => ({ online: true, system_state: 'ONLINE', sample_interval_seconds: 60,
   history_steps: 120, history_contiguous_steps: 120, history_required: 120, history_observed_steps: 100, history_imputed_steps: 20,
@@ -73,6 +74,22 @@ test('minute forecast renders all five counts without converting count-derived p
   assert.equal(result.points[0].cam_05, 24); assert.equal(result.points[0].labels, undefined);
   const degraded = payload(); degraded.status.system_state = 'DEGRADED';
   assert.equal(readEdgeMinuteForecast(degraded, now).ready, true);
+});
+
+test('forecast comparison aligns the same target minute and calculates errors for the selected series', () => {
+  const evaluation = { source: 'observed_only_visible_count', points: { '5': [
+    { target_minute: '1970-01-12T13:46:00Z', observed_counts: { cam_01: 20 }, forecast_counts: { cam_01: 23 } },
+    { target_minute: '1970-01-12T13:47:00Z', observed_counts: { cam_01: 0 }, forecast_counts: { cam_01: 2 } },
+    { target_minute: '1970-01-12T13:48:00Z', observed_counts: { cam_01: null }, forecast_counts: { cam_01: 12 } },
+  ] } };
+  const result = readEdgeForecastComparison(evaluation, 'cam_01', 5);
+  assert.equal(result.samples, 2);
+  assert.equal(result.mae, 2.5);
+  assert.equal(result.rmse, Math.sqrt(6.5));
+  assert.deepEqual(result.points.map(point => point.actual), [20, 0]);
+  assert.equal(readEdgeForecastComparison(evaluation, 'cam_02', 5).samples, 0);
+  assert.equal(readEdgeForecastComparison(evaluation, 'cam_01', 10).samples, 0);
+  assert.equal(readEdgeForecastComparison({ source: 'unknown', points: evaluation.points }, 'cam_01', 5).samples, 0);
 });
 
 test('V3 count payload selects the numeric forecast while legacy class-only data stays separate', () => {

@@ -96,3 +96,28 @@ export function readEdgeMinuteForecast(data: any, nowMs = Date.now()) {
   }
   return { ready: true, points, issuedAt };
 }
+
+export type ForecastComparisonPoint = { timestamp: number; actual: number; forecast: number };
+
+/** Return only same-target forecast/observed pairs and compute metrics for that camera/horizon. */
+export function readEdgeForecastComparison(data: any, camera: string, horizon: number) {
+  const empty = { points: [] as ForecastComparisonPoint[], samples: 0, mae: null as number | null, rmse: null as number | null };
+  if (!MINUTE_CAMERA_IDS.includes(camera as typeof MINUTE_CAMERA_IDS[number]) || ![1, 5, 15, 30].includes(horizon) ||
+      data?.source !== "observed_only_visible_count") return empty;
+  const rows = data?.points?.[String(horizon)];
+  if (!Array.isArray(rows)) return empty;
+  const points: ForecastComparisonPoint[] = [];
+  for (const row of rows) {
+    const timestamp = epochSeconds(row?.target_minute);
+    const actual = row?.observed_counts?.[camera];
+    const forecast = row?.forecast_counts?.[camera];
+    if (timestamp === null || !Number.isInteger(actual) || actual < 0 ||
+        !Number.isInteger(forecast) || forecast < 0) continue;
+    points.push({ timestamp, actual, forecast });
+  }
+  points.sort((a, b) => a.timestamp - b.timestamp);
+  const errors = points.map(point => point.forecast - point.actual);
+  return { points, samples: points.length,
+    mae: errors.length ? errors.reduce((sum, error) => sum + Math.abs(error), 0) / errors.length : null,
+    rmse: errors.length ? Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length) : null };
+}
