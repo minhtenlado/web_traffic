@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { readTCNChart } from "./tcn-forecast";
+import { readEdgeMinuteHistory } from "./edge-quality";
 import { buildRouteStats, buildCameraAlerts, selectedCameraView, appendCameraHistory, ACTIVE_CAMERA_IDS, edgePayloadIsFresh } from "./traffic-status";
 import { isControllerSignal, sendControllerCommand,
   requestFuzzyControlMode, type ControllerSignal, type ControllerStatus, type CommandResult, type TimingKey,
@@ -66,6 +67,7 @@ interface TrafficState {
   controllerStatus: ControllerStatus | null;
   commandResult: CommandResult | null;
   edgeAI: Record<string, any> | null;
+  edgeMinuteHistory: ReturnType<typeof readEdgeMinuteHistory>;
   modelStatus: { buffer_fill?: number; buffer_max?: number; missing_model_inputs?: string[]; last_heartbeat?: number; online?: boolean; tcn_status?: string; tcn_reason?: string; runtime_version?: string; active_camera_ids?: string[]; model_artifacts?: Record<string, any> } | null;
   isBoardOffline: boolean;
   lastRealtimeUpdate: number;
@@ -199,6 +201,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   controllerStatus: null,
   commandResult: null,
   edgeAI: null,
+  edgeMinuteHistory: [],
   modelStatus: null,
   fuzzyStatus: null,
   fuzzyControl: null,
@@ -267,7 +270,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     // Process helper for chart_data
     const processChartData = (data: any) => {
       const forecast = readTCNChart(data);
-      set(state => ({ aiForecast: { ...state.aiForecast,
+      set(state => ({ edgeMinuteHistory: readEdgeMinuteHistory(data), aiForecast: { ...state.aiForecast,
         actual: [], forecast: [], directions: [], daysLearned: 0, ...forecast,
       }}));
     };
@@ -418,7 +421,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
     fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
     stopRealtime?.(); stopRealtime = null;
     set({ user: null, isAuthenticated: false, _firebaseInitialized: false, controllerStatus: null,
-      realtimeCams: null, edgeAI: null, healthMetrics: null, chartHistory: [], lastRealtimeUpdate: 0, routeStats: [], alertAcknowledgements: {},
+      realtimeCams: null, edgeAI: null, edgeMinuteHistory: [], healthMetrics: null, chartHistory: [], lastRealtimeUpdate: 0, routeStats: [], alertAcknowledgements: {},
       alertAcknowledgementsLoaded: false, alerts: [], auditLog: [], users: [], devices: [] });
   },
 

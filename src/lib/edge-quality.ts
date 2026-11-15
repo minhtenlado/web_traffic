@@ -63,6 +63,43 @@ export function edgeMinuteView(record: any, nowMs = Date.now()) {
     method: typeof record?.imputation_method === "string" ? record.imputation_method : null };
 }
 
+export type EdgeMinuteHistoryValue = { count: number | null; source: "observed" | "imputed" | "missing" | "unknown" };
+export type EdgeMinuteHistoryPoint = { timestamp: number; counts: Record<string, EdgeMinuteHistoryValue> };
+
+/** Parse the existing /chart_data/latest history without treating estimates as observations. */
+export function readEdgeMinuteHistory(data: any, nowMs = Date.now()): EdgeMinuteHistoryPoint[] {
+  const rows = Array.isArray(data?.history) ? data.history
+    : data?.history && typeof data.history === "object" ? Object.values(data.history) : [];
+  const byTimestamp = new Map<number, EdgeMinuteHistoryPoint>();
+  for (const row of rows) {
+    const timestamp = epochSeconds(row?.timestamp);
+    if (timestamp === null || timestamp <= 0 || timestamp > nowMs / 1000) continue;
+    const counts: Record<string, EdgeMinuteHistoryValue> = {};
+    for (const camera of MINUTE_CAMERA_IDS) {
+      const rawSource = row?.data_sources?.[camera];
+      const source: EdgeMinuteHistoryValue["source"] = rawSource === "observed" || rawSource === "imputed" || rawSource === "missing"
+        ? rawSource : "unknown";
+      const value = row?.counts?.[camera];
+      const count = (source === "observed" || source === "imputed") && Number.isInteger(value) && value >= 0
+        ? Number(value) : null;
+      counts[camera] = { count, source };
+    }
+    if (Object.values(counts).some(value => value.count !== null)) byTimestamp.set(timestamp, { timestamp, counts });
+  }
+  return [...byTimestamp.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-120);
+}
+
+/** The current marker is the latest fresh YOLO image count, not a minute average. */
+export function readEdgeCurrentCount(data: any, camera: string, nowMs = Date.now()) {
+  const empty = null;
+  const item = data?.cameras?.[camera];
+  const timestamp = epochSeconds(item?.observed_at);
+  if (!MINUTE_CAMERA_IDS.includes(camera as typeof MINUTE_CAMERA_IDS[number]) || !edgeSystemHealth(data, nowMs).fresh ||
+      item?.status !== "fresh" || item?.data_source !== "observed" || timestamp === null || timestamp > nowMs / 1000 ||
+      nowMs / 1000 - timestamp > 90 || !Number.isInteger(item?.vehicle_count) || item.vehicle_count < 0) return empty;
+  return { timestamp, count: Number(item.vehicle_count) };
+}
+
 export type MinuteForecastPoint = { horizon: number; timestamp: number } & Record<string, number>;
 
 /** Select the count-only UI for V3 payloads; never infer counts from class forecasts. */

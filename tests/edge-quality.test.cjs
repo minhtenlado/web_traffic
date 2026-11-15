@@ -8,7 +8,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/edge-quality.ts',
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, context);
 const { edgeHistoryQuality, edgeSystemHealth, edgeMinuteView, readEdgeMinuteForecast,
-  readEdgeForecastComparison, usesMinuteCountForecast, MINUTE_CAMERA_IDS } = context.exports;
+  readEdgeForecastComparison, readEdgeMinuteHistory, readEdgeCurrentCount, usesMinuteCountForecast, MINUTE_CAMERA_IDS } = context.exports;
 const now = 1_000_000;
 const status = () => ({ online: true, system_state: 'ONLINE', sample_interval_seconds: 60,
   history_steps: 120, history_contiguous_steps: 120, history_required: 120, history_observed_steps: 100, history_imputed_steps: 20,
@@ -66,6 +66,38 @@ test('minute zero is a valid observation; missing, unknown source and future tim
   assert.match(imputed.label, /Ước lượng/);
   assert.equal(edgeMinuteView({ ...r, timestamp: '1970-01-01T07:16:00+07:00' }, now).timestamp, 960);
   assert.equal(edgeMinuteView({ ...r, timestamp: '1970-01-01T00:16:00' }, now).timestamp, null);
+});
+
+test('minute history keeps observed and imputed provenance separate and ignores future or invalid rows', () => {
+  const result = readEdgeMinuteHistory({ history: [
+    { timestamp: 940, counts: { cam_01: 11, cam_02: 20 }, data_sources: { cam_01: 'observed', cam_02: 'imputed' } },
+    { timestamp: 1001, counts: { cam_01: 99 }, data_sources: { cam_01: 'observed' } },
+    { timestamp: '1970-01-12T13:46:00', counts: { cam_01: 15 }, data_sources: { cam_01: 'observed' } },
+    { timestamp: 960, counts: { cam_01: 0, cam_02: 7, cam_03: 4 }, data_sources: { cam_01: 'observed', cam_02: 'missing', cam_03: 'unknown' } },
+    { timestamp: '1970-01-01T07:16:20+07:00', counts: { cam_01: 15 }, data_sources: { cam_01: 'observed' } },
+  ] }, now);
+  assert.equal(result.length, 3);
+  assert.deepEqual(result.map(row => row.timestamp), [940, 960, 980]);
+  assert.deepEqual(result[0].counts.cam_01, { count: 11, source: 'observed' });
+  assert.deepEqual(result[0].counts.cam_02, { count: 20, source: 'imputed' });
+  assert.deepEqual(result[1].counts.cam_01, { count: 0, source: 'observed' });
+  assert.deepEqual(result[1].counts.cam_02, { count: null, source: 'missing' });
+});
+
+test('current chart marker only accepts a fresh image YOLO observation', () => {
+  const p = payload();
+  p.cameras = { cam_01: { status: 'fresh', data_source: 'observed', observed_at: 999, vehicle_count: 0 } };
+  assert.deepEqual(readEdgeCurrentCount(p, 'cam_01', now), { timestamp: 999, count: 0 });
+  for (const camera of [
+    { status: 'stale', data_source: 'observed', observed_at: 999, vehicle_count: 10 },
+    { status: 'fresh', data_source: 'imputed', observed_at: 999, vehicle_count: 10 },
+    { status: 'fresh', data_source: 'observed', observed_at: 900, vehicle_count: 10 },
+    { status: 'fresh', data_source: 'observed', observed_at: 1001, vehicle_count: 10 },
+  ]) {
+    p.cameras.cam_01 = camera;
+    assert.equal(readEdgeCurrentCount(p, 'cam_01', now), null);
+  }
+  assert.equal(readEdgeCurrentCount(p, 'cam_99', now), null);
 });
 
 test('minute forecast renders all five counts without converting count-derived proxy classes', () => {

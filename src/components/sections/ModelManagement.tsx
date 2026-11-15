@@ -76,6 +76,7 @@ const ForecastTrafficCharts = memo(function ForecastTrafficCharts({
 
 export function ModelManagement() {
   const edgeAI = useTrafficStore((state) => state.edgeAI);
+  const edgeMinuteHistory = useTrafficStore((state) => state.edgeMinuteHistory);
   const edgeStatus = edgeAI?.status || {};
   const minuteCountForecast = usesMinuteCountForecast(edgeAI);
   const [now, setNow] = useState(Date.now() / 1000);
@@ -154,7 +155,7 @@ export function ModelManagement() {
       </div> : <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa nhận được kết quả nhận dạng mới.</p>}
     </SectionCard>
 
-    {minuteCountForecast ? <EdgeMinuteForecastPanel data={edgeAI} nowMs={now * 1000} /> : <SectionCard title="Dự báo nhãn ùn tắc (TCN cũ)" icon={Brain}>
+    {minuteCountForecast ? <EdgeMinuteForecastPanel data={edgeAI} history={edgeMinuteHistory} nowMs={now * 1000} /> : <SectionCard title="Dự báo nhãn ùn tắc (TCN cũ)" icon={Brain}>
       <p className="mb-3 text-sm text-muted-foreground">Kết quả phân loại; không phải dự báo số xe.</p>
       <div className="mb-4 flex flex-wrap items-center justify-end gap-3"><StatusBadge color={hasCurrentForecast ? "green" : retainedForecastValid || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge></div>
       <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
