@@ -51,6 +51,7 @@ export function SignalControl() {
   const phase = SIGNAL_PHASES.find((p) => p.id === signal.currentPhase);
   const localControl = signal.localControl === true;
   const readOnlyTelemetry = status?.readOnlyTelemetry === true || status?.controlEnabled === false;
+  const commandChannelUnavailable = status?.commandChannelConnected === false || status?.remoteLease === false;
   const disabled = !online || readOnlyTelemetry || !!pending || localControl;
   useEffect(() => { setValues(signal.phaseDurations); }, [signal.phaseDurations.green, signal.phaseDurations.yellow, signal.phaseDurations.left, signal.phaseDurations.allred]);
   useEffect(() => {
@@ -177,7 +178,8 @@ export function SignalControl() {
           <p className="text-2xl font-bold">{phase?.name || "Chưa xác định pha"}</p>
           <p className="text-4xl font-mono">{!online ? "—" : signal.mode === "emergency" ? "STOP" : signal.hold ? "GIỮ PHA" : `${signal.countdown} s`}</p>
           {!online && <p className="text-sm text-amber-600">Trạng thái cũ không xác nhận đèn hiện tại. Các lệnh điều khiển đang khóa.</p>}
-          {online && readOnlyTelemetry && <p className="text-sm text-amber-600">Đang nhận telemetry UART ở chế độ chỉ đọc; mọi lệnh điều khiển vẫn bị khóa.</p>}
+          {online && readOnlyTelemetry && commandChannelUnavailable && !localControl && <p className="text-sm text-amber-600">STM32 vẫn đang phản hồi qua UART; kênh nhận lệnh Web đang kết nối lại nên nút điều khiển tạm khóa.</p>}
+          {online && readOnlyTelemetry && !commandChannelUnavailable && <p className="text-sm text-amber-600">Đang nhận telemetry UART ở chế độ chỉ đọc; mọi lệnh điều khiển vẫn bị khóa.</p>}
           <div className="flex flex-wrap gap-3">
             <button className={button} disabled={disabled || signal.mode === "emergency"} onClick={() => run(() => setMode("auto"))}>AUTO</button>
             <button className={button} disabled={disabled || signal.mode === "emergency"} onClick={() => run(() => setMode("manual"))}>MANUAL</button>
@@ -188,7 +190,7 @@ export function SignalControl() {
         </div>
       </SectionCard>
       <SectionCard title="Tài nguyên và đường truyền STM32" icon={Cpu}>
-        <p className="text-sm">Khung đã nhận: {status?.framesReceived ?? '—'} · Khoảng heartbeat lớn nhất: {status?.maxHeartbeatGapMs ?? '—'} ms</p>
+        <p className="text-sm">Khung UART nhận: {status?.framesReceived ?? '—'} · Khoảng gửi heartbeat Genio lớn nhất: {status?.maxHeartbeatGapMs ?? '—'} ms</p>
         <p className="mt-2 text-sm">Heap trống tối thiểu: {status?.metrics?.minFreeHeap ?? '—'} byte · Stack trống thấp nhất Traffic/UART/Display: {status?.metrics?.trafficStackFree ?? '—'}/{status?.metrics?.uartStackFree ?? '—'}/{status?.metrics?.displayStackFree ?? '—'} byte</p>
       </SectionCard>
       <SectionCard title="Thời lượng trên STM32" icon={Settings2}>
@@ -225,7 +227,8 @@ export function SignalControl() {
           onClick={toggleEmergency}>{(emergencyUi?.target ?? (signal.mode === "emergency")) ? "Hủy dừng khẩn cấp" : "Dừng khẩn cấp"}</button>
         {emergencyMessage && <p role="status" aria-live="polite" className="mt-3 text-sm text-amber-600">{emergencyMessage}</p>}
         {!online && <p className="mt-3 text-sm text-amber-600">STM32 chưa gửi trạng thái mới trong 3 giây; lệnh đèn đang khóa để tránh điều khiển theo dữ liệu cũ.</p>}
-        {online && readOnlyTelemetry && <p className="mt-3 text-sm text-amber-600">STM32 đang ở chế độ chỉ đọc; chờ đường điều khiển và heartbeat Genio sẵn sàng rồi thử lại.</p>}
+        {online && readOnlyTelemetry && commandChannelUnavailable && !localControl && <p className="mt-3 text-sm text-amber-600">STM32 vẫn phản hồi, nhưng kênh lệnh Web/Firebase chưa sẵn sàng. Lệnh khẩn cấp đang khóa cho đến khi lease được xác nhận.</p>}
+        {online && readOnlyTelemetry && !commandChannelUnavailable && <p className="mt-3 text-sm text-amber-600">STM32 đang ở chế độ chỉ đọc; chờ đường điều khiển và heartbeat Genio sẵn sàng rồi thử lại.</p>}
         {emergencyUi?.confirmed && (signal.mode === "emergency") !== emergencyUi.target && <p className="mt-3 text-sm text-amber-600">Lệnh đã được STM32 xác nhận; đang chờ telemetry mới xác nhận trạng thái đèn.</p>}
       </SectionCard>
       <SectionCard title="Điều khiển thích ứng Fuzzy" icon={Timer}

@@ -12,7 +12,12 @@ export async function POST(request: Request) {
   try {
     const controllerStatus = (await database().ref("traffic/controllerStatus").get()).val();
     if (controllerStatus?.readOnlyTelemetry === true || controllerStatus?.controlEnabled === false) {
-      return NextResponse.json({ error: "Kết nối STM32 hiện ở chế độ chỉ đọc; lệnh điều khiển đang khóa" }, { status: 423 });
+      const commandChannelUnavailable = controllerStatus?.remoteLease === false ||
+        controllerStatus?.commandChannelConnected === false;
+      const error = commandChannelUnavailable
+        ? "STM32 vẫn phản hồi qua UART, nhưng kênh lệnh Web đang kết nối lại; lệnh tạm khóa"
+        : "Kết nối STM32 hiện ở chế độ chỉ đọc; lệnh điều khiển đang khóa";
+      return NextResponse.json({ error }, { status: 423 });
     }
     const body = await request.json();
     const { id, timestamp, action } = body;

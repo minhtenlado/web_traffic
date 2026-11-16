@@ -31,6 +31,10 @@ export interface ControllerStatus {
   maxHeartbeatGapMs?: number;
   readOnlyTelemetry?: boolean;
   controlEnabled?: boolean;
+  remoteLease?: boolean;
+  commandChannelConnected?: boolean;
+  commandFirebaseConnected?: boolean;
+  firebaseConnected?: boolean;
   timestamp: number;
 }
 export interface CommandResult { id: string; status: string; message: string; timestamp: number }
