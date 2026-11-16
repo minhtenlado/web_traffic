@@ -61,8 +61,11 @@ export function emergencyCommandFeedback(target: boolean, status: string, detail
   return `${status}${detail ? `: ${detail}` : " — STM32 chưa xác nhận lệnh."}`;
 }
 
-export function isControllerOnline(status: ControllerStatus | null, now = Date.now()) {
-  return !!status?.online && now >= status.lastSeen * 1000 - 2000 && now - status.lastSeen * 1000 < 3000;
+// UI freshness must tolerate the 8-second HTTP fallback used when a browser's
+// EventSource stream reconnects. The command API still enforces a strict 3s TTL.
+export function isControllerOnline(status: ControllerStatus | null, now = Date.now(), maxAgeMs = 10_000) {
+  const lastSeenMs = Number(status?.lastSeen) * 1000;
+  return !!status?.online && Number.isFinite(lastSeenMs) && now >= lastSeenMs - 2000 && now - lastSeenMs < maxAgeMs;
 }
 export function isControllerSignal(value: unknown): value is ControllerSignal {
   const s = value as ControllerSignal | null;

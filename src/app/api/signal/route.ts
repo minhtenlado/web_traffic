@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { session, sameOrigin } from "@/lib/server/auth";
 import { database } from "@/lib/server/firebase";
 import { appendAuditEvent } from "@/lib/server/audit";
-import { TIMING_LIMITS, type TimingKey } from "@/lib/controller";
+import { isControllerOnline, TIMING_LIMITS, type TimingKey } from "@/lib/controller";
 
 // This endpoint accepts requests only; actual signalState is written by the UART bridge.
 export async function POST(request: Request) {
@@ -18,6 +18,9 @@ export async function POST(request: Request) {
         ? "STM32 vẫn phản hồi qua UART, nhưng kênh lệnh Web đang kết nối lại; lệnh tạm khóa"
         : "Kết nối STM32 hiện ở chế độ chỉ đọc; lệnh điều khiển đang khóa";
       return NextResponse.json({ error }, { status: 423 });
+    }
+    if (!isControllerOnline(controllerStatus, Date.now(), 3000)) {
+      return NextResponse.json({ error: "Telemetry STM32 đã cũ; lệnh chỉ được gửi khi trạng thái mới được xác nhận" }, { status: 423 });
     }
     const body = await request.json();
     const { id, timestamp, action } = body;

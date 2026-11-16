@@ -47,8 +47,10 @@ export function Header() {
   const genioOnline = edgeAI?.status?.online === true && Number.isFinite(edgeGeneratedAt) &&
     nowSeconds >= edgeGeneratedAt && nowSeconds - edgeGeneratedAt <= 30;
   const controllerLastSeen = Number(controllerStatus?.lastSeen);
+  const controllerAge = nowSeconds - controllerLastSeen;
   const stm32Online = controllerStatus?.online === true && Number.isFinite(controllerLastSeen) &&
-    nowSeconds >= controllerLastSeen - 2 && nowSeconds - controllerLastSeen < 3;
+    controllerAge >= -2 && controllerAge < 10;
+  const stm32Fresh = stm32Online && controllerAge < 3;
 
   return (
     <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-3 border-b border-border bg-background/95 px-4 sm:px-6">
@@ -95,9 +97,9 @@ export function Header() {
           </span>
           <span className={cn(
             "rounded-full border px-3 py-1.5",
-            stm32Online ? "border-success/30 bg-success/10 text-success" : "border-amber-500/30 bg-amber-500/10 text-amber-600",
+            stm32Fresh ? "border-success/30 bg-success/10 text-success" : "border-amber-500/30 bg-amber-500/10 text-amber-600",
           )}>
-            STM32 {stm32Online ? "đang phản hồi" : "chưa phản hồi"}
+            STM32 {stm32Fresh ? "đang phản hồi" : stm32Online ? "cập nhật chậm" : "chưa phản hồi"}
           </span>
         </div>
 

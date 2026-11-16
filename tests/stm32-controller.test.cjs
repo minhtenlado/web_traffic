@@ -33,7 +33,9 @@ test('accepts firmware telemetry; rejects old/invalid state', () => {
 test('stale/absent status is offline even if cloud still says online', () => {
   assert.equal(controller.isControllerOnline(null, 100000), false);
   assert.equal(controller.isControllerOnline({ online: true, lastSeen: 99 }, 100000), true);
-  assert.equal(controller.isControllerOnline({ online: true, lastSeen: 96 }, 100000), false);
+  assert.equal(controller.isControllerOnline({ online: true, lastSeen: 96 }, 100000), true); // tolerate the 8s HTTP fallback
+  assert.equal(controller.isControllerOnline({ online: true, lastSeen: 96 }, 100000, 3000), false); // strict command TTL
+  assert.equal(controller.isControllerOnline({ online: true, lastSeen: 89 }, 100000), false);
 });
 test('emergency clear reports the STM32 interlock and unsupported-firmware recovery path', () => {
   assert.match(controller.emergencyCommandFeedback(false, 'REJECTED', 'STM32 từ chối hủy: hãy nhả công tắc KHẨN CẤP vật lý trên mạch rồi thử lại'), /nhả công tắc.*PB4/);
@@ -41,15 +43,19 @@ test('emergency clear reports the STM32 interlock and unsupported-firmware recov
   assert.match(controller.emergencyCommandFeedback(false, 'TIMEOUT'), /PB3 giữ 3 giây.*CLEAR_EMERGENCY/);
   assert.match(controller.emergencyCommandFeedback(false, 'APPLIED'), /đã xác nhận hủy.*AUTO/);
 });
-test('API authenticates, queues by ID, rejects unsupported commands', async () => {
-  const writes = []; let authenticated = true; let controlStatus = null; let currentMode = 'auto';
+test('API authenticates, queues by ID, rejects stale control telemetry and unsupported commands', async () => {
+  const writes = []; let authenticated = true; let controlStatus = { online: true, controlEnabled: true, lastSeen: Date.now() / 1000 }; let currentMode = 'auto';
   const route = load('src/app/api/signal/route.ts', {
     require: (name) => name === 'next/server' ? { NextResponse: { json: (v, init) => new Response(JSON.stringify(v), init) } }
       : name.endsWith('/controller') ? controller
       : name.endsWith('/auth') ? { session: async () => authenticated ? { id: 'test', role: 'admin' } : null, sameOrigin: () => true }
       : name.endsWith('/audit') ? { appendAuditEvent: async () => {} }
       : { database: () => ({ ref: (url) => ({
-        get: async () => ({ val: () => url.endsWith('controllerStatus') ? controlStatus : { mode: currentMode, timestamp: Math.floor(Date.now() / 1000) } }),
+        get: async () => ({ val: () => url.endsWith('controllerStatus') ? controlStatus
+          : url.endsWith('fuzzyStatus') ? { autoEnabled: false }
+          : url.endsWith('signalState') ? { mode: currentMode, timestamp: Math.floor(Date.now() / 1000), localControl: false }
+          : url.endsWith('fuzzyControl') ? { mode: 'AUTO' }
+          : { mode: currentMode, timestamp: Math.floor(Date.now() / 1000) } }),
         transaction: async (callback) => { writes.push({ url, data: callback(null) }); return { committed: true }; },
       }) }) },
   });
@@ -63,7 +69,7 @@ test('API authenticates, queues by ID, rejects unsupported commands', async () =
   }
   assert.ok(writes.every((w) => w.url.startsWith('traffic/commands/')));
   assert.ok(writes.every((w) => w.data.actor === 'test' && w.data.status === 'PENDING'));
-  controlStatus = { online: true, controlEnabled: true };
+  controlStatus = { online: true, controlEnabled: true, lastSeen: Date.now() / 1000 };
   assert.equal((await route.POST(request({ action: 'clear_emergency' }))).status, 409);
   currentMode = 'emergency';
   assert.equal((await route.POST(request({ action: 'clear_emergency' }))).status, 202);
@@ -73,7 +79,10 @@ test('API authenticates, queues by ID, rejects unsupported commands', async () =
   controlStatus = { readOnlyTelemetry: true, controlEnabled: false };
   assert.equal((await route.POST(request({ action: 'next' }))).status, 423);
   assert.equal(writes.length, before);
-  controlStatus = null;
+  controlStatus = { online: true, controlEnabled: true, lastSeen: Date.now() / 1000 - 4 };
+  assert.equal((await route.POST(request({ action: 'next' }))).status, 423);
+  assert.equal(writes.length, before);
+  controlStatus = { online: true, controlEnabled: true, lastSeen: Date.now() / 1000 };
   for (const body of [{ action: 'override' }, { action: 'set_free_flush' }, { action: 'set_mode', mode: 'invalid' }, { action: 'set_duration', phase: 'left', duration: 31 }, { action: 'next', timestamp: 1 }]) {
     assert.equal((await route.POST(request(body))).status, 400);
   }

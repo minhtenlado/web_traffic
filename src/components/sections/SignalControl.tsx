@@ -46,7 +46,9 @@ export function SignalControl() {
   const [values, setValues] = useState(signal.phaseDurations);
   // Store ticks each second, so online/freshness updates even without new telemetry.
   const tick = useTrafficStore((s) => s._tickCount);
-  const online = isControllerOnline(status) && Date.now() - signal.timestamp * 1000 < 3000;
+  // Client-side enablement tolerates Edge/SSE fallback polling. The API checks
+  // the current Firebase telemetry with a strict 3-second limit before enqueue.
+  const online = isControllerOnline(status) && Date.now() - signal.timestamp * 1000 < 10_000;
   void tick;
   const phase = SIGNAL_PHASES.find((p) => p.id === signal.currentPhase);
   const localControl = signal.localControl === true;
