@@ -136,19 +136,31 @@ export function buildRouteStats(records: Record<string, any>, nowMs = Date.now()
   return DIRECTIONS.map(direction => {
     const cameras = CAMERAS.filter(c => c.direction === direction.id && c.aiInput);
     const views = cameras.map(c => selectedCameraView(c.id, records, edgeAI, nowMs));
-    const labels = views.flatMap(v => v.label ? [v.label] : []);
-    const worst = labels.sort((a, b) => EDGE_LABEL_SEVERITY[b] - EDGE_LABEL_SEVERITY[a])[0];
-    const severity = worst ? EDGE_LABEL_SEVERITY[worst] : null;
+    type RouteState = { severity: number; text: string; color: "green" | "amber" | "red" | "cyan"; source: "count" | "classifier" };
+    const states: RouteState[] = [];
+    views.forEach(view => {
+      // Keep a valid classifier state when present; otherwise show the requested count-derived band.
+      if (view.label) {
+        states.push({ severity: EDGE_LABEL_SEVERITY[view.label] ?? 0,
+          text: view.labelInfo?.text || "Chưa rõ", color: view.labelInfo?.cls || "cyan", source: "classifier" });
+        return;
+      }
+      const countLevel = vehicleCountLevel(view.count);
+      if (countLevel) states.push({ severity: countLevel.id, text: countLevel.label, color: countLevel.color, source: "count" });
+    });
+    const worst = states.sort((a, b) => b.severity - a.severity)[0] ?? null;
+    const severity = worst?.severity ?? null;
+    const coverage = views.filter(view => view.count !== null).length;
     return {
       id: direction.id, name: direction.name, cameras: cameras.map(c => c.name),
       isReference: cameras.length === 0,
       vehicleCount: views.reduce((sum, v) => sum + (v.count ?? 0), 0),
-      hasData: views.some(v => v.count !== null), hasStatus: !!worst,
-      coverage: labels.length, expectedCameras: cameras.length,
-      // Ordinal severity, never measured road occupancy or confidence.
+      hasData: coverage > 0, hasStatus: worst !== null,
+      coverage, expectedCameras: cameras.length, statusSource: worst?.source ?? null,
+      // Worst per-camera display level. Never classify the sum across distinct camera images.
       density: severity === null ? 0 : severity / 3 * 100, severity,
-      status: worst ? EDGE_TRAFFIC_LABELS[worst].text : "Chưa đủ dữ liệu",
-      statusColor: worst ? EDGE_TRAFFIC_LABELS[worst].cls : "cyan" as const,
+      status: worst?.text || "Chưa đủ dữ liệu",
+      statusColor: worst?.color || "cyan" as const,
     };
   });
 }
@@ -189,7 +201,10 @@ export function appendCameraHistory(history: CameraHistoryPoint[], records: Reco
     if (view.count !== null) point[id] = view.count;
   }
   for (const route of buildRouteStats(records, nowMs, edgeAI)) {
-    if (route.hasData) point[route.id] = route.vehicleCount;
+    if (route.hasData) {
+      point[route.id] = route.vehicleCount;
+      point[`${route.id}_coverage`] = `${route.coverage}/${route.expectedCameras}`;
+    }
   }
   point.total = views.reduce((sum, { view }) => sum + (view.count ?? 0), 0);
   // Multiple cameras may publish the same observation timestamp separately.

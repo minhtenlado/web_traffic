@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTrafficStore } from "@/lib/store";
 import { DIRECTIONS } from "@/lib/constants";
+import { formatNumber } from "@/lib/formatters";
 import { SectionCard } from "@/components/shared/ui";
 import { BarChart3 } from "lucide-react";
 
@@ -24,6 +25,7 @@ export function TrafficHistoryChart() {
   }, [history, windowSeconds]);
   const spanSeconds = points.length > 1 ? points.at(-1)!.timestamp - points[0].timestamp : 0;
   const coverage = spanSeconds >= 60 ? `${Math.floor(spanSeconds / 60)} phút dữ liệu` : points.length ? "vừa có mẫu mới" : "chưa có mẫu";
+  const axisShowsSeconds = spanSeconds < 6 * 60;
 
   return (
     <SectionCard
@@ -46,19 +48,26 @@ export function TrafficHistoryChart() {
         <>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>{coverage} · {points.length} lần cập nhật</span>
-            <span>Hiển thị tối đa {windowId === "15m" ? "15 phút" : "1 giờ"} dữ liệu có sẵn</span>
+            <span>Tổng số xe trong ảnh từ các camera mới có dữ liệu</span>
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={points} margin={{ top: 8, right: 12, left: -14, bottom: 4 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
                 <XAxis dataKey="timestamp" type="number" domain={["dataMin", "dataMax"]} scale="time"
-                  tickFormatter={(value) => new Date(Number(value) * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} minTickGap={28} axisLine={false} tickLine={false} />
+                  tickCount={axisShowsSeconds ? 5 : 7}
+                  tickFormatter={(value) => new Date(Number(value) * 1000).toLocaleTimeString("vi-VN", {
+                    timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", ...(axisShowsSeconds ? { second: "2-digit" } : {}),
+                  })}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} minTickGap={36} axisLine={false} tickLine={false} />
                 <YAxis allowDecimals={false} width={42} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  labelFormatter={(value) => new Date(Number(value) * 1000).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  formatter={(value: number, name: string) => [Number(value).toFixed(0), DIRECTIONS.find((route) => route.id === name)?.name ?? name]}
+                  labelFormatter={(value) => new Date(Number(value) * 1000).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  formatter={(value: number, name: string, item: any) => {
+                    const cameraCoverage = item?.payload?.[`${name}_coverage`];
+                    const count = formatNumber(Number(value));
+                    return [`${count} xe${cameraCoverage ? ` · ${cameraCoverage} camera` : ""}`, DIRECTIONS.find((route) => route.id === name)?.name ?? name];
+                  }}
                   contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 10, color: "var(--foreground)" }}
                 />
                 {DIRECTIONS.map((direction, index) => <Line key={direction.id} type="monotone" dataKey={direction.id}

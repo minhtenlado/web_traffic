@@ -65,7 +65,8 @@ export function Dashboard() {
               return <article key={route.id} className="border-b border-border/70 pb-3 last:border-0 last:pb-0">
                 <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium">{route.name}</h3><StatusBadge color={route.statusColor}>{route.status}</StatusBadge></div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${fill}%` }} /></div>
-                <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{route.coverage}/{route.expectedCameras} camera có nhãn mới</span><span>{route.hasData ? `${formatNumber(route.vehicleCount)} xe trong ảnh` : "Chưa có số đếm mới"}</span></div>
+                <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{route.coverage}/{route.expectedCameras} camera có số đếm mới</span><span>{route.hasData ? `${formatNumber(route.vehicleCount)} xe cộng trong ảnh` : "Chưa có số đếm mới"}</span></div>
+                {route.statusSource && <p className="mt-1 text-[11px] text-muted-foreground">{route.statusSource === "count" ? "Mức cao nhất theo ngưỡng từng ảnh" : "Trạng thái theo nhãn YOLO"}</p>}
               </article>;
             })}
           </div>

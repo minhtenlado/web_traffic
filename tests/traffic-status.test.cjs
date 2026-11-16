@@ -198,6 +198,28 @@ test('count-only edge results are described as count data, not an unclassified Y
   assert.equal(view.text, 'Đã đếm xe · chưa có nhãn YOLO');
   assert.doesNotMatch(view.text, /Chưa phân loại/);
 });
+test('route statistics use per-camera count bands and coverage while YOLO labels are unavailable', () => {
+  const payload = edgePayload({
+    cam_02: { status: 'fresh', observed_at: 998, vehicle_count: 4 },
+    cam_04: { status: 'fresh', observed_at: 999, vehicle_count: 32 },
+  });
+  const route = status.buildRouteStats({}, now, payload).find(r => r.id === 'dien_bien_phu');
+  assert.equal(route.hasData, true);
+  assert.equal(route.coverage, 2);
+  assert.equal(route.expectedCameras, 2);
+  assert.equal(route.vehicleCount, 36);
+  assert.equal(route.status, 'Đông xe');
+  assert.equal(route.statusSource, 'count');
+  assert.equal(route.severity, 2);
+
+  const lowCounts = edgePayload({
+    cam_02: { status: 'fresh', observed_at: 998, vehicle_count: 4 },
+    cam_04: { status: 'fresh', observed_at: 999, vehicle_count: 10 },
+  });
+  const lowRoute = status.buildRouteStats({}, now, lowCounts).find(r => r.id === 'dien_bien_phu');
+  assert.equal(lowRoute.vehicleCount, 14);
+  assert.equal(lowRoute.status, 'Thông thoáng');
+});
 test('all camera views, routes and alerts prefer current edge data and share the four labels', () => {
   const legacy = { cam_01: record(), cam_05: record() };
   const edge = edgePayload({ cam_01: stableCamera('Dong') });
@@ -218,9 +240,12 @@ test('all camera views, routes and alerts prefer current edge data and share the
 test('display warmup, stale payload and removed edge camera cannot fall back to legacy or raw labels', () => {
   const r = stableCamera(); r.classification_stability.data_valid = false;
   const legacy = {cam_01: record()};
-  for (const e of [edgePayload({cam_01:r}), edgePayload({}), {}, {...edgePayload({cam_01:stableCamera()}), generated_at:900}]) {
+  const staleLabel = edgePayload({cam_01:r});
+  for (const e of [staleLabel, edgePayload({}), {}, {...edgePayload({cam_01:stableCamera()}), generated_at:900}]) {
     assert.equal(status.selectedCameraView('cam_01', legacy, e, now).label, null);
-    assert.equal(status.buildRouteStats(legacy, now, e).find(r=>r.id==='hang_xanh').hasStatus, false);
+    const route = status.buildRouteStats(legacy, now, e).find(r=>r.id==='hang_xanh');
+    assert.equal(route.hasStatus, e === staleLabel);
+    if (e === staleLabel) assert.equal(route.status, 'Bình thường');
   }
 });
 test('legacy display translates by original model semantics while retaining legacy keys', () => {
@@ -235,6 +260,7 @@ test('chart timestamps deduplicate reused frames and heartbeat updates, and acce
   const r = stableCamera(); let e = edgePayload({cam_01:r});
   let history = status.appendCameraHistory([], {}, e, now);
   assert.equal(history.length,1); assert.equal(history[0].timestamp,998); assert.equal(history[0].hang_xanh,13);
+  assert.equal(history[0].hang_xanh_coverage, '1/1');
   e = {...e,generated_at:1000,cameras:{cam_01:{...r,status:'reused'}}};
   assert.equal(status.appendCameraHistory(history, {}, e, now).length,1);
   e = {...e,cameras:{cam_01:{...r,observed_at:999,vehicle_count:17}}};
