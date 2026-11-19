@@ -164,6 +164,8 @@ export function SignalControl() {
   const fuzzyPlan = fuzzyPlanQueuedOrApplied ? fuzzy?.appliedPlan || fuzzy?.plan : null;
   const fuzzyCandidatePlan = !fuzzyPlanQueuedOrApplied ? fuzzy?.plan : null;
   const visibleFuzzyPlan = fuzzyFresh ? fuzzyPlan || fuzzyCandidatePlan : null;
+  const liveStm32PlanId = online && typeof signal.planId === "number"
+    && Number.isInteger(signal.planId) && signal.planId > 0 ? signal.planId : null;
   const liveSignalPlan = signal.protocol === 2 ? {
     greenNS: signal.phaseDurations.green, greenEW: signal.greenEW,
     leftNS: signal.phaseDurations.left, leftEW: signal.leftEW,
@@ -236,6 +238,7 @@ export function SignalControl() {
       <SectionCard title="Điều khiển thích ứng Fuzzy" icon={Timer}
         action={<div className="flex flex-wrap justify-end gap-2">
           <StatusBadge color={fuzzyFresh ? fuzzyStatusColor : "amber"} pulse={fuzzyFresh}>{fuzzyFresh ? fuzzyStatusLabel : "Dữ liệu cũ"}</StatusBadge>
+          {fuzzy?.advisoryOnly && <StatusBadge color="amber">{liveStm32PlanId ? "Đề xuất mới chưa gửi" : "Chưa gửi kế hoạch mới"}</StatusBadge>}
         </div>}>
         {(fuzzyOwnsAuto || fuzzyControlMode === "MANUAL_OVERRIDE") && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 p-3">
           <div className="min-w-0 text-sm">
@@ -297,7 +300,13 @@ export function SignalControl() {
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">{fuzzy?.advisoryOnly ? "Đang theo dõi, chưa gửi kế hoạch đến STM32." : "Kế hoạch chỉ có hiệu lực sau khi STM32 xác nhận."}</p>
+        <p className="mt-3 text-xs text-muted-foreground">{fuzzy?.advisoryOnly
+          ? liveStm32PlanId
+            ? `STM32 đang chạy kế hoạch #${liveStm32PlanId}; đề xuất Fuzzy mới chưa gửi${fuzzy?.planStatus === "RATE_LIMITED" ? " do giới hạn một lần điều chỉnh mỗi 60 giây." : "."}`
+            : fuzzy?.planStatus === "SHADOW_READY"
+              ? "Fuzzy đang ở chế độ theo dõi; chưa gửi kế hoạch đến STM32."
+              : "Chưa gửi kế hoạch Fuzzy mới đến STM32."
+          : "Kế hoạch chỉ có hiệu lực sau khi STM32 xác nhận."}</p>
       </SectionCard>
     </div>
   );
