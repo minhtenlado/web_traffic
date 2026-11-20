@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Brain } from "lucide-react";
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
 import { edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, type EdgeMinuteHistoryPoint } from "@/lib/edge-quality";
@@ -14,6 +14,51 @@ const COMPARISON_HORIZONS = [1, 5, 15, 30] as const;
 const OBSERVED_COLOR = "#34d399";
 const PREDICTED_COLOR = "#60a5fa";
 const CURRENT_COLOR = "#f472b6";
+
+type ComparisonChartPoint = { timestamp: number; actual?: number | null; predicted?: number | null; current?: number | null };
+
+function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd }: {
+  title: string;
+  data: ComparisonChartPoint[];
+  lines: Array<{ key: "actual" | "predicted" | "current"; name: string; color: string; dashed?: boolean; marker?: boolean }>;
+  currentTimestamp?: number;
+  futureEnd?: number;
+}) {
+  const timestamps = data.map(point => point.timestamp).filter(Number.isFinite);
+  const hasValues = lines.some(line => data.some(point => typeof point[line.key] === "number" && Number.isFinite(point[line.key])));
+  const domain: [number, number] = timestamps.length
+    ? [timestamps[0] - 60, timestamps[timestamps.length - 1] + 60]
+    : [0, 60];
+
+  return <section className="rounded-xl border border-border/80 bg-muted/15 p-3 sm:p-4">
+    <h4 className="mb-2 text-sm font-semibold">{title}</h4>
+    {hasValues ? <div role="img" aria-label={title} className="h-[220px] w-full sm:h-[250px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 12, right: 14, bottom: 4, left: 0 }}>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
+          <XAxis dataKey="timestamp" type="number" domain={domain} minTickGap={32}
+            tickFormatter={value => new Date(Number(value) * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} domain={[0, "auto"]} width={38}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
+          <Tooltip labelFormatter={value => value ? new Date(Number(value) * 1000).toLocaleString("vi-VN") : ""}
+            formatter={value => [typeof value === "number" ? `${Number.isInteger(value) ? value : value.toFixed(1)} xe` : "—", "Số xe"]}
+            contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
+          {currentTimestamp !== undefined && futureEnd !== undefined && futureEnd > currentTimestamp &&
+            <ReferenceArea x1={currentTimestamp} x2={futureEnd} fill="#fb923c" fillOpacity={0.06} strokeOpacity={0} />}
+          {currentTimestamp !== undefined && <ReferenceLine x={currentTimestamp} stroke="var(--foreground)"
+            strokeDasharray="4 4" label={{ value: "Hiện tại (t0)", position: "insideTopRight", fontSize: 10 }} />}
+          {lines.map(line => <Line key={line.key} type="linear" dataKey={line.key} name={line.name}
+            stroke={line.color} strokeWidth={line.marker ? 0 : 2.5} strokeDasharray={line.dashed ? "7 5" : undefined}
+            dot={line.marker ? { r: 5, fill: line.color, stroke: "var(--card)", strokeWidth: 2 } : false}
+            activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />)}
+        </LineChart>
+      </ResponsiveContainer>
+    </div> : <div className="flex h-[220px] items-center justify-center rounded-lg border border-dashed border-border px-5 text-center text-sm text-muted-foreground sm:h-[250px]">
+      Chưa có đủ dữ liệu để vẽ chuỗi này.
+    </div>}
+  </section>;
+}
 
 export function EdgeRecoverySummary({ data, nowMs }: { data: any; nowMs: number }) {
   const health = edgeSystemHealth(data, nowMs);
@@ -64,27 +109,39 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
     </div>
     <div className="mt-4 grid grid-cols-1 gap-4">
       {comparisons.map(({ camera, name, color, result, current }) => {
-        type TimelinePoint = { timestamp: number; history?: number; current?: number; future?: number };
-        const rows = new Map<number, TimelinePoint>();
-        const at = (timestamp: number): TimelinePoint => {
-          const existing = rows.get(timestamp);
+        const actualHistory: ComparisonChartPoint[] = history.map(point => {
+          const value = point.counts[camera];
+          const count = value && (value.source === "observed" || value.source === "imputed") ? value.count : null;
+          return { timestamp: point.timestamp, actual: count };
+        });
+        const historicalPredictions: ComparisonChartPoint[] = result.points.map(point => ({
+          timestamp: point.timestamp,
+          predicted: point.forecast,
+        }));
+        const currentTimestamp = current?.timestamp ?? (forecast.ready ? forecast.issuedAt! : undefined);
+        const combinedRows = new Map<number, ComparisonChartPoint>();
+        const at = (timestamp: number) => {
+          const existing = combinedRows.get(timestamp);
           if (existing) return existing;
-          const row: TimelinePoint = { timestamp };
-          rows.set(timestamp, row);
+          const row: ComparisonChartPoint = { timestamp };
+          combinedRows.set(timestamp, row);
           return row;
         };
-        for (const point of history) {
-          const value = point.counts[camera];
-          if (value?.count === null || !value) continue;
-          if (value.source === "observed" || value.source === "imputed") at(point.timestamp).history = value.count;
+        for (const point of actualHistory) {
+          if (currentTimestamp === undefined || point.timestamp <= currentTimestamp) at(point.timestamp).actual = point.actual;
         }
-        if (current) at(current.timestamp).current = current.count;
-        if (forecast.ready) for (const point of forecast.points) at(point.timestamp).future = point[camera];
-        const chartData = [...rows.values()].sort((a, b) => a.timestamp - b.timestamp);
-        const hasTimeline = chartData.length > 0;
-        const domain: [number, number] = hasTimeline
-          ? [chartData[0].timestamp - 60, chartData[chartData.length - 1].timestamp + 60]
-          : [0, 60];
+        if (current && currentTimestamp !== undefined) {
+          const now = at(currentTimestamp);
+          now.actual = current.count;
+          now.current = current.count;
+          // Anchor the dashed forecast at t0 so it transitions from the actual value.
+          if (forecast.ready) now.predicted = current.count;
+        }
+        if (forecast.ready) for (const point of forecast.points) {
+          if (currentTimestamp === undefined || point.timestamp > currentTimestamp) at(point.timestamp).predicted = point[camera];
+        }
+        const combined = [...combinedRows.values()].sort((a, b) => a.timestamp - b.timestamp);
+        const futureEnd = forecast.ready ? forecast.points[forecast.points.length - 1]?.timestamp : undefined;
         return <article key={camera} className="min-w-0 rounded-xl border border-border/80 bg-background/25 p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold" style={{ color }}>{name}</h4>
@@ -95,19 +152,20 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE lịch sử</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.mae === null ? "—" : `${result.mae.toFixed(2)} xe`}</p></div>
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE lịch sử</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.rmse === null ? "—" : `${result.rmse.toFixed(2)} xe`}</p></div>
           </div>
-          {hasTimeline ? <div role="img" aria-label={`Lịch sử số xe, số xe hiện tại và dự báo 30 phút của ${name}`} className="mt-3 h-[320px] w-full">
-            <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
-              <XAxis dataKey="timestamp" type="number" domain={domain} minTickGap={32} tickFormatter={value => new Date(Number(value) * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} width={34} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip labelFormatter={value => value ? new Date(Number(value) * 1000).toLocaleString("vi-VN") : ""}
-                formatter={(value, seriesName) => [`${value} xe`, seriesName]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
-              {current && <ReferenceLine x={current.timestamp} stroke={CURRENT_COLOR} strokeDasharray="3 4" label={{ value: "Hiện tại", fill: CURRENT_COLOR, position: "insideTopRight", fontSize: 11 }} />}
-              <Line type="monotone" dataKey="history" name="Lịch sử · số xe theo phút (quan sát + bù)" stroke={OBSERVED_COLOR} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="current" name="Hiện tại · số xe trong ảnh mới" stroke={CURRENT_COLOR} strokeWidth={0} dot={{ r: 6, fill: CURRENT_COLOR, stroke: "var(--card)", strokeWidth: 2 }} activeDot={{ r: 8 }} connectNulls={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="future" name="Tương lai · TCN dự báo (trung bình phút)" stroke={PREDICTED_COLOR} strokeWidth={2.5} strokeDasharray="7 5" dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />
-            </LineChart></ResponsiveContainer>
-          </div> : <p className="mt-3 flex h-[320px] items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-xs text-muted-foreground" aria-live="polite">Đang chờ lịch sử camera, ảnh mới hoặc dự báo đủ điều kiện.</p>}
+          <div className="mt-4 space-y-3">
+            <ComparisonChart title="1. Lịch sử thực tế" data={actualHistory}
+              lines={[{ key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR }]} />
+            <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút`} data={historicalPredictions}
+              lines={[{ key: "predicted", name: "Dự báo TCN lịch sử", color: PREDICTED_COLOR, dashed: true }]} />
+            <ComparisonChart title="3. Hiện tại + dự báo TCN" data={combined}
+              lines={[
+                { key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR },
+                { key: "predicted", name: "Dự báo TCN", color: PREDICTED_COLOR, dashed: true },
+                { key: "current", name: "Hiện tại · ảnh mới", color: CURRENT_COLOR, marker: true },
+              ]}
+              currentTimestamp={currentTimestamp} futureEnd={futureEnd} />
+            {!forecast.ready && <p className="text-xs text-muted-foreground">Chưa có dự báo tương lai mới; biểu đồ lịch sử vẫn hiển thị theo dữ liệu hiện có.</p>}
+          </div>
         </article>;
       })}
     </div>
