@@ -14,6 +14,7 @@ const FORECAST_COLOR = "#3b82f6";
 const CAMERA_COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc"];
 const HORIZONS = [5, 15, 30] as const;
 type Horizon = typeof HORIZONS[number];
+type CameraId = typeof TCN_OUTPUT_CAMERAS[number];
 type ChartPoint = { timestamp: number; actual?: number | null; predicted?: number | null };
 
 function formatTime(stamp: number) {
@@ -71,6 +72,7 @@ export function AICameraCharts() {
   const predictions = forecast.rawPredictions || [];
   const predictionRuns = forecast.predictionRuns || [];
   const [horizon, setHorizon] = useState<Horizon>(30);
+  const [selectedCamera, setSelectedCamera] = useState<CameraId>(TCN_OUTPUT_CAMERAS[0]);
   const cameraCharts = useMemo(() => Object.fromEntries(TCN_OUTPUT_CAMERAS.map(camera => [camera,
     buildTCNForecastComparison(history, predictionRuns, camera, horizon),
   ])), [history, predictionRuns, horizon]);
@@ -85,17 +87,29 @@ export function AICameraCharts() {
       <div>
         <p className="text-sm text-muted-foreground">Số xe nhận dạng trong ảnh; các dự báo lịch sử được ghép đúng mốc thời gian đích.</p>
       </div>
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        Khoảng đối chiếu
-        <select value={horizon} onChange={event => setHorizon(Number(event.target.value) as Horizon)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-2 focus:ring-primary">
-          {HORIZONS.map(minutes => <option key={minutes} value={minutes}>{minutes} phút</option>)}
-        </select>
-      </label>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+          Camera
+          <select value={selectedCamera} onChange={event => setSelectedCamera(event.target.value as CameraId)}
+            className="min-w-36 rounded-lg border border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-2 focus:ring-primary">
+            {TCN_OUTPUT_CAMERAS.map(camera => <option key={camera} value={camera}>
+              {CAMERAS.find(item => item.id === camera)?.name || camera}
+            </option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+          Khoảng đối chiếu
+          <select value={horizon} onChange={event => setHorizon(Number(event.target.value) as Horizon)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-2 focus:ring-primary">
+            {HORIZONS.map(minutes => <option key={minutes} value={minutes}>{minutes} phút</option>)}
+          </select>
+        </label>
+      </div>
     </header>
 
     <div className="space-y-5">
-      {TCN_OUTPUT_CAMERAS.map((camera, index) => {
+      {TCN_OUTPUT_CAMERAS.filter(camera => camera === selectedCamera).map(camera => {
+        const index = TCN_OUTPUT_CAMERAS.indexOf(camera);
         const cameraName = CAMERAS.find(item => item.id === camera)?.name || camera;
         const chart = cameraCharts[camera];
         const combined: ChartPoint[] = [
