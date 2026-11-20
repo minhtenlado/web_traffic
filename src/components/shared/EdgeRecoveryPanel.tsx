@@ -36,23 +36,31 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
   nowMs: number;
 }) {
   const [horizon, setHorizon] = useState<number>(1);
+  const [selectedCamera, setSelectedCamera] = useState<string>(MINUTE_CAMERA_IDS[0]);
   const comparisons = MINUTE_CAMERA_IDS.map((camera, index) => ({
     camera,
     name: CAMERAS.find(item => item.id === camera)?.name || `Camera ${index + 1}`,
     color: COLORS[index],
     result: readEdgeForecastComparison(data, camera, horizon),
     current: readEdgeCurrentCount(edgeAI, camera, nowMs),
-  }));
-  const selectClass = "rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
+  })).filter(item => item.camera === selectedCamera);
+  const selectClass = "w-60 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
   return <div className="mt-6 border-t border-border/70 pt-5">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><h3 className="font-semibold">Lịch sử, hiện tại và dự báo theo camera</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Mỗi biểu đồ ghép đến 120 phút lịch sử, số đếm ảnh mới nhất và dự báo TCN 30 phút.</p></div>
-      <label className="grid gap-1 text-xs text-muted-foreground">Khoảng đánh giá dự báo lịch sử
-        <select aria-label="Khoảng dự báo so sánh" className={selectClass} value={horizon} onChange={event => setHorizon(Number(event.target.value))}>
-          {COMPARISON_HORIZONS.map(value => <option key={value} value={value}>{value} phút</option>)}
-        </select>
-      </label>
+        <p className="mt-1 text-xs text-muted-foreground">Camera được chọn ghép đến 120 phút lịch sử, số đếm ảnh mới nhất và dự báo TCN 30 phút.</p></div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="grid gap-1 text-xs text-muted-foreground">Chọn camera
+          <select aria-label="Chọn camera" className={selectClass} value={selectedCamera} onChange={event => setSelectedCamera(event.target.value)}>
+            {MINUTE_CAMERA_IDS.map((camera, index) => <option key={camera} value={camera}>{CAMERAS.find(item => item.id === camera)?.name || `Camera ${index + 1}`}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs text-muted-foreground">Khoảng đánh giá dự báo lịch sử
+          <select aria-label="Khoảng dự báo so sánh" className={selectClass} value={horizon} onChange={event => setHorizon(Number(event.target.value))}>
+            {COMPARISON_HORIZONS.map(value => <option key={value} value={value}>{value} phút</option>)}
+          </select>
+        </label>
+      </div>
     </div>
     <div className="mt-4 grid grid-cols-1 gap-4">
       {comparisons.map(({ camera, name, color, result, current }) => {
