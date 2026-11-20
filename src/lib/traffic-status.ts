@@ -20,6 +20,28 @@ export function vehicleCountLevel(count: number | null | undefined): VehicleCoun
   return VEHICLE_COUNT_LEVELS.find(level => count >= level.min && (level.max === null || count <= level.max)) ?? null;
 }
 
+/** Evaluate matured vehicle-count forecasts and their count-derived traffic bands. */
+export function evaluateVehicleCountForecast(points: Array<{ timestamp: number; actual: number; forecast: number }>) {
+  const rows = points.flatMap(point => {
+    const actualLevel = vehicleCountLevel(point.actual);
+    const forecastLevel = vehicleCountLevel(point.forecast);
+    if (!Number.isFinite(point.timestamp) || point.timestamp <= 0 || !actualLevel || !forecastLevel) return [];
+    return [{ timestamp: point.timestamp, actual: point.actual, forecast: point.forecast,
+      actualLevel, forecastLevel, labelMatch: actualLevel.id === forecastLevel.id }];
+  });
+  const countErrors = rows.map(row => row.forecast - row.actual);
+  const classErrors = rows.map(row => Math.abs(row.forecastLevel.id - row.actualLevel.id));
+  const labelMatches = rows.filter(row => row.labelMatch).length;
+  return {
+    rows,
+    samples: rows.length,
+    mae: countErrors.length ? countErrors.reduce((sum, error) => sum + Math.abs(error), 0) / countErrors.length : null,
+    rmse: countErrors.length ? Math.sqrt(countErrors.reduce((sum, error) => sum + error * error, 0) / countErrors.length) : null,
+    labelAccuracy: rows.length ? labelMatches / rows.length : null,
+    meanLevelError: classErrors.length ? classErrors.reduce((sum, error) => sum + error, 0) / classErrors.length : null,
+  };
+}
+
 export { EDGE_TRAFFIC_LABELS } from "./constants";
 
 export function edgePayloadIsFresh(data: any, nowMs = Date.now()) {

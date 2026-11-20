@@ -6,7 +6,7 @@ import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, Responsiv
 import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
 import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, type EdgeMinuteHistoryPoint } from "@/lib/edge-quality";
-import { VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
+import { evaluateVehicleCountForecast, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
 import { SectionCard } from "./ui";
 
 const COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc", "#f472b6"];
@@ -82,13 +82,17 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
 }) {
   const [horizon, setHorizon] = useState<number>(1);
   const [selectedCamera, setSelectedCamera] = useState<string>(MINUTE_CAMERA_IDS[0]);
-  const comparisons = MINUTE_CAMERA_IDS.map((camera, index) => ({
-    camera,
-    name: CAMERAS.find(item => item.id === camera)?.name || `Camera ${index + 1}`,
-    color: COLORS[index],
-    result: readEdgeForecastComparison(data, camera, horizon),
-    current: readEdgeCurrentCount(edgeAI, camera, nowMs),
-  })).filter(item => item.camera === selectedCamera);
+  const comparisons = MINUTE_CAMERA_IDS.map((camera, index) => {
+    const result = readEdgeForecastComparison(data, camera, horizon);
+    return {
+      camera,
+      name: CAMERAS.find(item => item.id === camera)?.name || `Camera ${index + 1}`,
+      color: COLORS[index],
+      result,
+      current: readEdgeCurrentCount(edgeAI, camera, nowMs),
+      evaluation: evaluateVehicleCountForecast(result.points),
+    };
+  }).filter(item => item.camera === selectedCamera);
   const selectClass = "w-60 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
   return <div className="mt-6 border-t border-border/70 pt-5">
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -100,7 +104,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             {MINUTE_CAMERA_IDS.map((camera, index) => <option key={camera} value={camera}>{CAMERAS.find(item => item.id === camera)?.name || `Camera ${index + 1}`}</option>)}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">Khoảng đánh giá dự báo lịch sử
+        <label className="grid gap-1 text-xs text-muted-foreground">Mốc dự báo đối chiếu
           <select aria-label="Khoảng dự báo so sánh" className={selectClass} value={horizon} onChange={event => setHorizon(Number(event.target.value))}>
             {COMPARISON_HORIZONS.map(value => <option key={value} value={value}>{value} phút</option>)}
           </select>
@@ -108,7 +112,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
       </div>
     </div>
     <div className="mt-4 grid grid-cols-1 gap-4">
-      {comparisons.map(({ camera, name, color, result, current }) => {
+      {comparisons.map(({ camera, name, color, result, current, evaluation }) => {
         const visibleComparison = alignForecastComparisonToHistory(history, result.points);
         const actualHistory: ComparisonChartPoint[] = history.map(point => {
           const value = point.counts[camera];
@@ -150,6 +154,37 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.mae === null ? "—" : `${visibleComparison.mae.toFixed(2)} xe`}</p></div>
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.rmse === null ? "—" : `${visibleComparison.rmse.toFixed(2)} xe`}</p></div>
           </div>
+          <section aria-label="Đánh giá dự báo theo thời gian thực" className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
+            <div>
+              <h5 className="font-semibold">Real-time Forecast Evaluation · +{horizon} phút</h5>
+              <p className="mt-1 text-xs text-muted-foreground">Đối chiếu dự báo đã đến hạn với số xe YOLO quan sát ở đúng phút; nhãn được quy đổi từ số xe theo các ngưỡng trên trang.</p>
+            </div>
+            {evaluation.samples ? <>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Cặp đã đối chiếu</p><p className="mt-1 font-semibold tabular-nums">{evaluation.samples}</p></div>
+                <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">MAE số xe</p><p className="mt-1 font-semibold tabular-nums">{evaluation.mae!.toFixed(2)} xe</p></div>
+                <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">RMSE số xe</p><p className="mt-1 font-semibold tabular-nums">{evaluation.rmse!.toFixed(2)} xe</p></div>
+                <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Khớp nhãn quy đổi</p><p className="mt-1 font-semibold tabular-nums">{(evaluation.labelAccuracy! * 100).toFixed(1)}%</p></div>
+                <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Sai lệch mức TB</p><p className="mt-1 font-semibold tabular-nums">{evaluation.meanLevelError!.toFixed(2)} bậc ID</p></div>
+              </div>
+              <div className="mt-3 overflow-x-auto rounded-lg border border-border/70 bg-background/60">
+                <table className="w-full min-w-[620px] text-left text-xs">
+                  <caption className="px-3 py-2 text-left text-muted-foreground">Tối đa 8 mốc mới nhất trong {evaluation.samples} cặp đã trưởng thành</caption>
+                  <thead className="border-y border-border/70 text-muted-foreground"><tr>
+                    <th className="px-3 py-2 font-medium">Thời điểm</th><th className="px-3 py-2 font-medium">Thực tế</th>
+                    <th className="px-3 py-2 font-medium">Dự báo</th><th className="px-3 py-2 font-medium">Đối chiếu nhãn</th>
+                  </tr></thead>
+                  <tbody>{evaluation.rows.slice(-8).reverse().map(point => <tr key={point.timestamp} className="border-b border-border/50 last:border-0">
+                    <td className="whitespace-nowrap px-3 py-2 tabular-nums">{new Date(point.timestamp * 1000).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{point.actual} xe · ID {point.actualLevel.id} · {point.actualLevel.label}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{point.forecast} xe · ID {point.forecastLevel.id} · {point.forecastLevel.label}</td>
+                    <td className={`whitespace-nowrap px-3 py-2 font-medium ${point.labelMatch ? "text-emerald-600" : "text-amber-600"}`}>{point.labelMatch ? "Khớp" : `Lệch (${Math.abs(point.forecastLevel.id - point.actualLevel.id)} bậc)`}</td>
+                  </tr>)}</tbody>
+                </table>
+              </div>
+            </> : <p className="mt-3 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">Chưa có dự báo đến hạn khớp với số xe YOLO quan sát tại cùng phút. Đánh giá sẽ cập nhật khi mốc dự báo được ghi nhận thực tế.</p>}
+            <p className="mt-2 text-[11px] text-muted-foreground">Nhãn quy đổi: 0 ≤ 10 xe, 1 = 11–20, 2 = 21–40, 3 ≥ 41. Đây là nhãn suy ra từ số xe, không phải nhãn phân loại độc lập của YOLO.</p>
+          </section>
           <div className="mt-4 space-y-3">
             <ComparisonChart title="1. Lịch sử thực tế" data={actualHistory}
               lines={[{ key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR }]} />

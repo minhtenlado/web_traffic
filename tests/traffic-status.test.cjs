@@ -30,6 +30,26 @@ test('vehicle-count display bands honor requested boundaries and reject invalid 
     [2, 'Đông xe', '21–40 xe'], [3, 'Kẹt xe', '≥ 41 xe'],
   ]);
 });
+test('real-time forecast evaluation scores vehicle errors and count-derived level agreement', () => {
+  const result = status.evaluateVehicleCountForecast([
+    { timestamp: 990, actual: 10, forecast: 11 },
+    { timestamp: 991, actual: 21, forecast: 40 },
+    { timestamp: 992, actual: 41, forecast: 41 },
+    { timestamp: 993, actual: 7, forecast: 45 },
+    { timestamp: 994, actual: -1, forecast: 20 },
+  ]);
+  assert.equal(result.samples, 4);
+  assert.equal(result.mae, 14.5);
+  assert.equal(result.rmse, Math.sqrt(451.5));
+  assert.equal(result.labelAccuracy, 0.5);
+  assert.equal(result.meanLevelError, 1);
+  assert.deepEqual(result.rows.map(row => [row.actualLevel.id, row.forecastLevel.id, row.labelMatch]), [
+    [0, 1, false], [2, 2, true], [3, 3, true], [0, 3, false],
+  ]);
+  const empty = status.evaluateVehicleCountForecast([]);
+  assert.equal(empty.samples, 0);
+  assert.equal(empty.labelAccuracy, null);
+});
 function record(label = 'Ket_xe') {
   const counts = { Duong_vang: 0, Binh_thuong: 0, Dong_xe: 0, Sap_ket: 0, Ket_xe: 0 };
   counts[label] = 10;
