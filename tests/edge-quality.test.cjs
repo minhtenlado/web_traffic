@@ -124,7 +124,7 @@ test('forecast comparison aligns the same target minute and calculates errors fo
   assert.equal(readEdgeForecastComparison({ source: 'unknown', points: evaluation.points }, 'cam_01', 5).samples, 0);
 });
 
-test('historical forecast chart is aligned to the visible 120-minute window and keeps missing minutes as gaps', () => {
+test('historical forecast chart interpolates only internal display gaps and scores original forecast pairs', () => {
   const start = 1_000_020;
   const history = Array.from({ length: 4 }, (_, index) => ({ timestamp: start + index * 60, counts: {} }));
   const aligned = alignForecastComparisonToHistory(history, [
@@ -134,14 +134,28 @@ test('historical forecast chart is aligned to the visible 120-minute window and 
     { timestamp: start + 240, actual: 1, forecast: 99 },
   ]);
   assert.deepEqual(aligned.points, [
-    { timestamp: start, predicted: 12 },
-    { timestamp: start + 60, predicted: null },
-    { timestamp: start + 120, predicted: 17 },
-    { timestamp: start + 180, predicted: null },
+    { timestamp: start, predicted: 12, interpolated: false },
+    { timestamp: start + 60, predicted: 14.5, interpolated: true },
+    { timestamp: start + 120, predicted: 17, interpolated: false },
+    { timestamp: start + 180, predicted: null, interpolated: false },
   ]);
   assert.equal(aligned.samples, 2);
+  assert.equal(aligned.interpolatedSamples, 1);
   assert.equal(aligned.mae, 2.5);
   assert.equal(aligned.rmse, Math.sqrt(6.5));
+});
+
+test('historical forecast chart does not extrapolate outside real forecast anchors', () => {
+  const start = 1_000_020;
+  const history = Array.from({ length: 5 }, (_, index) => ({ timestamp: start + index * 60, counts: {} }));
+  const aligned = alignForecastComparisonToHistory(history, [
+    { timestamp: start + 60, actual: 10, forecast: 12 },
+    { timestamp: start + 180, actual: 20, forecast: 18 },
+  ]);
+  assert.deepEqual(aligned.points.map(point => point.predicted), [null, 12, 15, 18, null]);
+  assert.deepEqual(aligned.points.map(point => point.interpolated), [false, false, true, false, false]);
+  assert.equal(aligned.samples, 2);
+  assert.equal(aligned.interpolatedSamples, 1);
 });
 
 test('forecast comparison can populate five independent camera panels at one shared horizon', () => {

@@ -159,10 +159,10 @@ export function readEdgeForecastComparison(data: any, camera: string, horizon: n
     rmse: errors.length ? Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length) : null };
 }
 
-/** Align historical forecasts to the visible minute-history window and preserve missing minutes as gaps. */
+/** Align historical forecasts to visible history, interpolating display-only holes between real forecast points. */
 export function alignForecastComparisonToHistory(history: EdgeMinuteHistoryPoint[], points: ForecastComparisonPoint[]) {
-  const empty = { points: [] as Array<{ timestamp: number; predicted: number | null }>,
-    samples: 0, mae: null as number | null, rmse: null as number | null };
+  const empty = { points: [] as Array<{ timestamp: number; predicted: number | null; interpolated: boolean }>,
+    samples: 0, interpolatedSamples: 0, mae: null as number | null, rmse: null as number | null };
   if (!history.length) return empty;
 
   const start = history[0].timestamp;
@@ -181,15 +181,34 @@ export function alignForecastComparisonToHistory(history: EdgeMinuteHistoryPoint
     }
   }
 
-  const aligned: Array<{ timestamp: number; predicted: number | null }> = [];
+  const aligned: Array<{ timestamp: number; predicted: number | null; interpolated: boolean }> = [];
   const visibleComparisons: ForecastComparisonPoint[] = [];
   for (let timestamp = firstMinute; timestamp <= lastMinute; timestamp += 60) {
     const comparison = forecasts.get(timestamp);
-    aligned.push({ timestamp, predicted: comparison?.forecast ?? null });
+    aligned.push({ timestamp, predicted: comparison?.forecast ?? null, interpolated: false });
     if (comparison) visibleComparisons.push(comparison);
   }
+
+  let previousAnchor = -1;
+  let interpolatedSamples = 0;
+  for (let index = 0; index < aligned.length; index++) {
+    const current = aligned[index];
+    if (current.predicted === null) continue;
+    if (previousAnchor >= 0 && index - previousAnchor > 1) {
+      const previous = aligned[previousAnchor];
+      const span = index - previousAnchor;
+      for (let missingIndex = previousAnchor + 1; missingIndex < index; missingIndex++) {
+        const fraction = (missingIndex - previousAnchor) / span;
+        aligned[missingIndex].predicted = previous.predicted! + (current.predicted - previous.predicted!) * fraction;
+        aligned[missingIndex].interpolated = true;
+        interpolatedSamples++;
+      }
+    }
+    previousAnchor = index;
+  }
+
   const errors = visibleComparisons.map(point => point.forecast - point.actual);
-  return { points: aligned, samples: visibleComparisons.length,
+  return { points: aligned, samples: visibleComparisons.length, interpolatedSamples,
     mae: errors.length ? errors.reduce((sum, error) => sum + Math.abs(error), 0) / errors.length : null,
     rmse: errors.length ? Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length) : null };
 }

@@ -15,7 +15,7 @@ const OBSERVED_COLOR = "#34d399";
 const PREDICTED_COLOR = "#60a5fa";
 const CURRENT_COLOR = "#f472b6";
 
-type ComparisonChartPoint = { timestamp: number; actual?: number | null; predicted?: number | null; current?: number | null };
+type ComparisonChartPoint = { timestamp: number; actual?: number | null; predicted?: number | null; predictedInterpolated?: boolean; current?: number | null };
 
 function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd }: {
   title: string;
@@ -42,7 +42,11 @@ function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd }: {
           <YAxis allowDecimals={false} domain={[0, "auto"]} width={38}
             tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip labelFormatter={value => value ? new Date(Number(value) * 1000).toLocaleString("vi-VN") : ""}
-            formatter={value => [typeof value === "number" ? `${Number.isInteger(value) ? value : value.toFixed(1)} xe` : "—", "Số xe"]}
+            formatter={(value, _name, item) => {
+              const formatted = typeof value === "number" ? `${Number.isInteger(value) ? value : value.toFixed(1)} xe` : "—";
+              const interpolated = Boolean((item.payload as ComparisonChartPoint | undefined)?.predictedInterpolated);
+              return [interpolated ? `${formatted} · nội suy hiển thị` : formatted, interpolated ? "Dự báo ước tính" : "Số xe"];
+            }}
             contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
           {currentTimestamp !== undefined && futureEnd !== undefined && futureEnd > currentTimestamp &&
             <ReferenceArea x1={currentTimestamp} x2={futureEnd} fill="#fb923c" fillOpacity={0.06} strokeOpacity={0} />}
@@ -119,7 +123,11 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
           const count = value && (value.source === "observed" || value.source === "imputed") ? value.count : null;
           return { timestamp: point.timestamp, actual: count };
         });
-        const historicalPredictions: ComparisonChartPoint[] = visibleComparison.points;
+        const historicalPredictions: ComparisonChartPoint[] = visibleComparison.points.map(point => ({
+          timestamp: point.timestamp,
+          predicted: point.predicted,
+          predictedInterpolated: point.interpolated,
+        }));
         const currentTimestamp = current?.timestamp ?? (forecast.ready ? forecast.issuedAt! : undefined);
         const combinedRows = new Map<number, ComparisonChartPoint>();
         const at = (timestamp: number) => {
@@ -190,6 +198,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
               lines={[{ key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR }]} />
             <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút`} data={historicalPredictions}
               lines={[{ key: "predicted", name: "Dự báo TCN lịch sử", color: PREDICTED_COLOR, dashed: true }]} />
+            <p className="-mt-2 text-[11px] text-muted-foreground">Đã nội suy tuyến tính {visibleComparison.interpolatedSamples} phút bị khuyết giữa các mốc dự báo gốc để đường nét đứt liền mạch. Phần nội suy chỉ để hiển thị, không tham gia MAE/RMSE hay đánh giá nhãn.</p>
             <ComparisonChart title="3. Hiện tại + dự báo TCN" data={combined}
               lines={[
                 { key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR },
