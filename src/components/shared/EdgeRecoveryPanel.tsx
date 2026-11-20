@@ -126,11 +126,13 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
           const count = value && (value.source === "observed" || value.source === "imputed") ? value.count : null;
           return { timestamp: point.timestamp, actual: count };
         });
-        const historicalPredictions: ComparisonChartPoint[] = visibleComparison.points.map(point => ({
-          timestamp: point.timestamp,
-          predicted: point.predicted,
-          predictedFilled: point.filled,
-        }));
+        const historicalPredictions: ComparisonChartPoint[] = visibleComparison.points
+          .filter(point => point.predicted !== null)
+          .map(point => ({
+            timestamp: point.timestamp,
+            predicted: point.predicted,
+            predictedFilled: point.filled,
+          }));
         const currentTimestamp = current?.timestamp ?? nowMs / 1000;
         const displayForecast = selectDisplayMinuteForecast(forecast, lastReadyForecast, currentTimestamp);
         const combinedRows = new Map<number, ComparisonChartPoint>();

@@ -137,25 +137,25 @@ test('historical forecast chart fills display gaps and scores only original fore
     { timestamp: start, predicted: 12, filled: false },
     { timestamp: start + 60, predicted: 14.5, filled: true },
     { timestamp: start + 120, predicted: 17, filled: false },
-    { timestamp: start + 180, predicted: 17, filled: true },
+    { timestamp: start + 180, predicted: null, filled: false },
   ]);
   assert.equal(aligned.samples, 2);
-  assert.equal(aligned.filledSamples, 2);
+  assert.equal(aligned.filledSamples, 1);
   assert.equal(aligned.mae, 2.5);
   assert.equal(aligned.rmse, Math.sqrt(6.5));
 });
 
-test('historical forecast chart fills leading and trailing gaps from nearest real anchors', () => {
+test('historical forecast chart leaves edges without real forecasts empty and fills internal gaps', () => {
   const start = 1_000_020;
   const history = Array.from({ length: 5 }, (_, index) => ({ timestamp: start + index * 60, counts: {} }));
   const aligned = alignForecastComparisonToHistory(history, [
     { timestamp: start + 60, actual: 10, forecast: 12 },
     { timestamp: start + 180, actual: 20, forecast: 18 },
   ]);
-  assert.deepEqual(aligned.points.map(point => point.predicted), [12, 12, 15, 18, 18]);
-  assert.deepEqual(aligned.points.map(point => point.filled), [true, false, true, false, true]);
+  assert.deepEqual(aligned.points.map(point => point.predicted), [null, 12, 15, 18, null]);
+  assert.deepEqual(aligned.points.map(point => point.filled), [false, false, true, false, false]);
   assert.equal(aligned.samples, 2);
-  assert.equal(aligned.filledSamples, 3);
+  assert.equal(aligned.filledSamples, 1);
 });
 
 test('forecast comparison can populate five independent camera panels at one shared horizon', () => {

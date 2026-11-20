@@ -177,7 +177,7 @@ export function readEdgeForecastComparison(data: any, camera: string, horizon: n
     rmse: errors.length ? Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length) : null };
 }
 
-/** Align historical forecasts to visible history and fill display-only gaps from real forecast anchors. */
+/** Align historical forecasts to visible history and fill only gaps between real forecast anchors. */
 export function alignForecastComparisonToHistory(history: EdgeMinuteHistoryPoint[], points: ForecastComparisonPoint[]) {
   const empty = { points: [] as Array<{ timestamp: number; predicted: number | null; filled: boolean }>,
     samples: 0, filledSamples: 0, mae: null as number | null, rmse: null as number | null };
@@ -210,24 +210,8 @@ export function alignForecastComparisonToHistory(history: EdgeMinuteHistoryPoint
   const anchors = aligned.flatMap((point, index) => point.predicted === null ? [] : [index]);
   let filledSamples = 0;
   if (anchors.length) {
-    const firstAnchor = anchors[0];
-    const lastAnchor = anchors[anchors.length - 1];
-    const firstValue = aligned[firstAnchor].predicted!;
-    const lastValue = aligned[lastAnchor].predicted!;
-
-    // Forecast history may be shorter than the visible count-history window.
-    // Hold the closest real forecast at the edges for display continuity only.
-    for (let index = 0; index < firstAnchor; index++) {
-      aligned[index].predicted = firstValue;
-      aligned[index].filled = true;
-      filledSamples++;
-    }
-    for (let index = lastAnchor + 1; index < aligned.length; index++) {
-      aligned[index].predicted = lastValue;
-      aligned[index].filled = true;
-      filledSamples++;
-    }
-
+    // Interpolate only between real forecasts. Extending edge values across
+    // unobserved time made the historical forecast look falsely constant.
     for (let anchorIndex = 0; anchorIndex < anchors.length - 1; anchorIndex++) {
       const leftIndex = anchors[anchorIndex];
       const rightIndex = anchors[anchorIndex + 1];
