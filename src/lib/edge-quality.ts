@@ -158,3 +158,38 @@ export function readEdgeForecastComparison(data: any, camera: string, horizon: n
     mae: errors.length ? errors.reduce((sum, error) => sum + Math.abs(error), 0) / errors.length : null,
     rmse: errors.length ? Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length) : null };
 }
+
+/** Align historical forecasts to the visible minute-history window and preserve missing minutes as gaps. */
+export function alignForecastComparisonToHistory(history: EdgeMinuteHistoryPoint[], points: ForecastComparisonPoint[]) {
+  const empty = { points: [] as Array<{ timestamp: number; predicted: number | null }>,
+    samples: 0, mae: null as number | null, rmse: null as number | null };
+  if (!history.length) return empty;
+
+  const start = history[0].timestamp;
+  const end = history[history.length - 1].timestamp;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return empty;
+
+  // History rows represent minute buckets. Start on an epoch-minute boundary so
+  // target_minute values remain aligned even if an upstream timestamp has seconds.
+  const firstMinute = Math.ceil(start / 60) * 60;
+  const lastMinute = Math.floor(end / 60) * 60;
+  const forecasts = new Map<number, ForecastComparisonPoint>();
+  for (const point of points) {
+    if (Number.isFinite(point.timestamp) && Number.isInteger(point.forecast) && point.forecast >= 0 &&
+        Number.isInteger(point.actual) && point.actual >= 0 && point.timestamp >= start && point.timestamp <= end) {
+      forecasts.set(point.timestamp, point);
+    }
+  }
+
+  const aligned: Array<{ timestamp: number; predicted: number | null }> = [];
+  const visibleComparisons: ForecastComparisonPoint[] = [];
+  for (let timestamp = firstMinute; timestamp <= lastMinute; timestamp += 60) {
+    const comparison = forecasts.get(timestamp);
+    aligned.push({ timestamp, predicted: comparison?.forecast ?? null });
+    if (comparison) visibleComparisons.push(comparison);
+  }
+  const errors = visibleComparisons.map(point => point.forecast - point.actual);
+  return { points: aligned, samples: visibleComparisons.length,
+    mae: errors.length ? errors.reduce((sum, error) => sum + Math.abs(error), 0) / errors.length : null,
+    rmse: errors.length ? Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length) : null };
+}

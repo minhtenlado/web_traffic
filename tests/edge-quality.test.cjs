@@ -8,7 +8,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/edge-quality.ts',
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, context);
 const { edgeHistoryQuality, edgeSystemHealth, edgeMinuteView, readEdgeMinuteForecast,
-  readEdgeForecastComparison, readEdgeMinuteHistory, readEdgeCurrentCount, usesMinuteCountForecast, MINUTE_CAMERA_IDS } = context.exports;
+  readEdgeForecastComparison, alignForecastComparisonToHistory, readEdgeMinuteHistory, readEdgeCurrentCount, usesMinuteCountForecast, MINUTE_CAMERA_IDS } = context.exports;
 const now = 1_000_000;
 const status = () => ({ online: true, system_state: 'ONLINE', sample_interval_seconds: 60,
   history_steps: 120, history_contiguous_steps: 120, history_required: 120, history_observed_steps: 100, history_imputed_steps: 20,
@@ -122,6 +122,26 @@ test('forecast comparison aligns the same target minute and calculates errors fo
   assert.equal(readEdgeForecastComparison(evaluation, 'cam_02', 5).samples, 0);
   assert.equal(readEdgeForecastComparison(evaluation, 'cam_01', 10).samples, 0);
   assert.equal(readEdgeForecastComparison({ source: 'unknown', points: evaluation.points }, 'cam_01', 5).samples, 0);
+});
+
+test('historical forecast chart is aligned to the visible 120-minute window and keeps missing minutes as gaps', () => {
+  const start = 1_000_020;
+  const history = Array.from({ length: 4 }, (_, index) => ({ timestamp: start + index * 60, counts: {} }));
+  const aligned = alignForecastComparisonToHistory(history, [
+    { timestamp: start - 60, actual: 2, forecast: 99 },
+    { timestamp: start, actual: 10, forecast: 12 },
+    { timestamp: start + 120, actual: 20, forecast: 17 },
+    { timestamp: start + 240, actual: 1, forecast: 99 },
+  ]);
+  assert.deepEqual(aligned.points, [
+    { timestamp: start, predicted: 12 },
+    { timestamp: start + 60, predicted: null },
+    { timestamp: start + 120, predicted: 17 },
+    { timestamp: start + 180, predicted: null },
+  ]);
+  assert.equal(aligned.samples, 2);
+  assert.equal(aligned.mae, 2.5);
+  assert.equal(aligned.rmse, Math.sqrt(6.5));
 });
 
 test('forecast comparison can populate five independent camera panels at one shared horizon', () => {

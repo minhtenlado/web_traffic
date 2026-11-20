@@ -5,7 +5,7 @@ import { Brain } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
-import { edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, type EdgeMinuteHistoryPoint } from "@/lib/edge-quality";
+import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, type EdgeMinuteHistoryPoint } from "@/lib/edge-quality";
 import { VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
 import { SectionCard } from "./ui";
 
@@ -109,15 +109,13 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
     </div>
     <div className="mt-4 grid grid-cols-1 gap-4">
       {comparisons.map(({ camera, name, color, result, current }) => {
+        const visibleComparison = alignForecastComparisonToHistory(history, result.points);
         const actualHistory: ComparisonChartPoint[] = history.map(point => {
           const value = point.counts[camera];
           const count = value && (value.source === "observed" || value.source === "imputed") ? value.count : null;
           return { timestamp: point.timestamp, actual: count };
         });
-        const historicalPredictions: ComparisonChartPoint[] = result.points.map(point => ({
-          timestamp: point.timestamp,
-          predicted: point.forecast,
-        }));
+        const historicalPredictions: ComparisonChartPoint[] = visibleComparison.points;
         const currentTimestamp = current?.timestamp ?? (forecast.ready ? forecast.issuedAt! : undefined);
         const combinedRows = new Map<number, ComparisonChartPoint>();
         const at = (timestamp: number) => {
@@ -148,9 +146,9 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             <span className="text-sm font-medium tabular-nums" style={{ color: CURRENT_COLOR }}>Hiện tại: {current ? `${current.count} xe` : "chờ ảnh mới"}</span>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2">
-            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">Mốc so sánh +{horizon}p</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.samples}</p></div>
-            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE lịch sử</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.mae === null ? "—" : `${result.mae.toFixed(2)} xe`}</p></div>
-            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE lịch sử</p><p className="mt-1 text-sm font-semibold tabular-nums">{result.rmse === null ? "—" : `${result.rmse.toFixed(2)} xe`}</p></div>
+            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">Mẫu khớp · +{horizon}p</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.samples}</p></div>
+            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.mae === null ? "—" : `${visibleComparison.mae.toFixed(2)} xe`}</p></div>
+            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.rmse === null ? "—" : `${visibleComparison.rmse.toFixed(2)} xe`}</p></div>
           </div>
           <div className="mt-4 space-y-3">
             <ComparisonChart title="1. Lịch sử thực tế" data={actualHistory}
