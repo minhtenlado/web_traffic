@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { readTCNChart } from "./tcn-forecast";
+import { appendTCNForecastRun, readTCNChart, type ForecastRun } from "./tcn-forecast";
 import { readEdgeMinuteHistory } from "./edge-quality";
 import { buildRouteStats, buildCameraAlerts, selectedCameraView, appendCameraHistory, ACTIVE_CAMERA_IDS, edgePayloadIsFresh } from "./traffic-status";
 import { isControllerSignal, sendControllerCommand,
@@ -38,6 +38,7 @@ type ForecastState = {
   actual: ForecastPoint[]; forecast: ForecastPoint[]; directions: string[]; daysLearned: number;
   rawHistory: any[]; rawPredictions: any[]; validUntil?: number; status?: string;
   kind?: string; experimental?: boolean; reason?: string; modelVersion?: string;
+  generatedAt?: number; sessionId?: string; predictionRuns: ForecastRun[];
 };
 
 /* Camera → Route mapping at Hàng Xanh intersection */
@@ -213,7 +214,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
   devices: [],
   healthMetrics: null,
   signalRec: { policy: "Chưa có dữ liệu đề xuất", lastAdjusted: "", nextReview: "", recommendations: [] },
-  aiForecast: { actual: [], forecast: [], directions: [], daysLearned: 0, rawHistory: [], rawPredictions: [] },
+  aiForecast: { actual: [], forecast: [], directions: [], daysLearned: 0, rawHistory: [], rawPredictions: [], predictionRuns: [] },
   modelInfo: null,
   chartHistory: [],
   activeSection: "dashboard",
@@ -272,6 +273,7 @@ export const useTrafficStore = create<TrafficState>((set, get) => ({
       const forecast = readTCNChart(data);
       set(state => ({ edgeMinuteHistory: readEdgeMinuteHistory(data), aiForecast: { ...state.aiForecast,
         actual: [], forecast: [], directions: [], daysLearned: 0, ...forecast,
+        predictionRuns: appendTCNForecastRun(state.aiForecast.predictionRuns, forecast),
       }}));
     };
 

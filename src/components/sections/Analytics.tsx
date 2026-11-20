@@ -96,7 +96,7 @@ export function Analytics() {
       </div>
     </SectionCard>
 
-    <SectionCard title="Dự báo TCN" icon={BarChart3}>
+    <SectionCard title="Lịch sử, hiện tại và dự báo theo camera" icon={BarChart3}>
       <AICameraCharts />
     </SectionCard>
   </div>;
