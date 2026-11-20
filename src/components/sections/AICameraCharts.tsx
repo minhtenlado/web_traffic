@@ -89,9 +89,10 @@ export function AICameraCharts() {
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-          Camera
-          <select value={selectedCamera} onChange={event => setSelectedCamera(event.target.value as CameraId)}
-            className="min-w-36 rounded-lg border border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-2 focus:ring-primary">
+          Chọn camera
+          <select aria-label="Chọn camera" value={selectedCamera}
+            onChange={event => setSelectedCamera(event.target.value as CameraId)}
+            className="w-60 rounded-lg border border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-2 focus:ring-primary">
             {TCN_OUTPUT_CAMERAS.map(camera => <option key={camera} value={camera}>
               {CAMERAS.find(item => item.id === camera)?.name || camera}
             </option>)}
@@ -99,8 +100,9 @@ export function AICameraCharts() {
         </label>
         <label className="flex flex-col gap-1 text-sm text-muted-foreground">
           Khoảng đối chiếu
-          <select value={horizon} onChange={event => setHorizon(Number(event.target.value) as Horizon)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-2 focus:ring-primary">
+          <select aria-label="Khoảng đối chiếu" value={horizon}
+            onChange={event => setHorizon(Number(event.target.value) as Horizon)}
+            className="w-60 rounded-lg border border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-2 focus:ring-primary">
             {HORIZONS.map(minutes => <option key={minutes} value={minutes}>{minutes} phút</option>)}
           </select>
         </label>
