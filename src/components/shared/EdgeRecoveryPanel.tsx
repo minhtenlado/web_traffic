@@ -104,8 +104,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
   const selectClass = "w-60 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
   return <div className="mt-6 border-t border-border/70 pt-5">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><h3 className="font-semibold">Lịch sử, hiện tại và dự báo theo camera</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Camera được chọn ghép đến 120 phút lịch sử, số đếm ảnh mới nhất và dự báo TCN 30 phút.</p></div>
+      <h3 className="font-semibold">Lịch sử, hiện tại và dự báo theo camera</h3>
       <div className="flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-xs text-muted-foreground">Chọn camera
           <select aria-label="Chọn camera" className={selectClass} value={selectedCamera} onChange={event => setSelectedCamera(event.target.value)}>
@@ -165,12 +164,8 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.mae === null ? "—" : `${visibleComparison.mae.toFixed(2)} xe`}</p></div>
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.rmse === null ? "—" : `${visibleComparison.rmse.toFixed(2)} xe`}</p></div>
           </div>
-          <section aria-label="Đánh giá dự báo theo thời gian thực" className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
-            <div>
-              <h5 className="font-semibold">Real-time Forecast Evaluation · +{horizon} phút</h5>
-              <p className="mt-1 text-xs text-muted-foreground">Đối chiếu dự báo đã đến hạn với số xe YOLO quan sát ở đúng phút; nhãn được quy đổi từ số xe theo các ngưỡng trên trang.</p>
-            </div>
-            {evaluation.samples ? <>
+          {evaluation.samples > 0 && <section aria-label="Đánh giá dự báo theo thời gian thực" className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
+            <h5 className="font-semibold">Real-time Forecast Evaluation · +{horizon} phút</h5>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
                 <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Cặp đã đối chiếu</p><p className="mt-1 font-semibold tabular-nums">{evaluation.samples}</p></div>
                 <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">MAE số xe</p><p className="mt-1 font-semibold tabular-nums">{evaluation.mae!.toFixed(2)} xe</p></div>
@@ -180,7 +175,6 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
               </div>
               <div className="mt-3 overflow-x-auto rounded-lg border border-border/70 bg-background/60">
                 <table className="w-full min-w-[620px] text-left text-xs">
-                  <caption className="px-3 py-2 text-left text-muted-foreground">Tối đa 8 mốc mới nhất trong {evaluation.samples} cặp đã trưởng thành</caption>
                   <thead className="border-y border-border/70 text-muted-foreground"><tr>
                     <th className="px-3 py-2 font-medium">Thời điểm</th><th className="px-3 py-2 font-medium">Thực tế</th>
                     <th className="px-3 py-2 font-medium">Dự báo</th><th className="px-3 py-2 font-medium">Đối chiếu nhãn</th>
@@ -193,15 +187,12 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
                   </tr>)}</tbody>
                 </table>
               </div>
-            </> : <p className="mt-3 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">Chưa có dự báo đến hạn khớp với số xe YOLO quan sát tại cùng phút. Đánh giá sẽ cập nhật khi mốc dự báo được ghi nhận thực tế.</p>}
-            <p className="mt-2 text-[11px] text-muted-foreground">Nhãn quy đổi: 0 ≤ 10 xe, 1 = 11–20, 2 = 21–40, 3 ≥ 41. Đây là nhãn suy ra từ số xe, không phải nhãn phân loại độc lập của YOLO.</p>
-          </section>
+          </section>}
           <div className="mt-4 space-y-3">
             <ComparisonChart title="1. Lịch sử thực tế" data={actualHistory}
               lines={[{ key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR }]} />
             <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút`} data={historicalPredictions}
               lines={[{ key: "predicted", name: "Dự báo TCN lịch sử", color: PREDICTED_COLOR, dashed: true }]} />
-            <p className="-mt-2 text-[11px] text-muted-foreground">Đã bù {visibleComparison.filledSamples} phút trống để nối liền đường: nội suy tuyến tính giữa các mốc dự báo gốc và giữ giá trị gần nhất ở hai mép. Các điểm bù chỉ để hiển thị, không tham gia MAE/RMSE hay đánh giá nhãn.</p>
             <ComparisonChart title="3. Hiện tại + dự báo TCN" data={combined}
               lines={[
                 { key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR },
@@ -209,8 +200,6 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
                 { key: "current", name: "Hiện tại · ảnh mới", color: CURRENT_COLOR, marker: true },
               ]}
               currentTimestamp={currentTimestamp} futureEnd={futureEnd} />
-            {displayForecast.held && displayForecast.forecast && <p className="text-xs text-amber-600">Đang giữ dự báo hợp lệ gần nhất, phát lúc {new Date(displayForecast.forecast.issuedAt * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ({Math.floor(Math.max(0, nowMs / 1000 - displayForecast.forecast.issuedAt) / 60)} phút trước); chờ dự báo mới. Đường nét đứt chỉ kéo dài đến mốc cuối còn hiệu lực.</p>}
-            {!displayForecast.forecast && !forecast.ready && <p className="text-xs text-muted-foreground">Chưa có dự báo tương lai hợp lệ còn mốc hiển thị; biểu đồ lịch sử vẫn hiện theo dữ liệu có sẵn.</p>}
           </div>
         </article>;
       })}
@@ -220,7 +209,6 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
       <span className="inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CURRENT_COLOR }} />Hiện tại · ảnh mới</span>
       <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2 border-dashed" style={{ borderColor: PREDICTED_COLOR }} />Dự báo TCN · 30 phút</span>
     </div>
-    <p className="mt-3 text-xs text-muted-foreground">Điểm hiện tại là số xe trong ảnh YOLO mới nhất; lịch sử và TCN là số xe trung bình theo phút. MAE/RMSE chỉ tính số đếm YOLO đã quan sát, không tính dữ liệu bù; đây là proxy số xe nhìn thấy trong ảnh, chưa phải kiểm định lưu lượng ngoài đường.</p>
   </div>;
 }
 
@@ -233,7 +221,6 @@ export function EdgeMinuteForecastPanel({ data, history, nowMs }: { data: any; h
   return <SectionCard title="Dự báo số xe theo phút" icon={Brain}>
     <EdgeRecoverySummary data={data} nowMs={nowMs} />
     {forecast.ready ? <>
-      <p className="my-3 text-xs text-muted-foreground">Đường nét đứt là dự báo 1–30 phút tới. Phần đối chiếu bên dưới ghép dự báo đã phát hành với số xe quan sát tại đúng mốc thời gian.</p>
       <div role="img" aria-label="Dự báo số xe 30 phút cho 5 camera" className="h-[320px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={forecast.points}>
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} /><XAxis dataKey="horizon" type="number" domain={[1, 30]} ticks={[1, 5, 15, 30]} tickFormatter={value => `+${value} phút`} /><YAxis allowDecimals={false} label={{ value: "Số xe dự báo", angle: -90, position: "insideLeft", fill: "var(--muted-foreground)", fontSize: 11 }} />
         <Tooltip labelFormatter={value => `Sau ${value} phút`} formatter={value => [`${value} xe`, "Số xe dự báo"]} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} />
