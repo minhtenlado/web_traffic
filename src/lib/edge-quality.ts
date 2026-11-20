@@ -101,6 +101,8 @@ export function readEdgeCurrentCount(data: any, camera: string, nowMs = Date.now
 }
 
 export type MinuteForecastPoint = { horizon: number; timestamp: number } & Record<string, number>;
+export type ReadyMinuteForecast = { ready: true; points: MinuteForecastPoint[]; issuedAt: number };
+export type MinuteForecastResult = ReadyMinuteForecast | { ready: false; points: MinuteForecastPoint[]; issuedAt: null };
 
 /** Select the count-only UI for V3 payloads; never infer counts from class forecasts. */
 export function usesMinuteCountForecast(data: any) {
@@ -110,8 +112,8 @@ export function usesMinuteCountForecast(data: any) {
 }
 
 /** V3 counts have their own chart; count-derived labels are never classifier output. */
-export function readEdgeMinuteForecast(data: any, nowMs = Date.now()) {
-  const empty = { ready: false, points: [] as MinuteForecastPoint[], issuedAt: null as number | null };
+export function readEdgeMinuteForecast(data: any, nowMs = Date.now()): MinuteForecastResult {
+  const empty: MinuteForecastResult = { ready: false, points: [], issuedAt: null };
   const status = data?.status;
   const quality = edgeHistoryQuality(status);
   const forecast = data?.forecast;
@@ -132,6 +134,22 @@ export function readEdgeMinuteForecast(data: any, nowMs = Date.now()) {
     points.push({ horizon: i + 1, timestamp: at, ...Object.fromEntries(MINUTE_CAMERA_IDS.map(id => [id, row.counts[id]])) });
   }
   return { ready: true, points, issuedAt };
+}
+
+/** Keep the last valid forecast visible while a transient snapshot fails the live readiness gate. */
+export function selectDisplayMinuteForecast(
+  live: ReturnType<typeof readEdgeMinuteForecast>,
+  lastReady: ReadyMinuteForecast | null,
+  currentTimestamp: number,
+) {
+  const useLive = live.ready && (!lastReady || live.issuedAt >= lastReady.issuedAt);
+  const selected = useLive ? live : lastReady;
+  const points = selected?.points.filter(point => point.timestamp > currentTimestamp) ?? [];
+  return {
+    forecast: points.length ? selected : null,
+    points,
+    held: !useLive && points.length > 0,
+  };
 }
 
 export type ForecastComparisonPoint = { timestamp: number; actual: number; forecast: number };

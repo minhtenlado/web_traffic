@@ -5,7 +5,7 @@ import { Brain } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
-import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, type EdgeMinuteHistoryPoint } from "@/lib/edge-quality";
+import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, selectDisplayMinuteForecast, type EdgeMinuteHistoryPoint, type ReadyMinuteForecast } from "@/lib/edge-quality";
 import { evaluateVehicleCountForecast, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
 import { SectionCard } from "./ui";
 
@@ -86,6 +86,10 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
 }) {
   const [horizon, setHorizon] = useState<number>(1);
   const [selectedCamera, setSelectedCamera] = useState<string>(MINUTE_CAMERA_IDS[0]);
+  const [lastReadyForecast, setLastReadyForecast] = useState<ReadyMinuteForecast | null>(null);
+  if (forecast.ready && (!lastReadyForecast || forecast.issuedAt > lastReadyForecast.issuedAt)) {
+    setLastReadyForecast(forecast);
+  }
   const comparisons = MINUTE_CAMERA_IDS.map((camera, index) => {
     const result = readEdgeForecastComparison(data, camera, horizon);
     return {
@@ -128,7 +132,8 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
           predicted: point.predicted,
           predictedFilled: point.filled,
         }));
-        const currentTimestamp = current?.timestamp ?? (forecast.ready ? forecast.issuedAt! : undefined);
+        const currentTimestamp = current?.timestamp ?? nowMs / 1000;
+        const displayForecast = selectDisplayMinuteForecast(forecast, lastReadyForecast, currentTimestamp);
         const combinedRows = new Map<number, ComparisonChartPoint>();
         const at = (timestamp: number) => {
           const existing = combinedRows.get(timestamp);
@@ -145,13 +150,11 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
           now.actual = current.count;
           now.current = current.count;
           // Anchor the dashed forecast at t0 so it transitions from the actual value.
-          if (forecast.ready) now.predicted = current.count;
+          if (displayForecast.points.length) now.predicted = current.count;
         }
-        if (forecast.ready) for (const point of forecast.points) {
-          if (currentTimestamp === undefined || point.timestamp > currentTimestamp) at(point.timestamp).predicted = point[camera];
-        }
+        for (const point of displayForecast.points) at(point.timestamp).predicted = point[camera];
         const combined = [...combinedRows.values()].sort((a, b) => a.timestamp - b.timestamp);
-        const futureEnd = forecast.ready ? forecast.points[forecast.points.length - 1]?.timestamp : undefined;
+        const futureEnd = displayForecast.points[displayForecast.points.length - 1]?.timestamp;
         return <article key={camera} className="min-w-0 rounded-xl border border-border/80 bg-background/25 p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold" style={{ color }}>{name}</h4>
@@ -206,7 +209,8 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
                 { key: "current", name: "Hiện tại · ảnh mới", color: CURRENT_COLOR, marker: true },
               ]}
               currentTimestamp={currentTimestamp} futureEnd={futureEnd} />
-            {!forecast.ready && <p className="text-xs text-muted-foreground">Chưa có dự báo tương lai mới; biểu đồ lịch sử vẫn hiển thị theo dữ liệu hiện có.</p>}
+            {displayForecast.held && displayForecast.forecast && <p className="text-xs text-amber-600">Đang giữ dự báo hợp lệ gần nhất, phát lúc {new Date(displayForecast.forecast.issuedAt * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ({Math.floor(Math.max(0, nowMs / 1000 - displayForecast.forecast.issuedAt) / 60)} phút trước); chờ dự báo mới. Đường nét đứt chỉ kéo dài đến mốc cuối còn hiệu lực.</p>}
+            {!displayForecast.forecast && !forecast.ready && <p className="text-xs text-muted-foreground">Chưa có dự báo tương lai hợp lệ còn mốc hiển thị; biểu đồ lịch sử vẫn hiện theo dữ liệu có sẵn.</p>}
           </div>
         </article>;
       })}

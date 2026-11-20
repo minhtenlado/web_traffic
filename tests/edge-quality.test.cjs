@@ -8,7 +8,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/edge-quality.ts',
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, context);
 const { edgeHistoryQuality, edgeSystemHealth, edgeMinuteView, readEdgeMinuteForecast,
-  readEdgeForecastComparison, alignForecastComparisonToHistory, readEdgeMinuteHistory, readEdgeCurrentCount, usesMinuteCountForecast, MINUTE_CAMERA_IDS } = context.exports;
+  readEdgeForecastComparison, alignForecastComparisonToHistory, readEdgeMinuteHistory, readEdgeCurrentCount, usesMinuteCountForecast, selectDisplayMinuteForecast, MINUTE_CAMERA_IDS } = context.exports;
 const now = 1_000_000;
 const status = () => ({ online: true, system_state: 'ONLINE', sample_interval_seconds: 60,
   history_steps: 120, history_contiguous_steps: 120, history_required: 120, history_observed_steps: 100, history_imputed_steps: 20,
@@ -189,4 +189,26 @@ test('stale, incomplete, unsynchronized or malformed minute forecast is hidden',
     p => p.forecast.points.pop()]) {
     const p = payload(); mutate(p); assert.equal(readEdgeMinuteForecast(p, now).ready, false);
   }
+});
+
+test('combined chart holds the latest valid forecast through transient readiness loss and drops expired points', () => {
+  const valid = readEdgeMinuteForecast(payload(), now);
+  assert.equal(valid.ready, true);
+  const transientInvalid = readEdgeMinuteForecast({ ...payload(), status: { ...status(), weather_status: 'unavailable' } }, now);
+  assert.equal(transientInvalid.ready, false);
+
+  const held = selectDisplayMinuteForecast(transientInvalid, valid, 1_030);
+  assert.equal(held.held, true);
+  assert.equal(held.forecast.issuedAt, valid.issuedAt);
+  assert.equal(held.points.length, 29);
+  assert.ok(held.points.every(point => point.timestamp > 1_030));
+
+  const live = selectDisplayMinuteForecast(valid, valid, 1_030);
+  assert.equal(live.held, false);
+  assert.equal(live.forecast.issuedAt, valid.issuedAt);
+
+  const expired = selectDisplayMinuteForecast(transientInvalid, valid, 3_000);
+  assert.equal(expired.forecast, null);
+  assert.deepEqual(expired.points, []);
+  assert.equal(expired.held, false);
 });
