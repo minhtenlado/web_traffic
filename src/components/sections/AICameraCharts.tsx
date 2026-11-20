@@ -84,9 +84,7 @@ export function AICameraCharts() {
 
   return <div className="mt-5 space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p className="text-sm text-muted-foreground">Số xe nhận dạng trong ảnh; các dự báo lịch sử được ghép đúng mốc thời gian đích.</p>
-      </div>
+      <div />
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm text-muted-foreground">
           Chọn camera
@@ -148,12 +146,5 @@ export function AICameraCharts() {
         </article>;
       })}
     </div>
-    <p className="text-xs text-muted-foreground">
-      MAE/RMSE chỉ tính các dự báo đã phát hành có số đếm tại đúng thời điểm đích; số mẫu được ghi cạnh chỉ số. Dữ liệu là số xe trong ảnh, chưa phải kiểm định lưu lượng giao thông thực địa.
-    </p>
-    <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Thông tin mô hình</summary>
-      <p className="mt-2 break-all font-mono">Mã phiên bản: {forecast.modelVersion || "chưa có"}</p>
-      <p className="mt-1">Lịch sử dự báo tích lũy từ các bản tin TCN nhận được trong phiên mở trang này; sau khi tải lại trang, cần tích lũy lại.</p>
-    </details>
   </div>;
 }

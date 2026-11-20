@@ -161,8 +161,6 @@ export function AuditLog() {
           label="Tổng hành động"
           value={stats.total}
           unit="lượt"
-          trend="up"
-          trendValue={stats.total ? "bản ghi đã nạp" : "chưa nhận dữ liệu nhật ký"}
           color="primary"
           delay={0}
         />
@@ -171,8 +169,6 @@ export function AuditLog() {
           label="Người dùng hoạt động"
           value={stats.uniqueUsers}
           unit="người"
-          trend="neutral"
-          trendValue="có ghi nhận"
           color="cyan"
           delay={0.05}
         />
@@ -181,8 +177,6 @@ export function AuditLog() {
           label="Hành động hôm nay"
           value={stats.actionsToday}
           unit="lượt"
-          trend="up"
-          trendValue="trong ngày"
           color="purple"
           delay={0.1}
         />
@@ -331,10 +325,6 @@ export function AuditLog() {
                 Xoá bộ lọc
               </button>
             )}
-            <span className="inline-flex items-center gap-1.5">
-              <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-success" />
-              {stats.total ? "Dữ liệu nhật ký đã tải" : "Chưa nhận được dữ liệu nhật ký"}
-            </span>
           </div>
         </div>
       </SectionCard>

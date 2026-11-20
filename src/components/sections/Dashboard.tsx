@@ -35,8 +35,7 @@ export function Dashboard() {
       <div className="pointer-events-none absolute -right-4 -top-8 h-40 w-40 rounded-full border border-primary/10" />
       <div className="relative flex flex-wrap items-end justify-between gap-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Trung tâm điều hành · TP. Hồ Chí Minh</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Ngã tư Hàng Xanh</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Ngã tư Hàng Xanh</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <StatusBadge color={isOffline ? "amber" : "green"}><Radio className="mr-1 h-3.5 w-3.5" />Genio {isOffline ? "chưa có tín hiệu mới" : "đang kết nối"}</StatusBadge>
@@ -63,10 +62,8 @@ export function Dashboard() {
               const fill = route.severity === null ? 0 : Math.max(8, Math.min(100, route.severity / 3 * 100));
               const bar = route.statusColor === "red" ? "bg-destructive" : route.statusColor === "amber" ? "bg-warning" : route.statusColor === "green" ? "bg-success" : "bg-muted-foreground/40";
               return <article key={route.id} className="border-b border-border/70 pb-3 last:border-0 last:pb-0">
-                <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium">{route.name}</h3><StatusBadge color={route.statusColor}>{route.status}</StatusBadge></div>
+                <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium">{route.name}</h3><div className="flex items-center gap-2">{route.hasData && <span className="text-sm tabular-nums text-muted-foreground">{formatNumber(route.vehicleCount)} xe</span>}<StatusBadge color={route.statusColor}>{route.status}</StatusBadge></div></div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${fill}%` }} /></div>
-                <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{route.coverage}/{route.expectedCameras} camera có số đếm mới</span><span>{route.hasData ? `${formatNumber(route.vehicleCount)} xe cộng trong ảnh` : "Chưa có số đếm mới"}</span></div>
-                {route.statusSource && <p className="mt-1 text-[11px] text-muted-foreground">{route.statusSource === "count" ? "Mức cao nhất theo ngưỡng từng ảnh" : "Trạng thái theo nhãn YOLO"}</p>}
               </article>;
             })}
           </div>
@@ -82,7 +79,7 @@ export function Dashboard() {
           const { view } = camera;
           const status = view.fresh ? "Ảnh mới" : view.available ? "Dữ liệu cũ" : "Đang chờ";
           return <article key={camera.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/30 px-3 py-3">
-            <div className="min-w-0"><p className="font-medium">{camera.name}</p><p className="truncate text-xs text-muted-foreground" title={camera.label}>{camera.label}</p><p className="mt-1 truncate text-xs font-medium text-foreground" title={view.text}>{view.text}</p></div>
+            <div className="min-w-0"><p className="font-medium">{camera.name}</p><p className="truncate text-xs text-muted-foreground" title={camera.label}>{camera.label}</p></div>
             <div className="shrink-0 text-right"><StatusBadge color={view.cls}>{status}</StatusBadge><p className="mt-1 text-xs tabular-nums text-muted-foreground">{view.count === null ? "—" : `${view.count} xe`}</p></div>
           </article>;
         })}

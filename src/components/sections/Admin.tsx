@@ -100,7 +100,7 @@ export function Admin() {
   };
   useEffect(() => { void refreshAccounts(); }, []);
   return <div className="space-y-6">
-    <div className="border-b border-border pb-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Quản trị</p><h2 className="mt-1 text-2xl font-semibold">Tài khoản, thiết bị và vận hành</h2></div>
+    <div className="border-b border-border pb-4"><h2 className="text-2xl font-semibold">Tài khoản, thiết bị và vận hành</h2></div>
     <Tabs defaultValue="account" className="w-full">
       <TabsList className="mb-4 h-auto flex-wrap bg-muted/60 p-1">
         <TabsTrigger value="account" className="gap-2"><Users className="h-4 w-4" />Tài khoản</TabsTrigger>
@@ -112,16 +112,16 @@ export function Admin() {
           action={<div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => { setCreateOpen((open) => !open); setCreateError(""); setCreateMessage(""); }}><UserPlus className="h-3.5 w-3.5" />Tạo vận hành viên</Button><Button size="sm" variant="outline" onClick={() => void refreshAccounts()} disabled={accountState === "loading"}><RefreshCw className="h-3.5 w-3.5" />Làm mới</Button></div>}>
           {createMessage && <p className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary" role="status">{createMessage}</p>}
           {createOpen && <form onSubmit={createAccount} className="mb-5 space-y-4 rounded-lg border border-border bg-background/35 p-4">
-            <div><h3 className="font-medium">Tạo tài khoản vận hành viên</h3><p className="mt-1 text-xs text-muted-foreground">Tài khoản được lưu vào Firebase và có hiệu lực ngay sau khi tạo. Mật khẩu tối thiểu 12 ký tự.</p></div>
+            <div><h3 className="font-medium">Tạo tài khoản vận hành viên</h3></div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm">Họ và tên<input className={inputClass} autoComplete="name" maxLength={100} required value={accountForm.fullName} onChange={(event) => setAccountForm({ ...accountForm, fullName: event.target.value })} /></label>
-              <label className="text-sm">Tên đăng nhập<input className={inputClass} autoComplete="username" minLength={3} maxLength={32} pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" required value={accountForm.username} onChange={(event) => setAccountForm({ ...accountForm, username: event.target.value })} /><span className="mt-1 block text-xs text-muted-foreground">3–32 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.</span></label>
+              <label className="text-sm">Tên đăng nhập<input className={inputClass} autoComplete="username" minLength={3} maxLength={32} pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" required value={accountForm.username} onChange={(event) => setAccountForm({ ...accountForm, username: event.target.value })} /></label>
               <label className="text-sm">Email (không bắt buộc)<input className={inputClass} autoComplete="email" maxLength={254} type="email" value={accountForm.email} onChange={(event) => setAccountForm({ ...accountForm, email: event.target.value })} /></label>
               <label className="text-sm">Mật khẩu ban đầu<input className={inputClass} autoComplete="new-password" minLength={12} maxLength={128} required type="password" value={accountForm.password} onChange={(event) => setAccountForm({ ...accountForm, password: event.target.value })} /></label>
               <label className="text-sm sm:col-span-2">Nhập lại mật khẩu<input className={inputClass} autoComplete="new-password" minLength={12} maxLength={128} required type="password" value={accountForm.passwordConfirm} onChange={(event) => setAccountForm({ ...accountForm, passwordConfirm: event.target.value })} /></label>
             </div>
             {createError && <p className="text-sm text-destructive" role="alert">{createError}</p>}
-            <div className="flex flex-wrap items-center gap-2"><Button type="submit" disabled={createState === "saving"}>{createState === "saving" ? "Đang lưu…" : "Tạo tài khoản"}</Button><Button type="button" variant="outline" disabled={createState === "saving"} onClick={() => { setCreateOpen(false); setAccountForm(emptyAccountForm); setCreateError(""); }}>Hủy</Button><span className="text-xs text-muted-foreground">Quyền được cấp: Vận hành viên</span></div>
+            <div className="flex flex-wrap items-center gap-2"><Button type="submit" disabled={createState === "saving"}>{createState === "saving" ? "Đang lưu…" : "Tạo tài khoản"}</Button><Button type="button" variant="outline" disabled={createState === "saving"} onClick={() => { setCreateOpen(false); setAccountForm(emptyAccountForm); setCreateError(""); }}>Hủy</Button></div>
           </form>}
           {accountState === "loading" ? <p className="py-6 text-center text-sm text-muted-foreground">Đang đọc cấu hình tài khoản…</p> :
             accountState === "error" ? <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive" role="alert">{accountError}</div> :
@@ -136,14 +136,12 @@ export function Admin() {
                 </tr>)}</tbody>
               </table></div> : <p className="py-6 text-center text-sm text-muted-foreground">Máy chủ chưa cấu hình tài khoản.</p>}
           {user && <div className="mt-4 grid gap-3 sm:grid-cols-2"><Info label="Phiên hiện tại" value={`${user.fullName} · ${user.username}`} /><Info label="Quyền hiện tại" value={user.role === "admin" ? "Quản trị viên" : "Vận hành viên"} /></div>}
-          <div className="mt-5 flex items-start gap-3 rounded-lg border border-border bg-background/35 p-4"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div><p className="text-sm font-medium">Tài khoản mới có quyền Vận hành viên</p><p className="mt-1 text-xs text-muted-foreground">Mật khẩu được băm bằng scrypt trước khi lưu. Việc tạo tài khoản được ghi vào nhật ký hoạt động; không gửi mật khẩu qua email.</p></div><StatusBadge color="green">Lưu trên máy chủ</StatusBadge></div>
         </SectionCard>
         {user?.role === "admin" && <SectionCard title="Mật khẩu quản trị" icon={LockKeyhole}>
           <form onSubmit={changeAdminPassword} className="space-y-4">
-            <p className="text-sm text-muted-foreground">Mật khẩu mới được lưu dưới dạng băm an toàn. Sau khi đổi, các phiên Admin khác sẽ phải đăng nhập lại.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm sm:col-span-2">Mật khẩu hiện tại<input className={inputClass} autoComplete="current-password" maxLength={256} required type="password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })} /></label>
-              <label className="text-sm">Mật khẩu mới<input className={inputClass} autoComplete="new-password" minLength={12} maxLength={128} required type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} /><span className="mt-1 block text-xs text-muted-foreground">Từ 12 đến 128 ký tự.</span></label>
+              <label className="text-sm">Mật khẩu mới<input className={inputClass} autoComplete="new-password" minLength={12} maxLength={128} required type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} /></label>
               <label className="text-sm">Nhập lại mật khẩu mới<input className={inputClass} autoComplete="new-password" minLength={12} maxLength={128} required type="password" value={passwordForm.passwordConfirm} onChange={(event) => setPasswordForm({ ...passwordForm, passwordConfirm: event.target.value })} /></label>
             </div>
             {passwordError && <p className="text-sm text-destructive" role="alert">{passwordError}</p>}

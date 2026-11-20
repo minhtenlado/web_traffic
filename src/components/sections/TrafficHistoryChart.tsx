@@ -24,7 +24,6 @@ export function TrafficHistoryChart() {
     return history.filter((row) => row.timestamp >= latest - windowSeconds);
   }, [history, windowSeconds]);
   const spanSeconds = points.length > 1 ? points.at(-1)!.timestamp - points[0].timestamp : 0;
-  const coverage = spanSeconds >= 60 ? `${Math.floor(spanSeconds / 60)} phút dữ liệu` : points.length ? "vừa có mẫu mới" : "chưa có mẫu";
   const axisShowsSeconds = spanSeconds < 6 * 60;
 
   return (
@@ -46,10 +45,6 @@ export function TrafficHistoryChart() {
         </div>
       ) : (
         <>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>{coverage} · {points.length} lần cập nhật</span>
-            <span>Tổng số xe trong ảnh từ các camera mới có dữ liệu</span>
-          </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={points} margin={{ top: 8, right: 12, left: -14, bottom: 4 }}>

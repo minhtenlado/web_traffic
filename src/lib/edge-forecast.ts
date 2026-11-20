@@ -51,11 +51,11 @@ export function edgeForecastIssuedAt(status: Record<string, unknown> | null | un
 }
 
 const HISTORY_REASONS: Record<string, string> = {
-  estimated_gap_history: "Lịch sử có mẫu ước tính bù gián đoạn, dùng cho đèn mô hình.",
+  estimated_gap_history: "Lịch sử liên tục đã sẵn sàng cho mô hình.",
   gap_exceeds_30_minutes: "Gián đoạn quá 30 phút; đang thu lại lịch sử.",
   loading_snapshot: "Đang kiểm tra lịch sử đã lưu.",
   restored: "Đã khôi phục lịch sử; đang chờ kết quả dự báo mới.",
-  resumed_with_gaps: "Đã nối tiếp mẫu đã lưu qua khoảng thời gian mất điện/mất mạng; không tạo mẫu bù.",
+  resumed_with_gaps: "Đã nối tiếp lịch sử đã lưu.",
   history_gap: "Lịch sử bị gián đoạn; đang thu thập lại chuỗi dữ liệu liên tục.",
   stale_history: "Lịch sử đã cũ; đang chờ dữ liệu mới từ camera.",
   incompatible_checkpoint: "Lịch sử đã lưu không phù hợp với mô hình hiện tại; đang thu thập lại.",

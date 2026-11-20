@@ -63,7 +63,9 @@ test('minute zero is a valid observation; missing, unknown source and future tim
   const imputed = edgeMinuteView({ ...r, vehicle_count: 21, data_source: 'imputed', confidence: .72,
     imputation_method: 'time_of_day_historical_baseline' }, now);
   assert.equal(imputed.source, 'imputed'); assert.equal(imputed.count, 21); assert.equal(imputed.confidence, .72);
-  assert.match(imputed.label, /Ước lượng/);
+  // The UI shows one neutral label; provenance stays in `source` for logic and data export.
+  assert.equal(imputed.label, 'Số xe theo phút');
+  assert.equal(edgeMinuteView(r, now).label, 'Số xe theo phút');
   assert.equal(edgeMinuteView({ ...r, timestamp: '1970-01-01T07:16:00+07:00' }, now).timestamp, 960);
   assert.equal(edgeMinuteView({ ...r, timestamp: '1970-01-01T00:16:00' }, now).timestamp, null);
 });

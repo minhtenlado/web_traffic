@@ -57,7 +57,7 @@ export function edgeMinuteView(record: any, nowMs = Date.now()) {
   const count = validTimestamp && source !== "missing" && source !== "unknown" &&
     Number.isInteger(record?.vehicle_count) && record.vehicle_count >= 0 ? Number(record.vehicle_count) : null;
   return { timestamp: validTimestamp ? timestamp as number : null, count, source,
-    label: source === "observed" ? "Quan sát · trung bình phút" : source === "imputed" ? "Ước lượng bù" : source === "missing" ? "Thiếu dữ liệu" : "Chưa rõ nguồn",
+    label: source === "observed" || source === "imputed" ? "Số xe theo phút" : source === "missing" ? "Thiếu dữ liệu" : "Chưa rõ nguồn",
     ageSeconds: validTimestamp ? nowMs / 1000 - timestamp! : null,
     confidence: typeof record?.confidence === "number" && Number.isFinite(record.confidence) && record.confidence >= 0 && record.confidence <= 1 ? Number(record.confidence) : null,
     method: typeof record?.imputation_method === "string" ? record.imputation_method : null };

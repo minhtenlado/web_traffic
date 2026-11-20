@@ -99,8 +99,6 @@ export function Alerts() {
           label="Đang hoạt động"
           value={hasCameraData ? stats.active : "—"}
           unit="cảnh báo"
-          trend={stats.active > 3 ? "up" : "neutral"}
-          trendValue={hasCameraData ? stats.active ? "cần theo dõi" : "không có cảnh báo mới" : "chưa nhận dữ liệu camera"}
           color="red"
           delay={0}
         />
@@ -109,8 +107,6 @@ export function Alerts() {
           label="Nghiêm trọng"
           value={hasCameraData ? stats.critical : "—"}
           unit="sự kiện"
-          trend={stats.critical > 0 ? "up" : "neutral"}
-          trendValue={stats.critical > 0 ? "ưu tiên" : "không có"}
           color="red"
           delay={0.05}
         />
@@ -119,8 +115,6 @@ export function Alerts() {
           label="Đã ghi nhận"
           value={hasCameraData ? stats.acknowledged : "—"}
           unit="sự kiện"
-          trend="neutral"
-          trendValue="đã xác nhận trên máy chủ"
           color="amber"
           delay={0.1}
         />
@@ -304,9 +298,6 @@ function EmptyState({ hasData }: { hasData: boolean }) {
       </div>
       <div>
         <h4 className="text-sm font-semibold text-foreground">{hasData ? "Không có cảnh báo đang mở" : "Chưa có dữ liệu cảnh báo"}</h4>
-        <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-          {hasData ? "Chưa phát hiện cảnh báo từ dữ liệu camera hiện nhận được." : "Cảnh báo sẽ cập nhật sau khi có bản tin camera mới."}
-        </p>
       </div>
     </motion.div>
   );

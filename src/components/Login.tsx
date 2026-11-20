@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Lock, Loader2, Eye, EyeOff, ShieldCheck, ShieldAlert, LockKeyhole } from "lucide-react";
+import { User, Lock, Loader2, Eye, EyeOff, ShieldAlert, LockKeyhole } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import Image from "next/image";
 
@@ -104,9 +104,6 @@ export function Login() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Đăng nhập hệ thống</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  Yêu cầu xác thực tài khoản được cấp quyền
-                </p>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <LockKeyhole className="h-4 w-4" />
@@ -190,13 +187,6 @@ export function Login() {
             </button>
           </form>
 
-          {/* Security Badge Footer */}
-          <div className="border-t border-border bg-muted/20 px-6 py-3">
-            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-              <span>Bảo mật kết nối SSL/TLS 256-bit</span>
-            </div>
-          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">

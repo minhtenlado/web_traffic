@@ -105,7 +105,7 @@ export function Header() {
 
         <div className="hidden items-center gap-2 border-r border-border pr-3 text-right lg:flex">
           <MapPin className="h-4 w-4 text-primary" />
-          <div className="leading-tight"><p className="text-xs font-semibold">Ngã tư Hàng Xanh</p><p className="text-[10px] text-muted-foreground">TP. Hồ Chí Minh</p></div>
+          <div className="leading-tight"><p className="text-xs font-semibold">Ngã tư Hàng Xanh</p></div>
         </div>
 
         {time && <div className="hidden min-w-[118px] flex-col items-end leading-tight xl:flex">

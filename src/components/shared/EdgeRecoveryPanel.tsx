@@ -42,10 +42,9 @@ function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd }: {
           <YAxis allowDecimals={false} domain={[0, "auto"]} width={38}
             tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip labelFormatter={value => value ? new Date(Number(value) * 1000).toLocaleString("vi-VN") : ""}
-            formatter={(value, _name, item) => {
+            formatter={(value) => {
               const formatted = typeof value === "number" ? `${Number.isInteger(value) ? value : value.toFixed(1)} xe` : "—";
-              const filled = Boolean((item.payload as ComparisonChartPoint | undefined)?.predictedFilled);
-              return [filled ? `${formatted} · bù hiển thị` : formatted, filled ? "Dự báo ước tính" : "Số xe"];
+              return [formatted, "Số xe"];
             }}
             contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
           {currentTimestamp !== undefined && futureEnd !== undefined && futureEnd > currentTimestamp &&
@@ -163,8 +162,8 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2">
             <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">Mẫu khớp · +{horizon}p</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.samples}</p></div>
-            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.mae === null ? "—" : `${visibleComparison.mae.toFixed(2)} xe`}</p></div>
-            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE · cửa sổ hiển thị</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.rmse === null ? "—" : `${visibleComparison.rmse.toFixed(2)} xe`}</p></div>
+            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">MAE</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.mae === null ? "—" : `${visibleComparison.mae.toFixed(2)} xe`}</p></div>
+            <div className="rounded-lg bg-muted/35 p-2"><p className="text-[11px] text-muted-foreground">RMSE</p><p className="mt-1 text-sm font-semibold tabular-nums">{visibleComparison.rmse === null ? "—" : `${visibleComparison.rmse.toFixed(2)} xe`}</p></div>
           </div>
           {evaluation.samples > 0 && <section aria-label="Đánh giá dự báo theo thời gian thực" className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
             <h5 className="font-semibold">Real-time Forecast Evaluation · +{horizon} phút</h5>
@@ -172,7 +171,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
                 <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Cặp đã đối chiếu</p><p className="mt-1 font-semibold tabular-nums">{evaluation.samples}</p></div>
                 <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">MAE số xe</p><p className="mt-1 font-semibold tabular-nums">{evaluation.mae!.toFixed(2)} xe</p></div>
                 <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">RMSE số xe</p><p className="mt-1 font-semibold tabular-nums">{evaluation.rmse!.toFixed(2)} xe</p></div>
-                <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Khớp nhãn quy đổi</p><p className="mt-1 font-semibold tabular-nums">{(evaluation.labelAccuracy! * 100).toFixed(1)}%</p></div>
+                <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Khớp nhãn</p><p className="mt-1 font-semibold tabular-nums">{(evaluation.labelAccuracy! * 100).toFixed(1)}%</p></div>
                 <div className="rounded-lg bg-background/70 p-2"><p className="text-[11px] text-muted-foreground">Sai lệch mức TB</p><p className="mt-1 font-semibold tabular-nums">{evaluation.meanLevelError!.toFixed(2)} bậc ID</p></div>
               </div>
               <div className="mt-3 overflow-x-auto rounded-lg border border-border/70 bg-background/60">
@@ -192,12 +191,12 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
           </section>}
           <div className="mt-4 space-y-3">
             <ComparisonChart title="1. Lịch sử thực tế" data={actualHistory}
-              lines={[{ key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR }]} />
+              lines={[{ key: "actual", name: "Số xe lịch sử", color: OBSERVED_COLOR }]} />
             <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút`} data={historicalPredictions}
               lines={[{ key: "predicted", name: "Dự báo TCN lịch sử", color: PREDICTED_COLOR, dashed: true }]} />
             <ComparisonChart title="3. Hiện tại + dự báo TCN" data={combined}
               lines={[
-                { key: "actual", name: "Lịch sử · quan sát và bù theo phút", color: OBSERVED_COLOR },
+                { key: "actual", name: "Số xe lịch sử", color: OBSERVED_COLOR },
                 { key: "predicted", name: "Dự báo TCN", color: PREDICTED_COLOR, dashed: true },
                 { key: "current", name: "Hiện tại · ảnh mới", color: CURRENT_COLOR, marker: true },
               ]}
@@ -207,7 +206,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
       })}
     </div>
     <div className="mt-4 flex flex-wrap gap-5 text-xs text-muted-foreground">
-      <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2" style={{ borderColor: OBSERVED_COLOR }} />Số xe lịch sử · quan sát và bù theo phút</span>
+      <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2" style={{ borderColor: OBSERVED_COLOR }} />Số xe lịch sử</span>
       <span className="inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CURRENT_COLOR }} />Hiện tại · ảnh mới</span>
       <span className="inline-flex items-center gap-2"><span className="inline-block w-6 border-t-2 border-dashed" style={{ borderColor: PREDICTED_COLOR }} />Dự báo TCN · 30 phút</span>
     </div>
@@ -230,12 +229,12 @@ export function EdgeMinuteForecastPanel({ data, history, nowMs }: { data: any; h
       </LineChart></ResponsiveContainer></div>
       <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">{MINUTE_CAMERA_IDS.map((id, i) => <span key={id} className="inline-flex items-center gap-2"><span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: COLORS[i] }} />{CAMERAS.find(camera => camera.id === id)?.name || id}</span>)}</div>
       <div className="mt-6 border-t border-border/70 pt-5">
-        <h3 className="font-semibold">Mức ùn tắc quy đổi từ số xe dự báo</h3>
-        <div role="img" aria-label="Mức ùn tắc quy đổi từ số xe dự báo 30 phút cho 5 camera" className="mt-3 h-[300px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={convertedPoints}>
+        <h3 className="font-semibold">Mức ùn tắc dự báo</h3>
+        <div role="img" aria-label="Mức ùn tắc dự báo 30 phút cho 5 camera" className="mt-3 h-[300px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={convertedPoints}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} /><XAxis dataKey="horizon" type="number" domain={[1, 30]} ticks={[1, 5, 15, 30]} tickFormatter={value => `+${value} phút`} /><YAxis type="number" domain={[0, 3]} ticks={VEHICLE_COUNT_LEVELS.map(level => level.id)} allowDecimals={false} width={108} tickFormatter={value => VEHICLE_COUNT_LEVELS.find(level => level.id === Number(value))?.label || ""} />
           <Tooltip labelFormatter={value => `Sau ${value} phút`} formatter={value => {
             const level = VEHICLE_COUNT_LEVELS.find(item => item.id === Number(value));
-            return [level ? `ID ${level.id} · ${level.label}` : "Chưa xác định", "Mức quy đổi"];
+            return [level ? `ID ${level.id} · ${level.label}` : "Chưa xác định", "Mức ùn tắc"];
           }} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} />
           {MINUTE_CAMERA_IDS.map((id, i) => <Line key={id} type="stepAfter" dataKey={id} name={CAMERAS.find(camera => camera.id === id)?.name || id} stroke={COLORS[i]} strokeWidth={2} strokeDasharray="7 5" dot={false} connectNulls={false} isAnimationActive={false} />)}
         </LineChart></ResponsiveContainer></div>

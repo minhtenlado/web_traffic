@@ -189,7 +189,6 @@ export function SignalControl() {
             <button className={button} disabled={disabled || signal.mode === "emergency"} onClick={() => run(() => setMode("manual"))}>MANUAL</button>
             <button className={button} disabled={disabled || signal.mode !== "manual" || !signal.hold} onClick={() => run(next)}>NEXT — chuyển pha</button>
           </div>
-          <p className="text-sm text-muted-foreground">MANUAL giữ pha xanh. NEXT chuyển sau thời gian xanh tối thiểu 5 giây; vàng và toàn đỏ do STM32 thực hiện.</p>
           <p role="status" className="text-sm">{message}</p>
         </div>
       </SectionCard>
@@ -251,11 +250,6 @@ export function SignalControl() {
                 : fuzzy?.controlMode === "MANUAL_OVERRIDE"
                   ? "Đang chờ Genio nhận lệnh trả quyền Fuzzy"
                   : "Fuzzy đang giữ quyền điều chỉnh khi STM32 ở AUTO"}</p>
-            <p className="mt-1 text-muted-foreground">{fuzzyOverrideConfirmed
-              ? "Có thể chỉnh thời lượng; Fuzzy sẽ không gửi kế hoạch cho đến khi trả quyền AUTO."
-              : fuzzyOverrideAcknowledged
-                ? "Chỉnh tay vẫn khóa đến khi kế hoạch đang chờ được STM32 xác nhận hoặc hết hạn."
-              : "Các mục chỉnh thời lượng đang khóa để tránh hai nguồn cùng thay đổi kế hoạch."}</p>
           </div>
           {user?.role === "admin" && <button type="button" className={button}
             disabled={fuzzyControlPending || (fuzzyControlMode !== "MANUAL_OVERRIDE" && (!online || readOnlyTelemetry || localControl))}
@@ -277,7 +271,7 @@ export function SignalControl() {
               <p className="text-xs text-muted-foreground">{item.title}</p>
               <div className="mt-1 flex items-baseline justify-between gap-2">
                 <span className="text-2xl font-semibold tabular-nums">{fuzzyFresh && item.value != null ? Number(item.value).toFixed(1) : "—"}</span>
-                <span className="text-xs text-muted-foreground">{fuzzyFresh && item.count != null ? `${item.count} xe trong ảnh` : "Chưa có số liệu mới"}</span>
+                {fuzzyFresh && item.count != null && <span className="text-sm text-muted-foreground">{item.count} xe</span>}
               </div>
             </div>
           ))}
@@ -300,13 +294,6 @@ export function SignalControl() {
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">{fuzzy?.advisoryOnly
-          ? liveStm32PlanId
-            ? `STM32 đang chạy kế hoạch #${liveStm32PlanId}; đề xuất Fuzzy mới chưa gửi${fuzzy?.planStatus === "RATE_LIMITED" ? " do giới hạn một lần điều chỉnh mỗi 60 giây." : "."}`
-            : fuzzy?.planStatus === "SHADOW_READY"
-              ? "Fuzzy đang ở chế độ theo dõi; chưa gửi kế hoạch đến STM32."
-              : "Chưa gửi kế hoạch Fuzzy mới đến STM32."
-          : "Kế hoạch chỉ có hiệu lực sau khi STM32 xác nhận."}</p>
       </SectionCard>
     </div>
   );

@@ -23,7 +23,6 @@ function duration(seconds: number | null | undefined) {
 export function SystemHealth() {
   const health = useTrafficStore((state) => state.healthMetrics);
   const edgeAI = useTrafficStore((state) => state.edgeAI);
-  const modelStatus = useTrafficStore((state) => state.modelStatus);
   const realtimeCams = useTrafficStore((state) => state.realtimeCams);
   const controller = useTrafficStore((state) => state.controllerStatus);
   const lastRealtimeUpdate = useTrafficStore((state) => state.lastRealtimeUpdate);
@@ -38,7 +37,6 @@ export function SystemHealth() {
   }, []);
 
   const telemetryFresh = telemetryIsFresh(health, now);
-  const telemetryAge = health?.observedAt ? Math.max(0, Math.floor((now - health.observedAt) / 1000)) : null;
 
   useEffect(() => {
     if (!health?.observedAt || !telemetryFresh) return;
@@ -68,10 +66,9 @@ export function SystemHealth() {
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Giám sát thiết bị</p><h2 className="mt-1 text-2xl font-semibold">Tình trạng vận hành</h2></div>
+      <div><h2 className="text-2xl font-semibold">Tình trạng vận hành</h2></div>
       <div className="text-right text-xs text-muted-foreground">
-        <p>{telemetryFresh && health?.observedAt ? `Đo lúc ${new Date(health.observedAt).toLocaleTimeString("vi-VN")}` : "Chưa có telemetry phần cứng mới"}</p>
-        <p className="mt-1">{telemetryFresh ? health?.source : telemetryAge !== null ? `Mẫu gần nhất cách đây ${telemetryAge} giây · đã hết hạn` : "Nguồn: chưa xác định"}</p>
+        <p>{telemetryFresh && health?.observedAt ? `Đo lúc ${new Date(health.observedAt).toLocaleTimeString("vi-VN")}` : "Chưa có telemetry mới"}</p>
       </div>
     </div>
 
@@ -83,7 +80,7 @@ export function SystemHealth() {
 
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
       <SectionCard title="Mức sử dụng CPU và RAM" icon={ServerCog}>
-        {points.length < 2 ? <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border px-6 text-center text-sm text-muted-foreground">Cần nhận thêm telemetry phần cứng để vẽ diễn biến. Không có chuỗi lịch sử dài hạn trong nguồn dữ liệu hiện tại.</div> : <div className="h-64">
+        {points.length < 2 ? <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border px-6 text-center text-sm text-muted-foreground">Đang thu thập dữ liệu</div> : <div className="h-64">
           <ResponsiveContainer width="100%" height="100%"><AreaChart data={points} margin={{ top: 8, right: 12, bottom: 2, left: -16 }}>
             <defs><linearGradient id="cpuArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity={0.26} /><stop offset="100%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient><linearGradient id="ramArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.22} /><stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} /></linearGradient></defs>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} /><XAxis dataKey="time" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={24} /><YAxis domain={[0, 100]} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} unit="%" />
@@ -96,9 +93,9 @@ export function SystemHealth() {
 
       <SectionCard title="Kết nối thiết bị" icon={Radio}>
         <div className="divide-y divide-border">
-          {statuses.map(({ name, detail, icon: Icon, ok, known }) => <div key={name} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+          {statuses.map(({ name, icon: Icon, ok, known }) => <div key={name} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary"><Icon className="h-4 w-4" /></div>
-            <div className="min-w-0 flex-1"><p className="text-sm font-medium">{name}</p><p className="text-xs text-muted-foreground">{detail}</p></div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-medium">{name}</p></div>
             <StatusBadge color={!known ? "cyan" : ok ? "green" : "amber"}>{!known ? "Chưa có dữ liệu" : ok ? "Đang kết nối" : "Dữ liệu cũ"}</StatusBadge>
           </div>)}
         </div>
@@ -107,7 +104,6 @@ export function SystemHealth() {
 
     <SectionCard title="Thời gian hoạt động" icon={Activity}>
       <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Genio 350</p><p className="mt-1 text-2xl font-semibold tabular-nums">{duration(telemetryFresh ? health?.uptime : null)}</p></div><StatusBadge color={genioFresh && telemetryFresh ? "green" : "amber"}>{genioFresh && telemetryFresh ? "Heartbeat và telemetry mới" : genioFresh ? "AI còn heartbeat · telemetry phần cứng cũ" : "Chưa xác nhận hoạt động"}</StatusBadge></div>
-      {modelStatus?.runtime_version && <p className="mt-3 text-xs text-muted-foreground">Runtime: {modelStatus.runtime_version}</p>}
     </SectionCard>
   </div>;
 }

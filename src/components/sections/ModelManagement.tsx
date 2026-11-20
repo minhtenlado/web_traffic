@@ -133,7 +133,7 @@ export function ModelManagement() {
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Nhận dạng & dự báo</p><h2 className="mt-1 text-2xl font-semibold">AI tại Hàng Xanh</h2></div>
+      <div><h2 className="text-2xl font-semibold">AI tại Hàng Xanh</h2></div>
       <StatusBadge color={edgeLive ? "green" : edgeAI ? "amber" : "cyan"}>{edgeLive ? "Genio có tín hiệu mới" : edgeAI ? "Đang chờ tín hiệu mới" : "Chưa nhận dữ liệu AI"}</StatusBadge>
     </div>
 
@@ -148,15 +148,14 @@ export function ModelManagement() {
           const cameraFresh = camera.fresh;
           return <article key={id} className="rounded-lg border border-border/80 bg-background/35 p-4">
             <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{CAMERAS.find((item) => item.id === id)?.name || id.replace("_", " ")}</h3><p className="text-xs text-muted-foreground">{CAMERAS.find((item) => item.id === id)?.label || ""}</p></div><StatusBadge color={cameraFresh ? "green" : "amber"}>{cameraFresh ? "Ảnh mới" : "Đang chờ"}</StatusBadge></div>
-            <div className="mt-4 flex items-end justify-between border-t border-border/70 pt-3"><div><p className="text-xs text-muted-foreground">{countLevel ? "Mức độ theo số xe" : `Tình trạng${camera.stabilizationMode === "display" ? " ổn định" : " nhận diện"}`}</p><p className="mt-1 text-lg font-semibold">{labelText}</p></div><p className="text-right text-sm tabular-nums">{camera.count ?? "—"}<span className="ml-1 text-xs text-muted-foreground">xe trong ảnh</span></p></div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3"><p className="text-xs text-muted-foreground">ID · ngưỡng khởi tạo</p>{countLevel ? <StatusBadge color={countLevel.color}>ID {countLevel.id} · {countLevel.range}</StatusBadge> : <span className="text-xs text-muted-foreground">Chưa có số đếm mới</span>}</div>
+            <div className="mt-4 flex items-end justify-between border-t border-border/70 pt-3"><div><p className="text-xs text-muted-foreground">{countLevel ? "Mức độ theo số xe" : `Tình trạng${camera.stabilizationMode === "display" ? " ổn định" : " nhận diện"}`}</p><p className="mt-1 text-lg font-semibold">{labelText}</p></div><p className="text-right text-sm tabular-nums">{camera.count ?? "—"}<span className="ml-1 text-sm text-muted-foreground">xe</span></p></div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3"><p className="text-xs text-muted-foreground">Mức ID</p>{countLevel ? <StatusBadge color={countLevel.color}>ID {countLevel.id} · {countLevel.range}</StatusBadge> : <span className="text-sm text-muted-foreground">—</span>}</div>
           </article>;
         })}
       </div> : <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Chưa nhận được kết quả nhận dạng mới.</p>}
     </SectionCard>
 
     {minuteCountForecast ? <EdgeMinuteForecastPanel data={edgeAI} history={edgeMinuteHistory} nowMs={now * 1000} /> : <SectionCard title="Dự báo nhãn ùn tắc (TCN cũ)" icon={Brain}>
-      <p className="mb-3 text-sm text-muted-foreground">Kết quả phân loại; không phải dự báo số xe.</p>
       <div className="mb-4 flex flex-wrap items-center justify-end gap-3"><StatusBadge color={hasCurrentForecast ? "green" : retainedForecastValid || recovery.state === "RESTORING" ? "amber" : "cyan"}>{forecastStatusLabel}</StatusBadge></div>
       <div className="mb-4 rounded-lg border border-border/80 bg-background/35 p-4">
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>Chuỗi đầu vào liên tục đã nạp{!edgeLive ? " ở bản tin cuối" : ""}</span><span className="tabular-nums">{progress.required > 0 ? `${progress.steps}/${progress.required} mẫu · ${progress.percent}%` : "Chưa nhận được tiến độ"}</span></div>

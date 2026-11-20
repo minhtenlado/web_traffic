@@ -15,7 +15,6 @@ import {
   Radio,
   Activity,
   Signal,
-  Clock,
   ExternalLink,
 } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
@@ -101,10 +100,6 @@ export function LiveMonitoring() {
                 {waitingCount} chờ cập nhật
               </div>
             )}
-            <span className="flex items-center gap-1.5 rounded-full border border-chart-2/30 bg-chart-2/10 px-2.5 py-1 text-[11px] font-bold text-chart-2">
-              <Camera className="h-3 w-3" />
-              ẢNH CẬP NHẬT
-            </span>
             {/* Refresh */}
             <Button
               variant="outline"
@@ -196,9 +191,6 @@ export function LiveMonitoring() {
                     {dir?.name}
                   </div>
 
-                  <div className="absolute right-2 top-2 z-10 rounded bg-background/80 px-2 py-1 text-[10px] font-semibold text-foreground backdrop-blur">
-                    {isAiInput ? "AI nhận diện" : "Chỉ ảnh tham chiếu"}
-                  </div>
 
 
 
@@ -232,9 +224,7 @@ export function LiveMonitoring() {
                 </div>
 
                 <div className="px-4">
-                  {isAiInput && view.source === "legacy" ? <TrafficVotes record={camData} /> : !isAiInput ? (
-                    <p className="py-2 text-xs text-muted-foreground">Camera này chưa được đưa vào luồng AI.</p>
-                  ) : null}
+                  {isAiInput && view.source === "legacy" ? <TrafficVotes record={camData} /> : null}
                 </div>
                 {/* Footer info */}
                 <div className="grid grid-cols-2 gap-2 px-4 py-4 text-sm">
@@ -253,9 +243,9 @@ export function LiveMonitoring() {
                     <div className="truncate font-semibold tabular-nums text-foreground text-sm">{ts}</div>
                   </div>
                   <div className="col-span-2 bg-muted/40 p-2">
-                    <div className="text-xs uppercase text-muted-foreground">ID · ngưỡng khởi tạo</div>
+                    <div className="text-xs uppercase text-muted-foreground">Mức ID</div>
                     <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                      {countLevel ? <StatusBadge color={countLevel.color} className="!px-2 !py-0.5 text-xs">ID {countLevel.id}</StatusBadge> : <span className="text-sm text-muted-foreground">{isAiInput ? "Chưa có số đếm mới" : "Không áp dụng cho camera tham chiếu"}</span>}
+                      {countLevel ? <StatusBadge color={countLevel.color} className="!px-2 !py-0.5 text-xs">ID {countLevel.id}</StatusBadge> : <span className="text-sm text-muted-foreground">—</span>}
                       {countLevel && <span className="text-xs tabular-nums text-muted-foreground">{countLevel.range}</span>}
                     </div>
                   </div>
@@ -276,13 +266,12 @@ export function LiveMonitoring() {
               <span className="font-normal text-muted-foreground">— {expandedCamInfo?.label}</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {expandedCamInfo?.aiInput && expandedView.observedAt ? `Kết quả AI: ${formatClockTime(new Date(expandedView.observedAt * 1000))} · ${expandedView.fresh ? "mới" : "dữ liệu cũ"}` : "Ảnh camera được làm mới khoảng 10 giây/lần."}
               {expandedCamInfo?.url && (
                 <a
                   href={expandedCamInfo.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-2 inline-flex items-center gap-1 text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
                 >
                   Mở trong tab mới <ExternalLink className="h-3 w-3" />
                 </a>
@@ -302,20 +291,9 @@ export function LiveMonitoring() {
                   <div className="text-sm font-semibold text-foreground">
                     Không có nguồn ảnh
                   </div>
-                  <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                    Camera chưa có URL ảnh snapshot.
-                  </p>
                 </div>
               </div>
             )}
-            {/* Overlay info pill */}
-            <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-lg bg-background/70 px-2 py-1 text-[10px] font-semibold backdrop-blur">
-              <Clock className="h-3 w-3 text-primary" />
-              <span className="font-mono tabular-nums text-foreground">
-                {formatClockTime(new Date())}
-              </span>
-              <span className="text-chart-2">Ảnh tự làm mới</span>
-            </div>
             {/* Camera status pill */}
             {expandedCamInfo?.aiInput && (
               <div className="pointer-events-none absolute right-3 top-3">

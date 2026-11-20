@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Camera, Video, ArrowUpLeft, X, ExternalLink, MapPin, Clock, Activity } from "lucide-react";
+import { Camera, Video, ArrowUpLeft, X, ExternalLink, MapPin, Activity } from "lucide-react";
 import { useTheme } from "next-themes";
 import { CAMERAS, SIGNAL_PHASES, DIRECTIONS, AREA_CONFIGS } from "@/lib/constants";
 import { useTrafficStore } from "@/lib/store";
@@ -206,13 +206,7 @@ function CameraPopup({
         {/* Refreshed snapshot, not a live video stream. */}
         <div className="relative aspect-video w-full bg-black">
           {cam.url ? (
-            <>
-              <CameraSnapshot src={cam.url} alt={`${cam.name} — ${cam.label}`} />
-              <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 backdrop-blur-sm">
-                <Clock className="h-3 w-3 text-blue-400" />
-                <span className="text-[10px] font-bold text-white/90">Ảnh snapshot · tự làm mới 10 giây</span>
-              </div>
-            </>
+            <CameraSnapshot src={cam.url} alt={`${cam.name} — ${cam.label}`} />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-muted/30 to-background p-6 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/15">
@@ -221,9 +215,6 @@ function CameraPopup({
               <div>
                 <p className="text-sm font-semibold text-foreground">
                   {isError ? "Chưa có dữ liệu AI mới" : "Không có nguồn ảnh"}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {isError ? "Ảnh AI đang lỗi hoặc đã cũ" : "Camera chưa có URL snapshot"}
                 </p>
               </div>
             </div>
@@ -361,11 +352,7 @@ export function LeafletIntersectionMap({ selectedArea = "hang-xanh" }: { selecte
 
       {/* Minimal legend */}
       <div className="absolute bottom-3 left-3 z-[400] flex items-center gap-2 rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-medium backdrop-blur shadow-md">
-        <span className="flex items-center gap-1.5">
-          <Camera className="h-3 w-3 text-primary" />
-          Click camera để xem hình ảnh
-        </span>
-        <span className="flex items-center gap-1 text-muted-foreground border-l border-border pl-2">
+        <span className="flex items-center gap-1 text-muted-foreground">
           <ArrowUpLeft className="h-2.5 w-2.5" />
           Đèn rẽ trái
         </span>
