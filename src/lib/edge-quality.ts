@@ -137,25 +137,18 @@ export function readEdgeMinuteForecast(data: any, nowMs = Date.now()) {
 export type ForecastComparisonPoint = { timestamp: number; actual: number; forecast: number };
 
 /** Return only same-target forecast/observed pairs and compute metrics for that camera/horizon. */
-export function readEdgeForecastComparison(data: any, camera: string, horizon: number, nowMs = Date.now()) {
+export function readEdgeForecastComparison(data: any, camera: string, horizon: number) {
   const empty = { points: [] as ForecastComparisonPoint[], samples: 0, mae: null as number | null, rmse: null as number | null };
   if (!MINUTE_CAMERA_IDS.includes(camera as typeof MINUTE_CAMERA_IDS[number]) || ![1, 5, 15, 30].includes(horizon) ||
       data?.source !== "observed_only_visible_count") return empty;
-  const generatedAt = epochSeconds(data?.generated_at);
-  const now = nowMs / 1000;
   const rows = data?.points?.[String(horizon)];
   if (!Array.isArray(rows)) return empty;
   const points: ForecastComparisonPoint[] = [];
   for (const row of rows) {
     const timestamp = epochSeconds(row?.target_minute);
-    // The evaluation payload is server-generated from matured observations. Keep a
-    // second client-side guard so a future or clock-skewed target cannot train calibration.
-    const issuedAt = timestamp === null ? null : timestamp - horizon * 60;
     const actual = row?.observed_counts?.[camera];
     const forecast = row?.forecast_counts?.[camera];
-    if (timestamp === null || timestamp > now || (generatedAt !== null && timestamp > generatedAt) ||
-        issuedAt === null || issuedAt > now || (generatedAt !== null && issuedAt > generatedAt) ||
-        !Number.isInteger(actual) || actual < 0 ||
+    if (timestamp === null || !Number.isInteger(actual) || actual < 0 ||
         !Number.isInteger(forecast) || forecast < 0) continue;
     points.push({ timestamp, actual, forecast });
   }

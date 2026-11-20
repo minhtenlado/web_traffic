@@ -124,17 +124,6 @@ test('forecast comparison aligns the same target minute and calculates errors fo
   assert.equal(readEdgeForecastComparison({ source: 'unknown', points: evaluation.points }, 'cam_01', 5).samples, 0);
 });
 
-test('forecast evaluation excludes targets not yet observed at the payload generation time', () => {
-  const issued = 1_000_000;
-  const target = issued + 60;
-  const point = { target_minute: new Date(target * 1000).toISOString(),
-    observed_counts: { cam_01: 18 }, forecast_counts: { cam_01: 20 } };
-  const pending = { generated_at: issued + 30, source: 'observed_only_visible_count', points: { '1': [point] } };
-  assert.equal(readEdgeForecastComparison(pending, 'cam_01', 1, (target + 60) * 1000).samples, 0);
-  const matured = { ...pending, generated_at: target + 1 };
-  assert.equal(readEdgeForecastComparison(matured, 'cam_01', 1, (target + 60) * 1000).samples, 1);
-});
-
 test('historical forecast chart is aligned to the visible 120-minute window and keeps missing minutes as gaps', () => {
   const start = 1_000_020;
   const history = Array.from({ length: 4 }, (_, index) => ({ timestamp: start + index * 60, counts: {} }));

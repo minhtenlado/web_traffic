@@ -13,10 +13,6 @@ export const VEHICLE_COUNT_LEVELS = [
   { id: 3, label: "Kẹt xe", min: 41, max: null, range: "≥ 41 xe", color: "red" },
 ] as const;
 
-export const FORECAST_CALIBRATION_WINDOW = 100;
-export const FORECAST_CALIBRATION_MIN_SAMPLES = 20;
-const FORECAST_CALIBRATION_EPSILON = 1e-6;
-
 export type VehicleCountLevel = (typeof VEHICLE_COUNT_LEVELS)[number];
 
 export function vehicleCountLevel(count: number | null | undefined): VehicleCountLevel | null {
@@ -43,99 +39,6 @@ export function evaluateVehicleCountForecast(points: Array<{ timestamp: number; 
     rmse: countErrors.length ? Math.sqrt(countErrors.reduce((sum, error) => sum + error * error, 0) / countErrors.length) : null,
     labelAccuracy: rows.length ? labelMatches / rows.length : null,
     meanLevelError: classErrors.length ? classErrors.reduce((sum, error) => sum + error, 0) / classErrors.length : null,
-  };
-}
-
-export type VehicleCountForecastPoint = { timestamp: number; actual: number; forecast: number };
-export type VehicleCountCalibration = {
-  samples: number;
-  meanActual: number;
-  meanForecast: number;
-  stdActual: number;
-  stdForecast: number;
-  a: number;
-  b: number;
-};
-
-export function applyVehicleCountCalibration(forecast: number, calibration: VehicleCountCalibration) {
-  if (!Number.isFinite(forecast) || forecast < 0 || !Number.isFinite(calibration.a) || !Number.isFinite(calibration.b)) return null;
-  const adjusted = Math.max(0, calibration.a * forecast + calibration.b);
-  return Number.isFinite(adjusted) ? adjusted : null;
-}
-
-function fitVehicleCountCalibration(points: VehicleCountForecastPoint[], windowSize: number, minimumSamples: number) {
-  const window = points.slice(-windowSize);
-  if (window.length < minimumSamples) return { calibration: null, reason: "insufficient_history" as const };
-  const meanActual = window.reduce((sum, point) => sum + point.actual, 0) / window.length;
-  const meanForecast = window.reduce((sum, point) => sum + point.forecast, 0) / window.length;
-  const stdActual = Math.sqrt(window.reduce((sum, point) => sum + (point.actual - meanActual) ** 2, 0) / window.length);
-  const stdForecast = Math.sqrt(window.reduce((sum, point) => sum + (point.forecast - meanForecast) ** 2, 0) / window.length);
-  if (!Number.isFinite(stdActual) || !Number.isFinite(stdForecast) || stdForecast <= FORECAST_CALIBRATION_EPSILON) {
-    return { calibration: null, reason: "insufficient_forecast_variation" as const };
-  }
-  const a = stdActual / (stdForecast + FORECAST_CALIBRATION_EPSILON);
-  const b = meanActual - a * meanForecast;
-  if (![meanActual, meanForecast, a, b].every(Number.isFinite)) {
-    return { calibration: null, reason: "invalid_coefficients" as const };
-  }
-  return { calibration: { samples: window.length, meanActual, meanForecast, stdActual, stdForecast, a, b }, reason: null };
-}
-
-function countForecastMetrics(rows: Array<{ actual: number; forecast: number }>) {
-  if (!rows.length) return { samples: 0, mae: null as number | null, rmse: null as number | null,
-    labelAccuracy: null as number | null, meanLevelError: null as number | null };
-  const errors = rows.map(row => row.forecast - row.actual);
-  const levels = rows.flatMap(row => {
-    const actual = vehicleCountLevel(row.actual);
-    const predicted = vehicleCountLevel(Math.max(0, Math.round(row.forecast)));
-    return actual && predicted ? [{ actual: actual.id, predicted: predicted.id }] : [];
-  });
-  const labelMatches = levels.filter(row => row.actual === row.predicted).length;
-  return {
-    samples: rows.length,
-    mae: errors.reduce((sum, error) => sum + Math.abs(error), 0) / errors.length,
-    rmse: Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length),
-    labelAccuracy: levels.length ? labelMatches / levels.length : null,
-    meanLevelError: levels.length ? levels.reduce((sum, row) => sum + Math.abs(row.predicted - row.actual), 0) / levels.length : null,
-  };
-}
-
-/**
- * Fit the current correction from matured pairs and estimate corrected quality
- * with a causal walk-forward: each historical row is adjusted only with earlier rows.
- */
-export function evaluateAdaptiveVehicleCountForecast(
-  input: VehicleCountForecastPoint[],
-  options: { windowSize?: number; minimumSamples?: number } = {},
-) {
-  const windowSize = Number.isInteger(options.windowSize) && options.windowSize! > 0
-    ? options.windowSize! : FORECAST_CALIBRATION_WINDOW;
-  const minimumSamples = Number.isInteger(options.minimumSamples) && options.minimumSamples! > 1
-    ? options.minimumSamples! : FORECAST_CALIBRATION_MIN_SAMPLES;
-  const points = input.filter(point => Number.isFinite(point.timestamp) && point.timestamp > 0 &&
-    Number.isSafeInteger(point.actual) && point.actual >= 0 && Number.isSafeInteger(point.forecast) && point.forecast >= 0)
-    .sort((a, b) => a.timestamp - b.timestamp);
-  const latestFit = fitVehicleCountCalibration(points, windowSize, minimumSamples);
-  const walkForwardRows: Array<VehicleCountForecastPoint & { adjusted: number | null; calibrationSamples: number }> = [];
-  for (let index = 0; index < points.length; index++) {
-    const historical = points.slice(Math.max(0, index - windowSize), index);
-    const fit = fitVehicleCountCalibration(historical, windowSize, minimumSamples);
-    const adjusted = fit.calibration ? applyVehicleCountCalibration(points[index].forecast, fit.calibration) : null;
-    walkForwardRows.push({ ...points[index], adjusted, calibrationSamples: fit.calibration?.samples ?? 0 });
-  }
-  const scored = walkForwardRows.filter((row): row is typeof row & { adjusted: number } => row.adjusted !== null);
-  const rawMetrics = countForecastMetrics(scored.map(row => ({ actual: row.actual, forecast: row.forecast })));
-  const adjustedMetrics = countForecastMetrics(scored.map(row => ({ actual: row.actual, forecast: row.adjusted })));
-  return {
-    windowSize,
-    minimumSamples,
-    availableSamples: points.length,
-    latestCalibration: latestFit.calibration,
-    latestCalibrationReason: latestFit.reason,
-    walkForwardRows,
-    walkForwardSamples: scored.length,
-    rawMetrics,
-    adjustedMetrics,
   };
 }
 

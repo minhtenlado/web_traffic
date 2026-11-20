@@ -50,45 +50,6 @@ test('real-time forecast evaluation scores vehicle errors and count-derived leve
   assert.equal(empty.samples, 0);
   assert.equal(empty.labelAccuracy, null);
 });
-test('adaptive count calibration fits only prior matured pairs and reports walk-forward comparison', () => {
-  const points = Array.from({ length: 25 }, (_, index) => ({
-    timestamp: 10_000 + index * 60,
-    forecast: 10 + index,
-    actual: 23 + index * 2,
-  }));
-  const result = status.evaluateAdaptiveVehicleCountForecast(points);
-  assert.equal(result.windowSize, 100);
-  assert.equal(result.minimumSamples, 20);
-  assert.equal(result.availableSamples, 25);
-  assert.equal(result.walkForwardSamples, 5);
-  assert.ok(Math.abs(result.latestCalibration.a - 2) < 1e-5);
-  assert.ok(Math.abs(result.latestCalibration.b - 3) < 1e-4);
-  assert.ok(Math.abs(result.walkForwardRows[20].adjusted - points[20].actual) < 1e-4);
-  assert.equal(result.rawMetrics.mae, 35);
-  assert.ok(result.adjustedMetrics.mae < 1e-4);
-  assert.equal(result.adjustedMetrics.labelAccuracy, 1);
-
-  const changedFutureActual = points.map(point => ({ ...point }));
-  changedFutureActual[20].actual = 0;
-  const changed = status.evaluateAdaptiveVehicleCountForecast(changedFutureActual);
-  assert.equal(changed.walkForwardRows[20].adjusted, result.walkForwardRows[20].adjusted,
-    'the target outcome must not affect the coefficients used for that same prediction');
-});
-test('adaptive count calibration waits for enough varied history and clamps adjusted count at zero', () => {
-  const warmup = status.evaluateAdaptiveVehicleCountForecast(Array.from({ length: 19 }, (_, index) => ({
-    timestamp: 20_000 + index, actual: index, forecast: index,
-  })));
-  assert.equal(warmup.latestCalibration, null);
-  assert.equal(warmup.latestCalibrationReason, 'insufficient_history');
-  const flat = status.evaluateAdaptiveVehicleCountForecast(Array.from({ length: 20 }, (_, index) => ({
-    timestamp: 30_000 + index, actual: index, forecast: 5,
-  })));
-  assert.equal(flat.latestCalibration, null);
-  assert.equal(flat.latestCalibrationReason, 'insufficient_forecast_variation');
-  const calibration = { samples: 20, meanActual: 1, meanForecast: 1, stdActual: 1, stdForecast: 1, a: 1, b: -10 };
-  assert.equal(status.applyVehicleCountCalibration(5, calibration), 0);
-  assert.equal(status.applyVehicleCountCalibration(Number.NaN, calibration), null);
-});
 function record(label = 'Ket_xe') {
   const counts = { Duong_vang: 0, Binh_thuong: 0, Dong_xe: 0, Sap_ket: 0, Ket_xe: 0 };
   counts[label] = 10;
