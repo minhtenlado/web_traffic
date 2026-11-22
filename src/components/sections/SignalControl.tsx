@@ -155,9 +155,11 @@ export function SignalControl() {
   const fuzzyOwnsAuto = signal.mode === "auto" && fuzzy?.autoEnabled !== false;
   const manualTimingBlocked = fuzzyOwnsAuto && !fuzzyOverrideConfirmed;
   const timingDisabled = disabled || signal.mode === "emergency" || manualTimingBlocked;
+  // Fuzzy group A drives the STM32 NS phase, which the tabletop shows as the
+  // east–west lamps (TD-032, displayPhysicalAxes). Label demand the same way.
   const situationLabels: Record<string, string> = {
     NORMAL: "Lưu lượng ổn định", BOTH_HEAVY: "Hai hướng đông",
-    A_HEAVY: "Bắc–Nam đông", B_HEAVY: "Đông–Tây đông",
+    A_HEAVY: "Đông–Tây đông", B_HEAVY: "Bắc–Nam đông",
   };
   const situationLabel = fuzzy?.situation ? situationLabels[fuzzy.situation] || fuzzy.situation : "Chưa xác định";
   const fuzzyPlanQueuedOrApplied = ["APPLIED", "QUEUED"].includes(fuzzy?.planStatus || "");
@@ -264,8 +266,8 @@ export function SignalControl() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           {([
-            { key: "A", title: "Điểm nhu cầu · Bắc–Nam", value: fuzzy?.demandA, count: fuzzy?.directionCounts?.A },
-            { key: "B", title: "Điểm nhu cầu · Đông–Tây", value: fuzzy?.demandB, count: fuzzy?.directionCounts?.B },
+            { key: "B", title: "Điểm nhu cầu · Bắc–Nam", value: fuzzy?.demandB, count: fuzzy?.directionCounts?.B },
+            { key: "A", title: "Điểm nhu cầu · Đông–Tây", value: fuzzy?.demandA, count: fuzzy?.directionCounts?.A },
           ]).map((item) => (
             <div key={item.key} className="rounded-lg border border-border/80 p-3">
               <p className="text-xs text-muted-foreground">{item.title}</p>
