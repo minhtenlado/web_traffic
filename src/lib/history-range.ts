@@ -1,6 +1,13 @@
 /** 2–24 h minute history published by the Genio (see edge `history_export.py`). */
 export const HISTORY_RANGE_HOURS = [2, 4, 8, 12, 24] as const;
 export type HistoryRangeHours = (typeof HISTORY_RANGE_HOURS)[number];
+/** The Genio keeps (and the Web can show) at most 3 days of minute history; older hours are deleted. */
+export const HISTORY_RETENTION_HOURS = 72;
+/** How far back the selected window ends: now, 1 day ago, 2 days ago (window always inside retention). */
+export const HISTORY_OFFSET_HOURS = [0, 24, 48] as const;
+export const HISTORY_OFFSET_LABELS: Record<(typeof HISTORY_OFFSET_HOURS)[number], string> = {
+  0: "Hiện tại", 24: "1 ngày trước", 48: "2 ngày trước",
+};
 
 export type HistoryRow = {
   t: number;
@@ -11,11 +18,28 @@ export type HistoryRow = {
 
 const VN_OFFSET_MS = 7 * 3600 * 1000;
 
-/** First hour-bucket key (h + YYYYMMDDHH, Asia/Ho_Chi_Minh) that can hold minutes of the range. */
-export function historyStartKey(nowMs: number, hours: number) {
-  const local = new Date(nowMs + VN_OFFSET_MS - hours * 3600 * 1000);
+/** Hour-bucket key (h + YYYYMMDDHH, Asia/Ho_Chi_Minh) of the hour containing `ms`. */
+export function historyHourKey(ms: number) {
+  const local = new Date(ms + VN_OFFSET_MS);
   const pad = (value: number) => String(value).padStart(2, "0");
   return `h${local.getUTCFullYear()}${pad(local.getUTCMonth() + 1)}${pad(local.getUTCDate())}${pad(local.getUTCHours())}`;
+}
+
+/** First hour-bucket key that can hold minutes of the `hours` window ending at `endMs`. */
+export function historyStartKey(endMs: number, hours: number) {
+  return historyHourKey(endMs - hours * 3600 * 1000);
+}
+
+export type HistoryWindow = { from: number; to: number; startKey: string; endKey: string };
+
+/** Window [from, to] (seconds) of `hours` ending `offsetHours` before now, or null if it is not a supported request. */
+export function historyWindow(nowMs: number, hours: number, offsetHours = 0): HistoryWindow | null {
+  if (!(HISTORY_RANGE_HOURS as readonly number[]).includes(hours)) return null;
+  if (!(HISTORY_OFFSET_HOURS as readonly number[]).includes(offsetHours)) return null;
+  if (hours + offsetHours > HISTORY_RETENTION_HOURS) return null;
+  const endMs = nowMs - offsetHours * 3600 * 1000;
+  return { from: endMs / 1000 - hours * 3600, to: endMs / 1000,
+    startKey: historyStartKey(endMs, hours), endKey: historyHourKey(endMs) };
 }
 
 function counts(value: unknown) {
