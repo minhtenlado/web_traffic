@@ -103,6 +103,59 @@ function withGaps(points: { timestamp: number; value: number }[]): SeriesPoint[]
   return result;
 }
 
+/** [first, last] minute (seconds) of a run of consecutive minutes. */
+export type HistorySpan = [number, number];
+
+export type HistoryCoverage = {
+  /** Whole minutes of the window that should already be published. */
+  minutes: number;
+  /** Minutes with a count for the camera, of which `imputed` are short-outage estimates. */
+  actual: number;
+  imputed: number;
+  /** Minutes with a forecast for the camera at the selected horizon. */
+  forecast: number;
+  /** Runs of minutes without a count (device off, network down, camera without images). */
+  noData: HistorySpan[];
+  /** Runs of minutes without a forecast (no data, or the TCN still collecting 120 contiguous minutes). */
+  noForecast: HistorySpan[];
+};
+
+/**
+ * Which minutes of [from, to] have a count and a forecast for one camera.
+ * The newest `pendingSeconds` are skipped: the Genio publishes a minute only after it ends.
+ */
+export function historyCoverage(rows: HistoryRow[], camera: string, cameraIndex: number, horizon: number,
+  from: number, to: number, pendingSeconds = 120): HistoryCoverage {
+  const key = `h${horizon}`;
+  const actual = new Map<number, string>();
+  const forecast = new Set<number>();
+  for (const row of rows) {
+    const minute = Math.round(row.t / 60) * 60;
+    if (row.c?.[camera] !== undefined) actual.set(minute, row.s?.[cameraIndex] ?? "o");
+    if (row.p?.[key]?.[camera] !== undefined) forecast.add(minute);
+  }
+  const noData: HistorySpan[] = [];
+  const noForecast: HistorySpan[] = [];
+  const extend = (spans: HistorySpan[], minute: number) => {
+    const tail = spans[spans.length - 1];
+    if (tail && minute - tail[1] === 60) tail[1] = minute;
+    else spans.push([minute, minute]);
+  };
+  let minutes = 0, actualMinutes = 0, imputed = 0, forecastMinutes = 0;
+  for (let minute = Math.ceil(from / 60) * 60; minute <= to - pendingSeconds; minute += 60) {
+    minutes++;
+    const source = actual.get(minute);
+    if (source === undefined) extend(noData, minute);
+    else {
+      actualMinutes++;
+      if (source === "i") imputed++;
+    }
+    if (forecast.has(minute)) forecastMinutes++;
+    else extend(noForecast, minute);
+  }
+  return { minutes, actual: actualMinutes, imputed, forecast: forecastMinutes, noData, noForecast };
+}
+
 /** Actual and horizon-matched forecast series for one camera, plus error metrics on observed minutes. */
 export function historyRangeSeries(rows: HistoryRow[], camera: string, cameraIndex: number, horizon: number) {
   const key = `h${horizon}`;

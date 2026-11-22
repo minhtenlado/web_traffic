@@ -7,7 +7,7 @@ import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
 import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, selectDisplayMinuteForecast, type EdgeMinuteHistoryPoint, type ReadyMinuteForecast } from "@/lib/edge-quality";
 import { evaluateVehicleCountForecast, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
-import { HISTORY_OFFSET_HOURS, HISTORY_OFFSET_LABELS, HISTORY_RANGE_HOURS, historyRangeSeries, parseHistoryResponse, type HistoryRow } from "@/lib/history-range";
+import { HISTORY_OFFSET_HOURS, HISTORY_OFFSET_LABELS, HISTORY_RANGE_HOURS, historyCoverage, historyRangeSeries, parseHistoryResponse, type HistoryRow, type HistorySpan } from "@/lib/history-range";
 import { SectionCard } from "./ui";
 
 const COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc", "#f472b6"];
@@ -15,6 +15,25 @@ const COMPARISON_HORIZONS = [1, 5, 15, 30] as const;
 const OBSERVED_COLOR = "#34d399";
 const PREDICTED_COLOR = "#60a5fa";
 const CURRENT_COLOR = "#f472b6";
+const NO_DATA_COLOR = "#ef4444";
+const NO_FORECAST_COLOR = "#f59e0b";
+const NO_DATA_LABEL = "Mất dữ liệu";
+const NO_FORECAST_LABEL = "Chưa có dự báo";
+const NO_ACTUAL_MESSAGE = "Không có số liệu trong khoảng này: thiết bị tắt, mất mạng hoặc camera không có ảnh.";
+const NO_FORECAST_MESSAGE = "Không có dự báo TCN trong khoảng này. TCN chỉ dự báo khi có đủ 120 phút số liệu liên tục của cả 5 camera; sau mỗi lần mất dữ liệu quá 15 phút (mất mạng, khởi động lại, camera mất ảnh) hệ thống cần khoảng 2 giờ để tích lũy lại.";
+
+type ShadedSpans = { spans: HistorySpan[]; color: string; label: string };
+
+function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes} phút`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
+}
+
+function spanMinutes(spans: HistorySpan[]) {
+  return spans.reduce((sum, [first, last]) => sum + (last - first) / 60 + 1, 0);
+}
 
 const WINDOW_FORMAT: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" };
 
@@ -25,13 +44,17 @@ function formatWindow([from, to]: [number, number]) {
 
 type ComparisonChartPoint = { timestamp: number; actual?: number | null; predicted?: number | null; predictedFilled?: boolean; current?: number | null };
 
-function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd, window: fixedWindow }: {
+function ComparisonChart({ title, subtitle, data, lines, currentTimestamp, futureEnd, window: fixedWindow, shaded = [], emptyMessage }: {
   title: string;
+  subtitle?: string;
   window?: [number, number];
   data: ComparisonChartPoint[];
   lines: Array<{ key: "actual" | "predicted" | "current"; name: string; color: string; dashed?: boolean; marker?: boolean }>;
   currentTimestamp?: number;
   futureEnd?: number;
+  /** Minute runs to shade (each run covers its minutes ±30 s), e.g. outages. */
+  shaded?: ShadedSpans[];
+  emptyMessage?: string;
 }) {
   const timestamps = data.map(point => point.timestamp).filter(Number.isFinite);
   const hasValues = lines.some(line => data.some(point => typeof point[line.key] === "number" && Number.isFinite(point[line.key])));
@@ -39,8 +62,16 @@ function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd, wind
     ? [timestamps[0] - 60, timestamps[timestamps.length - 1] + 60]
     : [0, 60]);
 
+  const clamp = (value: number) => Math.min(domain[1], Math.max(domain[0], value));
+  const areas = shaded.flatMap(group => group.spans.map(([first, last]) => ({
+    key: `${group.label}-${first}`, color: group.color, x1: clamp(first - 30), x2: clamp(last + 30),
+  }))).filter(area => area.x2 > area.x1);
+  const legend = shaded.filter(group => group.spans.length > 0);
+
   return <section className="rounded-xl border border-border/80 bg-muted/15 p-3 sm:p-4">
-    <h4 className="mb-2 text-sm font-semibold">{title}</h4>
+    <h4 className="text-sm font-semibold">{title}</h4>
+    {subtitle && <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">{subtitle}</p>}
+    <div className="mb-2" />
     {hasValues ? <div role="img" aria-label={title} className="h-[220px] w-full sm:h-[250px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 12, right: 14, bottom: 4, left: 0 }}>
@@ -57,6 +88,7 @@ function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd, wind
               return [formatted, "Số xe"];
             }}
             contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
+          {areas.map(area => <ReferenceArea key={area.key} x1={area.x1} x2={area.x2} fill={area.color} fillOpacity={0.12} strokeOpacity={0} ifOverflow="hidden" />)}
           {currentTimestamp !== undefined && futureEnd !== undefined && futureEnd > currentTimestamp &&
             <ReferenceArea x1={currentTimestamp} x2={futureEnd} fill="#fb923c" fillOpacity={0.06} strokeOpacity={0} />}
           {currentTimestamp !== undefined && <ReferenceLine x={currentTimestamp} stroke="var(--foreground)"
@@ -68,7 +100,13 @@ function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd, wind
         </LineChart>
       </ResponsiveContainer>
     </div> : <div className="flex h-[220px] items-center justify-center rounded-lg border border-dashed border-border px-5 text-center text-sm text-muted-foreground sm:h-[250px]">
-      Chưa có đủ dữ liệu để vẽ chuỗi này.
+      {emptyMessage ?? "Chưa có đủ dữ liệu để vẽ chuỗi này."}
+    </div>}
+    {hasValues && legend.length > 0 && <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+      {legend.map(group => <span key={group.label} className="inline-flex items-center gap-2">
+        <span className="inline-block h-2.5 w-4 rounded-sm" style={{ backgroundColor: group.color, opacity: 0.35 }} />
+        {group.label} · {formatDuration(spanMinutes(group.spans))}
+      </span>)}
     </div>}
   </section>;
 }
@@ -179,9 +217,8 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
           }));
         // Saved history (Firebase, 3 days) once loaded — even if empty; live 2 h buffer only as a fallback for "now".
         const useSaved = rangeRows !== null && (rangeRows.length > 0 || offsetHours > 0);
-        const range = rangeRows && useSaved
-          ? historyRangeSeries(rangeRows, camera, MINUTE_CAMERA_IDS.indexOf(camera as (typeof MINUTE_CAMERA_IDS)[number]), horizon)
-          : null;
+        const cameraIndex = MINUTE_CAMERA_IDS.indexOf(camera as (typeof MINUTE_CAMERA_IDS)[number]);
+        const range = rangeRows && useSaved ? historyRangeSeries(rangeRows, camera, cameraIndex, horizon) : null;
         const fallbackLive = !range && offsetHours === 0;
         const rangeActual: ComparisonChartPoint[] = range ? range.actual.map(point => ({ timestamp: point.timestamp, actual: point.value })) : fallbackLive ? actualHistory : [];
         const rangePredicted: ComparisonChartPoint[] = range ? range.predicted.map(point => ({ timestamp: point.timestamp, predicted: point.value })) : fallbackLive ? historicalPredictions : [];
@@ -191,6 +228,14 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
         const rangeWindow: [number, number] | undefined = fallbackLive ? undefined : [windowEnd - rangeHours * 3600, windowEnd];
         const shownHours = fallbackLive ? 2 : rangeHours;
         const periodLabel = rangeWindow ? ` · ${formatWindow(rangeWindow)}` : "";
+        const coverage = range && rangeRows && rangeWindow
+          ? historyCoverage(rangeRows, camera, cameraIndex, horizon, rangeWindow[0], rangeWindow[1]) : null;
+        const noDataMinutes = coverage ? spanMinutes(coverage.noData) : 0;
+        const actualSubtitle = coverage ? `Có số liệu ${coverage.actual}/${coverage.minutes} phút`
+          + (coverage.imputed ? ` (${coverage.imputed} phút ước lượng khi camera mất ảnh ngắn)` : "")
+          + (noDataMinutes ? ` · mất dữ liệu ${formatDuration(noDataMinutes)}` : "") : undefined;
+        const forecastSubtitle = coverage ? `Có dự báo ${coverage.forecast}/${coverage.minutes} phút`
+          + (coverage.forecast < coverage.minutes ? " · TCN cần 120 phút số liệu liên tục trước khi dự báo" : "") : undefined;
         const currentTimestamp = current?.timestamp ?? nowMs / 1000;
         const displayForecast = selectDisplayMinuteForecast(forecast, lastReadyForecast, currentTimestamp);
         const combinedRows = new Map<number, ComparisonChartPoint>();
@@ -249,9 +294,13 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
               </div>
           </section>}
           <div className="mt-4 space-y-3">
-            <ComparisonChart title={`1. Lịch sử thực tế · ${shownHours} giờ${periodLabel}`} data={rangeActual} window={rangeWindow}
+            <ComparisonChart title={`1. Lịch sử thực tế · ${shownHours} giờ${periodLabel}`} subtitle={actualSubtitle}
+              data={rangeActual} window={rangeWindow} emptyMessage={range ? NO_ACTUAL_MESSAGE : undefined}
+              shaded={coverage ? [{ spans: coverage.noData, color: NO_DATA_COLOR, label: NO_DATA_LABEL }] : []}
               lines={[{ key: "actual", name: "Số xe lịch sử", color: OBSERVED_COLOR }]} />
-            <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút · ${shownHours} giờ${periodLabel}`} data={rangePredicted} window={rangeWindow}
+            <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút · ${shownHours} giờ${periodLabel}`} subtitle={forecastSubtitle}
+              data={rangePredicted} window={rangeWindow} emptyMessage={range ? NO_FORECAST_MESSAGE : undefined}
+              shaded={coverage ? [{ spans: coverage.noForecast, color: NO_FORECAST_COLOR, label: NO_FORECAST_LABEL }] : []}
               lines={[{ key: "predicted", name: "Dự báo TCN lịch sử", color: PREDICTED_COLOR, dashed: true }]} />
             <ComparisonChart title="3. Hiện tại + dự báo TCN" data={combined}
               lines={[
