@@ -65,3 +65,28 @@ test('3-day retention: windows can end now, 1 day or 2 days ago, never beyond 72
   assert.equal(historyWindow(now, 3, 0), null);     // unsupported range
   assert.equal(historyWindow(now, 24, 12), null);   // unsupported offset
 });
+
+test('coverage counts minutes with data and forecasts and lists the gaps', () => {
+  const { historyCoverage } = context.exports;
+  const base = 1_800_000_000 - (1_800_000_000 % 60);
+  const rows = [
+    { t: base, s: 'ooooo', c: { cam_01: 5 } },
+    { t: base + 60, s: 'ioooo', c: { cam_01: 6 }, p: { h1: { cam_01: 6 } } },
+    // base+120 .. base+240 missing (3 minutes)
+    { t: base + 300, s: 'ooooo', c: { cam_01: 7 }, p: { h1: { cam_01: 8 } } },
+    { t: base + 360, s: 'moooo', c: { cam_02: 1 }, p: { h1: { cam_01: 9 } } },
+  ];
+  const coverage = historyCoverage(rows, 'cam_01', 0, 1, base, base + 360 + 120);
+  assert.equal(coverage.minutes, 7);
+  assert.equal(coverage.actual, 3);
+  assert.equal(coverage.imputed, 1);
+  assert.equal(coverage.forecast, 3);
+  assert.deepEqual(coverage.noData.map(span => [...span]), [[base + 120, base + 240], [base + 360, base + 360]]);
+  assert.deepEqual(coverage.noForecast.map(span => [...span]), [[base, base], [base + 120, base + 240]]);
+  // The newest two minutes are not published yet and are not counted as missing.
+  assert.equal(historyCoverage(rows, 'cam_01', 0, 1, base, base + 360 + 60).minutes, 6);
+  // Nothing stored at all: the whole window is one gap.
+  const empty = historyCoverage([], 'cam_01', 0, 1, base, base + 600);
+  assert.equal(empty.actual, 0);
+  assert.deepEqual(empty.noData.map(span => [...span]), [[base, base + 480]]);
+});
