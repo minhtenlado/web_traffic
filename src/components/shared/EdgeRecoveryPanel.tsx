@@ -7,7 +7,7 @@ import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
 import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, selectDisplayMinuteForecast, type EdgeMinuteHistoryPoint, type ReadyMinuteForecast } from "@/lib/edge-quality";
 import { evaluateVehicleCountForecast, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
-import { HISTORY_OFFSET_HOURS, HISTORY_OFFSET_LABELS, HISTORY_RANGE_HOURS, historyCoverage, historyRangeSeries, parseHistoryResponse, type HistoryRow, type HistorySpan } from "@/lib/history-range";
+import { HISTORY_FULL_DAY, HISTORY_RANGE_HOURS, historyDays, historyRangeSeries, parseHistoryResponse, type HistoryRow } from "@/lib/history-range";
 import { SectionCard } from "./ui";
 
 const COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc", "#f472b6"];
@@ -15,25 +15,6 @@ const COMPARISON_HORIZONS = [1, 5, 15, 30] as const;
 const OBSERVED_COLOR = "#34d399";
 const PREDICTED_COLOR = "#60a5fa";
 const CURRENT_COLOR = "#f472b6";
-const NO_DATA_COLOR = "#ef4444";
-const NO_FORECAST_COLOR = "#f59e0b";
-const NO_DATA_LABEL = "Mất dữ liệu";
-const NO_FORECAST_LABEL = "Chưa có dự báo";
-const NO_ACTUAL_MESSAGE = "Không có số liệu trong khoảng này: thiết bị tắt, mất mạng hoặc camera không có ảnh.";
-const NO_FORECAST_MESSAGE = "Không có dự báo TCN trong khoảng này. TCN chỉ dự báo khi có đủ 120 phút số liệu liên tục của cả 5 camera; sau mỗi lần mất dữ liệu quá 15 phút (mất mạng, khởi động lại, camera mất ảnh) hệ thống cần khoảng 2 giờ để tích lũy lại.";
-
-type ShadedSpans = { spans: HistorySpan[]; color: string; label: string };
-
-function formatDuration(minutes: number) {
-  if (minutes < 60) return `${minutes} phút`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
-}
-
-function spanMinutes(spans: HistorySpan[]) {
-  return spans.reduce((sum, [first, last]) => sum + (last - first) / 60 + 1, 0);
-}
 
 const WINDOW_FORMAT: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" };
 
@@ -44,17 +25,13 @@ function formatWindow([from, to]: [number, number]) {
 
 type ComparisonChartPoint = { timestamp: number; actual?: number | null; predicted?: number | null; predictedFilled?: boolean; current?: number | null };
 
-function ComparisonChart({ title, subtitle, data, lines, currentTimestamp, futureEnd, window: fixedWindow, shaded = [], emptyMessage }: {
+function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd, window: fixedWindow }: {
   title: string;
-  subtitle?: string;
   window?: [number, number];
   data: ComparisonChartPoint[];
   lines: Array<{ key: "actual" | "predicted" | "current"; name: string; color: string; dashed?: boolean; marker?: boolean }>;
   currentTimestamp?: number;
   futureEnd?: number;
-  /** Minute runs to shade (each run covers its minutes ±30 s), e.g. outages. */
-  shaded?: ShadedSpans[];
-  emptyMessage?: string;
 }) {
   const timestamps = data.map(point => point.timestamp).filter(Number.isFinite);
   const hasValues = lines.some(line => data.some(point => typeof point[line.key] === "number" && Number.isFinite(point[line.key])));
@@ -62,23 +39,14 @@ function ComparisonChart({ title, subtitle, data, lines, currentTimestamp, futur
     ? [timestamps[0] - 60, timestamps[timestamps.length - 1] + 60]
     : [0, 60]);
 
-  const clamp = (value: number) => Math.min(domain[1], Math.max(domain[0], value));
-  const areas = shaded.flatMap(group => group.spans.map(([first, last]) => ({
-    key: `${group.label}-${first}`, color: group.color, x1: clamp(first - 30), x2: clamp(last + 30),
-  }))).filter(area => area.x2 > area.x1);
-  const legend = shaded.filter(group => group.spans.length > 0);
-
   return <section className="rounded-xl border border-border/80 bg-muted/15 p-3 sm:p-4">
-    <h4 className="text-sm font-semibold">{title}</h4>
-    {subtitle && <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">{subtitle}</p>}
-    <div className="mb-2" />
+    <h4 className="mb-2 text-sm font-semibold">{title}</h4>
     {hasValues ? <div role="img" aria-label={title} className="h-[220px] w-full sm:h-[250px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 12, right: 14, bottom: 4, left: 0 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
           <XAxis dataKey="timestamp" type="number" domain={domain} minTickGap={32}
-            tickFormatter={value => new Date(Number(value) * 1000).toLocaleString("vi-VN", domain[1] - domain[0] > 12 * 3600
-              ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" } : { hour: "2-digit", minute: "2-digit" })}
+            tickFormatter={value => new Date(Number(value) * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
             tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
           <YAxis allowDecimals={false} domain={[0, "auto"]} width={38}
             tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -88,7 +56,6 @@ function ComparisonChart({ title, subtitle, data, lines, currentTimestamp, futur
               return [formatted, "Số xe"];
             }}
             contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} />
-          {areas.map(area => <ReferenceArea key={area.key} x1={area.x1} x2={area.x2} fill={area.color} fillOpacity={0.12} strokeOpacity={0} ifOverflow="hidden" />)}
           {currentTimestamp !== undefined && futureEnd !== undefined && futureEnd > currentTimestamp &&
             <ReferenceArea x1={currentTimestamp} x2={futureEnd} fill="#fb923c" fillOpacity={0.06} strokeOpacity={0} />}
           {currentTimestamp !== undefined && <ReferenceLine x={currentTimestamp} stroke="var(--foreground)"
@@ -100,13 +67,7 @@ function ComparisonChart({ title, subtitle, data, lines, currentTimestamp, futur
         </LineChart>
       </ResponsiveContainer>
     </div> : <div className="flex h-[220px] items-center justify-center rounded-lg border border-dashed border-border px-5 text-center text-sm text-muted-foreground sm:h-[250px]">
-      {emptyMessage ?? "Chưa có đủ dữ liệu để vẽ chuỗi này."}
-    </div>}
-    {hasValues && legend.length > 0 && <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-      {legend.map(group => <span key={group.label} className="inline-flex items-center gap-2">
-        <span className="inline-block h-2.5 w-4 rounded-sm" style={{ backgroundColor: group.color, opacity: 0.35 }} />
-        {group.label} · {formatDuration(spanMinutes(group.spans))}
-      </span>)}
+      Chưa có đủ dữ liệu để vẽ chuỗi này.
     </div>}
   </section>;
 }
@@ -134,16 +95,23 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
   const [horizon, setHorizon] = useState<number>(1);
   const [selectedCamera, setSelectedCamera] = useState<string>(MINUTE_CAMERA_IDS[0]);
   const [rangeHours, setRangeHours] = useState<number>(2);
-  const [offsetHours, setOffsetHours] = useState<number>(0);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [rangeRows, setRangeRows] = useState<HistoryRow[] | null>(null);
   const [rangeEnd, setRangeEnd] = useState<number | null>(null);
+  // Stored days 00:00–23:59 (today first); a day that expired at midnight falls back to today.
+  const days = historyDays(nowMs);
+  const day = days.find(item => item.key === selectedDay) ?? days[0];
+  const isToday = day.key === days[0].key;
+  const effectiveHours = isToday ? rangeHours : HISTORY_FULL_DAY;
+  const fullDay = effectiveHours === HISTORY_FULL_DAY;
+  const query = fullDay ? `day=${day.key}` : `hours=${effectiveHours}`;
   useEffect(() => {
     let alive = true;
     setRangeRows(null);
     setRangeEnd(null);
     const load = async () => {
       try {
-        const response = await fetch(`/api/history?hours=${rangeHours}&offset=${offsetHours}`, { cache: "no-store" });
+        const response = await fetch(`/api/history?${query}`, { cache: "no-store" });
         if (!response.ok) throw new Error(String(response.status));
         const body = await response.json();
         if (alive) {
@@ -157,7 +125,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
     void load();
     const timer = setInterval(() => void load(), 60_000);
     return () => { alive = false; clearInterval(timer); };
-  }, [rangeHours, offsetHours]);
+  }, [query]);
   const [lastReadyForecast, setLastReadyForecast] = useState<ReadyMinuteForecast | null>(null);
   if (forecast.ready && (!lastReadyForecast || forecast.issuedAt > lastReadyForecast.issuedAt)) {
     setLastReadyForecast(forecast);
@@ -183,14 +151,16 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             {MINUTE_CAMERA_IDS.map((camera, index) => <option key={camera} value={camera}>{CAMERAS.find(item => item.id === camera)?.name || `Camera ${index + 1}`}</option>)}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">Khoảng lịch sử
-          <select aria-label="Khoảng lịch sử" className={selectClass} value={rangeHours} onChange={event => setRangeHours(Number(event.target.value))}>
-            {HISTORY_RANGE_HOURS.map(value => <option key={value} value={value}>{value} giờ</option>)}
+        <label className="grid gap-1 text-xs text-muted-foreground">Ngày lịch sử (lưu 3 ngày)
+          <select aria-label="Ngày lịch sử" className={selectClass} value={day.key} onChange={event => setSelectedDay(event.target.value)}>
+            {days.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">Xem đến (lưu 3 ngày)
-          <select aria-label="Xem lịch sử đến thời điểm" className={selectClass} value={offsetHours} onChange={event => setOffsetHours(Number(event.target.value))}>
-            {HISTORY_OFFSET_HOURS.map(value => <option key={value} value={value}>{HISTORY_OFFSET_LABELS[value]}</option>)}
+        <label className="grid gap-1 text-xs text-muted-foreground">Khoảng lịch sử
+          <select aria-label="Khoảng lịch sử" className={selectClass} value={effectiveHours} disabled={!isToday}
+            onChange={event => setRangeHours(Number(event.target.value))}>
+            {HISTORY_RANGE_HOURS.map(value => <option key={value} value={value}>{value} giờ gần nhất</option>)}
+            <option value={HISTORY_FULL_DAY}>Cả ngày (00:00–23:59)</option>
           </select>
         </label>
         <label className="grid gap-1 text-xs text-muted-foreground">Mốc dự báo đối chiếu
@@ -215,27 +185,23 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             predicted: point.predicted,
             predictedFilled: point.filled,
           }));
-        // Saved history (Firebase, 3 days) once loaded — even if empty; live 2 h buffer only as a fallback for "now".
-        const useSaved = rangeRows !== null && (rangeRows.length > 0 || offsetHours > 0);
-        const cameraIndex = MINUTE_CAMERA_IDS.indexOf(camera as (typeof MINUTE_CAMERA_IDS)[number]);
-        const range = rangeRows && useSaved ? historyRangeSeries(rangeRows, camera, cameraIndex, horizon) : null;
-        const fallbackLive = !range && offsetHours === 0;
+        // Saved history (Firebase, per day) once loaded — even if empty; live 2 h buffer only as a fallback for recent hours.
+        const useSaved = rangeRows !== null && (rangeRows.length > 0 || fullDay);
+        const range = rangeRows && useSaved
+          ? historyRangeSeries(rangeRows, camera, MINUTE_CAMERA_IDS.indexOf(camera as (typeof MINUTE_CAMERA_IDS)[number]), horizon)
+          : null;
+        const fallbackLive = !range && !fullDay;
         const rangeActual: ComparisonChartPoint[] = range ? range.actual.map(point => ({ timestamp: point.timestamp, actual: point.value })) : fallbackLive ? actualHistory : [];
         const rangePredicted: ComparisonChartPoint[] = range ? range.predicted.map(point => ({ timestamp: point.timestamp, predicted: point.value })) : fallbackLive ? historicalPredictions : [];
         const stats = range ? { samples: range.samples, mae: range.mae, rmse: range.rmse }
           : fallbackLive ? visibleComparison : { samples: 0, mae: null, rmse: null };
-        const windowEnd = rangeEnd ?? nowMs / 1000 - offsetHours * 3600;
-        const rangeWindow: [number, number] | undefined = fallbackLive ? undefined : [windowEnd - rangeHours * 3600, windowEnd];
-        const shownHours = fallbackLive ? 2 : rangeHours;
-        const periodLabel = rangeWindow ? ` · ${formatWindow(rangeWindow)}` : "";
-        const coverage = range && rangeRows && rangeWindow
-          ? historyCoverage(rangeRows, camera, cameraIndex, horizon, rangeWindow[0], rangeWindow[1]) : null;
-        const noDataMinutes = coverage ? spanMinutes(coverage.noData) : 0;
-        const actualSubtitle = coverage ? `Có số liệu ${coverage.actual}/${coverage.minutes} phút`
-          + (coverage.imputed ? ` (${coverage.imputed} phút ước lượng khi camera mất ảnh ngắn)` : "")
-          + (noDataMinutes ? ` · mất dữ liệu ${formatDuration(noDataMinutes)}` : "") : undefined;
-        const forecastSubtitle = coverage ? `Có dự báo ${coverage.forecast}/${coverage.minutes} phút`
-          + (coverage.forecast < coverage.minutes ? " · TCN cần 120 phút số liệu liên tục trước khi dự báo" : "") : undefined;
+        const windowEnd = rangeEnd ?? nowMs / 1000;
+        // A day is drawn from 00:00 to its 23:59 minute even while today is still running.
+        const rangeWindow: [number, number] | undefined = fallbackLive ? undefined
+          : fullDay ? [day.start, day.start + 86340] : [windowEnd - effectiveHours * 3600, windowEnd];
+        const shownRange = fallbackLive ? "2 giờ" : fullDay ? "Cả ngày" : `${effectiveHours} giờ`;
+        const periodLabel = !rangeWindow ? "" : fullDay
+          ? ` · 00:00–23:59 ${day.key.slice(8, 10)}/${day.key.slice(5, 7)}/${day.key.slice(0, 4)}` : ` · ${formatWindow(rangeWindow)}`;
         const currentTimestamp = current?.timestamp ?? nowMs / 1000;
         const displayForecast = selectDisplayMinuteForecast(forecast, lastReadyForecast, currentTimestamp);
         const combinedRows = new Map<number, ComparisonChartPoint>();
@@ -294,13 +260,9 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
               </div>
           </section>}
           <div className="mt-4 space-y-3">
-            <ComparisonChart title={`1. Lịch sử thực tế · ${shownHours} giờ${periodLabel}`} subtitle={actualSubtitle}
-              data={rangeActual} window={rangeWindow} emptyMessage={range ? NO_ACTUAL_MESSAGE : undefined}
-              shaded={coverage ? [{ spans: coverage.noData, color: NO_DATA_COLOR, label: NO_DATA_LABEL }] : []}
+            <ComparisonChart title={`1. Lịch sử thực tế · ${shownRange}${periodLabel}`} data={rangeActual} window={rangeWindow}
               lines={[{ key: "actual", name: "Số xe lịch sử", color: OBSERVED_COLOR }]} />
-            <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút · ${shownHours} giờ${periodLabel}`} subtitle={forecastSubtitle}
-              data={rangePredicted} window={rangeWindow} emptyMessage={range ? NO_FORECAST_MESSAGE : undefined}
-              shaded={coverage ? [{ spans: coverage.noForecast, color: NO_FORECAST_COLOR, label: NO_FORECAST_LABEL }] : []}
+            <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút · ${shownRange}${periodLabel}`} data={rangePredicted} window={rangeWindow}
               lines={[{ key: "predicted", name: "Dự báo TCN lịch sử", color: PREDICTED_COLOR, dashed: true }]} />
             <ComparisonChart title="3. Hiện tại + dự báo TCN" data={combined}
               lines={[

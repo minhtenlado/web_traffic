@@ -1,13 +1,13 @@
-/** 2–24 h minute history published by the Genio (see edge `history_export.py`). */
-export const HISTORY_RANGE_HOURS = [2, 4, 8, 12, 24] as const;
-export type HistoryRangeHours = (typeof HISTORY_RANGE_HOURS)[number];
-/** The Genio keeps (and the Web can show) at most 3 days of minute history; older hours are deleted. */
-export const HISTORY_RETENTION_HOURS = 72;
-/** How far back the selected window ends: now, 1 day ago, 2 days ago (window always inside retention). */
-export const HISTORY_OFFSET_HOURS = [0, 24, 48] as const;
-export const HISTORY_OFFSET_LABELS: Record<(typeof HISTORY_OFFSET_HOURS)[number], string> = {
-  0: "Hiện tại", 24: "1 ngày trước", 48: "2 ngày trước",
-};
+/**
+ * Minute history published by the Genio in hour nodes (see edge `history_export.py`), stored per calendar
+ * day 00:00–23:59 (Asia/Ho_Chi_Minh). The Genio keeps today and the 2 previous days; the 4th day back and
+ * older are deleted on the board and in Firebase at midnight.
+ */
+export const HISTORY_KEEP_DAYS = 3;
+/** Recent windows ending now (today only). */
+export const HISTORY_RANGE_HOURS = [2, 4, 8, 12] as const;
+/** Range value meaning the whole selected day, 00:00–23:59. */
+export const HISTORY_FULL_DAY = 24;
 
 export type HistoryRow = {
   t: number;
@@ -30,16 +30,50 @@ export function historyStartKey(endMs: number, hours: number) {
   return historyHourKey(endMs - hours * 3600 * 1000);
 }
 
+/** Calendar day (YYYY-MM-DD, Asia/Ho_Chi_Minh) containing `ms`. */
+export function historyDayKey(ms: number) {
+  const local = new Date(ms + VN_OFFSET_MS);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`;
+}
+
+/** Seconds of 00:00 (+07:00) of a YYYY-MM-DD day, or null for a malformed day. */
+export function historyDayStart(day: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!match) return null;
+  const ms = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) - VN_OFFSET_MS;
+  return historyDayKey(ms) === day ? ms / 1000 : null;
+}
+
+export type HistoryDay = { key: string; label: string; start: number };
+
+/** The stored days, newest first: today, yesterday, the day before. */
+export function historyDays(nowMs: number): HistoryDay[] {
+  const today = historyDayStart(historyDayKey(nowMs))!;
+  return Array.from({ length: HISTORY_KEEP_DAYS }, (_, back) => {
+    const start = today - back * 86400;
+    const key = historyDayKey(start * 1000);
+    const date = `${key.slice(8, 10)}/${key.slice(5, 7)}`;
+    return { key, start, label: back === 0 ? `Hôm nay · ${date}` : back === 1 ? `Hôm qua · ${date}` : date };
+  });
+}
+
 export type HistoryWindow = { from: number; to: number; startKey: string; endKey: string };
 
-/** Window [from, to] (seconds) of `hours` ending `offsetHours` before now, or null if it is not a supported request. */
-export function historyWindow(nowMs: number, hours: number, offsetHours = 0): HistoryWindow | null {
+/**
+ * Window [from, to] (seconds) to read: a whole stored `day` (00:00–23:59) when given, otherwise the last `hours`
+ * ending now. Null when the request is not supported (unknown range, or a day that is no longer kept).
+ */
+export function historyWindow(nowMs: number, hours: number, day?: string | null): HistoryWindow | null {
+  if (day) {
+    const stored = historyDays(nowMs).find(item => item.key === day);
+    if (!stored) return null;
+    const compact = day.replaceAll("-", "");
+    return { from: stored.start, to: stored.start + 86399, startKey: `h${compact}00`, endKey: `h${compact}23` };
+  }
   if (!(HISTORY_RANGE_HOURS as readonly number[]).includes(hours)) return null;
-  if (!(HISTORY_OFFSET_HOURS as readonly number[]).includes(offsetHours)) return null;
-  if (hours + offsetHours > HISTORY_RETENTION_HOURS) return null;
-  const endMs = nowMs - offsetHours * 3600 * 1000;
-  return { from: endMs / 1000 - hours * 3600, to: endMs / 1000,
-    startKey: historyStartKey(endMs, hours), endKey: historyHourKey(endMs) };
+  return { from: nowMs / 1000 - hours * 3600, to: nowMs / 1000,
+    startKey: historyStartKey(nowMs, hours), endKey: historyHourKey(nowMs) };
 }
 
 function counts(value: unknown) {
@@ -101,59 +135,6 @@ function withGaps(points: { timestamp: number; value: number }[]): SeriesPoint[]
     result.push(point);
   }
   return result;
-}
-
-/** [first, last] minute (seconds) of a run of consecutive minutes. */
-export type HistorySpan = [number, number];
-
-export type HistoryCoverage = {
-  /** Whole minutes of the window that should already be published. */
-  minutes: number;
-  /** Minutes with a count for the camera, of which `imputed` are short-outage estimates. */
-  actual: number;
-  imputed: number;
-  /** Minutes with a forecast for the camera at the selected horizon. */
-  forecast: number;
-  /** Runs of minutes without a count (device off, network down, camera without images). */
-  noData: HistorySpan[];
-  /** Runs of minutes without a forecast (no data, or the TCN still collecting 120 contiguous minutes). */
-  noForecast: HistorySpan[];
-};
-
-/**
- * Which minutes of [from, to] have a count and a forecast for one camera.
- * The newest `pendingSeconds` are skipped: the Genio publishes a minute only after it ends.
- */
-export function historyCoverage(rows: HistoryRow[], camera: string, cameraIndex: number, horizon: number,
-  from: number, to: number, pendingSeconds = 120): HistoryCoverage {
-  const key = `h${horizon}`;
-  const actual = new Map<number, string>();
-  const forecast = new Set<number>();
-  for (const row of rows) {
-    const minute = Math.round(row.t / 60) * 60;
-    if (row.c?.[camera] !== undefined) actual.set(minute, row.s?.[cameraIndex] ?? "o");
-    if (row.p?.[key]?.[camera] !== undefined) forecast.add(minute);
-  }
-  const noData: HistorySpan[] = [];
-  const noForecast: HistorySpan[] = [];
-  const extend = (spans: HistorySpan[], minute: number) => {
-    const tail = spans[spans.length - 1];
-    if (tail && minute - tail[1] === 60) tail[1] = minute;
-    else spans.push([minute, minute]);
-  };
-  let minutes = 0, actualMinutes = 0, imputed = 0, forecastMinutes = 0;
-  for (let minute = Math.ceil(from / 60) * 60; minute <= to - pendingSeconds; minute += 60) {
-    minutes++;
-    const source = actual.get(minute);
-    if (source === undefined) extend(noData, minute);
-    else {
-      actualMinutes++;
-      if (source === "i") imputed++;
-    }
-    if (forecast.has(minute)) forecastMinutes++;
-    else extend(noForecast, minute);
-  }
-  return { minutes, actual: actualMinutes, imputed, forecast: forecastMinutes, noData, noForecast };
 }
 
 /** Actual and horizon-matched forecast series for one camera, plus error metrics on observed minutes. */
