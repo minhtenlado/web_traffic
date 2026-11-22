@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, Camera, Cloud, Cpu, MemoryStick, Radio, ServerCog, Thermometer } from "lucide-react";
+import { Camera, Cloud, Cpu, MemoryStick, Radio, ServerCog, Thermometer } from "lucide-react";
 import { useTrafficStore } from "@/lib/store";
 import { CAMERAS } from "@/lib/constants";
 import { selectedCameraView } from "@/lib/traffic-status";
@@ -13,11 +13,6 @@ import { SectionCard, StatusBadge } from "@/components/shared/ui";
 type Point = { timestamp: number; cpu: number | null; ram: number | null; time: string };
 function display(value: number | null | undefined, unit: string) {
   return value === null || value === undefined || !Number.isFinite(value) ? "—" : `${value.toFixed(value < 10 && unit !== "%" ? 1 : 0)}${unit}`;
-}
-function duration(seconds: number | null | undefined) {
-  if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) return "—";
-  const days = Math.floor(seconds / 86400), hours = Math.floor(seconds % 86400 / 3600), minutes = Math.floor(seconds % 3600 / 60);
-  return days ? `${days} ngày ${hours} giờ` : hours ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
 }
 
 export function SystemHealth() {
@@ -101,9 +96,5 @@ export function SystemHealth() {
         </div>
       </SectionCard>
     </div>
-
-    <SectionCard title="Thời gian hoạt động" icon={Activity}>
-      <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">Genio 350</p><p className="mt-1 text-2xl font-semibold tabular-nums">{duration(telemetryFresh ? health?.uptime : null)}</p></div><StatusBadge color={genioFresh && telemetryFresh ? "green" : "amber"}>{genioFresh && telemetryFresh ? "Heartbeat và telemetry mới" : genioFresh ? "AI còn heartbeat · telemetry phần cứng cũ" : "Chưa xác nhận hoạt động"}</StatusBadge></div>
-    </SectionCard>
   </div>;
 }
