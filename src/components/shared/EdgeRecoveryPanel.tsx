@@ -7,7 +7,7 @@ import { CAMERAS } from "@/lib/constants";
 import { edgeHistoryProgress } from "@/lib/edge-forecast";
 import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, selectDisplayMinuteForecast, type EdgeMinuteHistoryPoint, type ReadyMinuteForecast } from "@/lib/edge-quality";
 import { evaluateVehicleCountForecast, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
-import { HISTORY_RANGE_HOURS, historyRangeSeries, parseHistoryResponse, type HistoryRow } from "@/lib/history-range";
+import { HISTORY_OFFSET_HOURS, HISTORY_OFFSET_LABELS, HISTORY_RANGE_HOURS, historyRangeSeries, parseHistoryResponse, type HistoryRow } from "@/lib/history-range";
 import { SectionCard } from "./ui";
 
 const COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc", "#f472b6"];
@@ -15,6 +15,13 @@ const COMPARISON_HORIZONS = [1, 5, 15, 30] as const;
 const OBSERVED_COLOR = "#34d399";
 const PREDICTED_COLOR = "#60a5fa";
 const CURRENT_COLOR = "#f472b6";
+
+const WINDOW_FORMAT: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" };
+
+function formatWindow([from, to]: [number, number]) {
+  const format = (seconds: number) => new Date(seconds * 1000).toLocaleString("vi-VN", WINDOW_FORMAT);
+  return `${format(from)} → ${format(to)}`;
+}
 
 type ComparisonChartPoint = { timestamp: number; actual?: number | null; predicted?: number | null; predictedFilled?: boolean; current?: number | null };
 
@@ -39,7 +46,8 @@ function ComparisonChart({ title, data, lines, currentTimestamp, futureEnd, wind
         <LineChart data={data} margin={{ top: 12, right: 14, bottom: 4, left: 0 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
           <XAxis dataKey="timestamp" type="number" domain={domain} minTickGap={32}
-            tickFormatter={value => new Date(Number(value) * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+            tickFormatter={value => new Date(Number(value) * 1000).toLocaleString("vi-VN", domain[1] - domain[0] > 12 * 3600
+              ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" } : { hour: "2-digit", minute: "2-digit" })}
             tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
           <YAxis allowDecimals={false} domain={[0, "auto"]} width={38}
             tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -88,15 +96,22 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
   const [horizon, setHorizon] = useState<number>(1);
   const [selectedCamera, setSelectedCamera] = useState<string>(MINUTE_CAMERA_IDS[0]);
   const [rangeHours, setRangeHours] = useState<number>(2);
+  const [offsetHours, setOffsetHours] = useState<number>(0);
   const [rangeRows, setRangeRows] = useState<HistoryRow[] | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null);
   useEffect(() => {
     let alive = true;
+    setRangeRows(null);
+    setRangeEnd(null);
     const load = async () => {
       try {
-        const response = await fetch(`/api/history?hours=${rangeHours}`, { cache: "no-store" });
+        const response = await fetch(`/api/history?hours=${rangeHours}&offset=${offsetHours}`, { cache: "no-store" });
         if (!response.ok) throw new Error(String(response.status));
-        const rows = parseHistoryResponse(await response.json());
-        if (alive) setRangeRows(rows);
+        const body = await response.json();
+        if (alive) {
+          setRangeRows(parseHistoryResponse(body));
+          setRangeEnd(Number.isFinite(Number(body?.to)) ? Number(body.to) : null);
+        }
       } catch {
         if (alive) setRangeRows(null);
       }
@@ -104,7 +119,7 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
     void load();
     const timer = setInterval(() => void load(), 60_000);
     return () => { alive = false; clearInterval(timer); };
-  }, [rangeHours]);
+  }, [rangeHours, offsetHours]);
   const [lastReadyForecast, setLastReadyForecast] = useState<ReadyMinuteForecast | null>(null);
   if (forecast.ready && (!lastReadyForecast || forecast.issuedAt > lastReadyForecast.issuedAt)) {
     setLastReadyForecast(forecast);
@@ -135,6 +150,11 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             {HISTORY_RANGE_HOURS.map(value => <option key={value} value={value}>{value} giờ</option>)}
           </select>
         </label>
+        <label className="grid gap-1 text-xs text-muted-foreground">Xem đến (lưu 3 ngày)
+          <select aria-label="Xem lịch sử đến thời điểm" className={selectClass} value={offsetHours} onChange={event => setOffsetHours(Number(event.target.value))}>
+            {HISTORY_OFFSET_HOURS.map(value => <option key={value} value={value}>{HISTORY_OFFSET_LABELS[value]}</option>)}
+          </select>
+        </label>
         <label className="grid gap-1 text-xs text-muted-foreground">Mốc dự báo đối chiếu
           <select aria-label="Khoảng dự báo so sánh" className={selectClass} value={horizon} onChange={event => setHorizon(Number(event.target.value))}>
             {COMPARISON_HORIZONS.map(value => <option key={value} value={value}>{value} phút</option>)}
@@ -157,13 +177,20 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
             predicted: point.predicted,
             predictedFilled: point.filled,
           }));
-        const range = rangeRows && rangeRows.length
+        // Saved history (Firebase, 3 days) once loaded — even if empty; live 2 h buffer only as a fallback for "now".
+        const useSaved = rangeRows !== null && (rangeRows.length > 0 || offsetHours > 0);
+        const range = rangeRows && useSaved
           ? historyRangeSeries(rangeRows, camera, MINUTE_CAMERA_IDS.indexOf(camera as (typeof MINUTE_CAMERA_IDS)[number]), horizon)
           : null;
-        const rangeActual: ComparisonChartPoint[] = range ? range.actual.map(point => ({ timestamp: point.timestamp, actual: point.value })) : actualHistory;
-        const rangePredicted: ComparisonChartPoint[] = range ? range.predicted.map(point => ({ timestamp: point.timestamp, predicted: point.value })) : historicalPredictions;
-        const stats = range ? { samples: range.samples, mae: range.mae, rmse: range.rmse } : visibleComparison;
-        const rangeWindow: [number, number] | undefined = range ? [nowMs / 1000 - rangeHours * 3600, nowMs / 1000] : undefined;
+        const fallbackLive = !range && offsetHours === 0;
+        const rangeActual: ComparisonChartPoint[] = range ? range.actual.map(point => ({ timestamp: point.timestamp, actual: point.value })) : fallbackLive ? actualHistory : [];
+        const rangePredicted: ComparisonChartPoint[] = range ? range.predicted.map(point => ({ timestamp: point.timestamp, predicted: point.value })) : fallbackLive ? historicalPredictions : [];
+        const stats = range ? { samples: range.samples, mae: range.mae, rmse: range.rmse }
+          : fallbackLive ? visibleComparison : { samples: 0, mae: null, rmse: null };
+        const windowEnd = rangeEnd ?? nowMs / 1000 - offsetHours * 3600;
+        const rangeWindow: [number, number] | undefined = fallbackLive ? undefined : [windowEnd - rangeHours * 3600, windowEnd];
+        const shownHours = fallbackLive ? 2 : rangeHours;
+        const periodLabel = rangeWindow ? ` · ${formatWindow(rangeWindow)}` : "";
         const currentTimestamp = current?.timestamp ?? nowMs / 1000;
         const displayForecast = selectDisplayMinuteForecast(forecast, lastReadyForecast, currentTimestamp);
         const combinedRows = new Map<number, ComparisonChartPoint>();
@@ -222,9 +249,9 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
               </div>
           </section>}
           <div className="mt-4 space-y-3">
-            <ComparisonChart title={`1. Lịch sử thực tế · ${range ? rangeHours : 2} giờ`} data={rangeActual} window={rangeWindow}
+            <ComparisonChart title={`1. Lịch sử thực tế · ${shownHours} giờ${periodLabel}`} data={rangeActual} window={rangeWindow}
               lines={[{ key: "actual", name: "Số xe lịch sử", color: OBSERVED_COLOR }]} />
-            <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút · ${range ? rangeHours : 2} giờ`} data={rangePredicted} window={rangeWindow}
+            <ComparisonChart title={`2. Lịch sử dự báo TCN · mốc +${horizon} phút · ${shownHours} giờ${periodLabel}`} data={rangePredicted} window={rangeWindow}
               lines={[{ key: "predicted", name: "Dự báo TCN lịch sử", color: PREDICTED_COLOR, dashed: true }]} />
             <ComparisonChart title="3. Hiện tại + dự báo TCN" data={combined}
               lines={[

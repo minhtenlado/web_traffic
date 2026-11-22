@@ -8,7 +8,8 @@ const context = { exports: {}, Number, Math, Object, Array, Map, Date, String, R
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/history-range.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, context);
-const { historyStartKey, flattenHistoryBuckets, parseHistoryResponse, historyRangeSeries, HISTORY_RANGE_HOURS } = context.exports;
+const { historyStartKey, historyHourKey, historyWindow, flattenHistoryBuckets, parseHistoryResponse, historyRangeSeries,
+  HISTORY_RANGE_HOURS, HISTORY_OFFSET_HOURS, HISTORY_RETENTION_HOURS } = context.exports;
 
 test('range options and Vietnam-time hour keys', () => {
   assert.deepEqual([...HISTORY_RANGE_HOURS], [2, 4, 8, 12, 24]);
@@ -43,4 +44,24 @@ test('series break at gaps and metrics use observed minutes only', () => {
   assert.equal(series.mae, 2.5);
   assert.equal(Math.round(series.rmse * 1000) / 1000, Math.round(Math.sqrt((4 + 9) / 2) * 1000) / 1000);
   assert.equal(historyRangeSeries(rows, 'cam_01', 0, 30).samples, 0);
+});
+
+test('3-day retention: windows can end now, 1 day or 2 days ago, never beyond 72 h', () => {
+  assert.equal(HISTORY_RETENTION_HOURS, 72);
+  assert.deepEqual([...HISTORY_OFFSET_HOURS], [0, 24, 48]);
+  const now = Date.UTC(2026, 10, 22, 8, 30); // 22/11 15:30 +07
+  assert.equal(historyHourKey(now), 'h2026112215');
+  const today = historyWindow(now, 24, 0);
+  assert.equal(today.to, now / 1000);
+  assert.equal(today.from, now / 1000 - 24 * 3600);
+  assert.equal(today.startKey, 'h2026112115');
+  assert.equal(today.endKey, 'h2026112215');
+  const twoDaysAgo = historyWindow(now, 24, 48);
+  assert.equal(twoDaysAgo.startKey, 'h2026111915');
+  assert.equal(twoDaysAgo.endKey, 'h2026112015');
+  assert.equal(twoDaysAgo.from, now / 1000 - 72 * 3600); // oldest minute still kept
+  assert.equal(historyWindow(now, 2, 48).startKey, 'h2026112013');
+  assert.equal(historyWindow(now, 24, 72), null);   // beyond retention
+  assert.equal(historyWindow(now, 3, 0), null);     // unsupported range
+  assert.equal(historyWindow(now, 24, 12), null);   // unsupported offset
 });
