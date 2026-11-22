@@ -5,6 +5,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { useTrafficStore } from "@/lib/store";
 import { DIRECTIONS } from "@/lib/constants";
 import { formatNumber } from "@/lib/formatters";
+import { mergeTrafficTrend, minuteHistoryChartPoints } from "@/lib/traffic-status";
 import { SectionCard } from "@/components/shared/ui";
 import { BarChart3 } from "lucide-react";
 
@@ -16,7 +17,10 @@ const COLORS = ["#54d6b0", "#64b5f6", "#f4bb62", "#c6a5ff"];
 type WindowId = (typeof WINDOWS)[number]["id"];
 
 export function TrafficHistoryChart() {
-  const history = useTrafficStore((s) => s.chartHistory);
+  const liveHistory = useTrafficStore((s) => s.chartHistory);
+  const minuteHistory = useTrafficStore((s) => s.edgeMinuteHistory);
+  const history = useMemo(() => mergeTrafficTrend(minuteHistoryChartPoints(minuteHistory), liveHistory),
+    [minuteHistory, liveHistory]);
   const [windowId, setWindowId] = useState<WindowId>("15m");
   const windowSeconds = WINDOWS.find((window) => window.id === windowId)?.seconds ?? 900;
   const points = useMemo(() => {

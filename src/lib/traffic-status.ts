@@ -232,3 +232,37 @@ export function appendCameraHistory(history: CameraHistoryPoint[], records: Reco
   // Multiple cameras may publish the same observation timestamp separately.
   return [...(previous?.timestamp === at ? old.slice(0, -1) : old), point].slice(-360);
 }
+
+type MinuteHistoryRow = { timestamp: number; counts: Record<string, { count: number | null } | undefined> };
+
+/** Per-direction sums from the Genio minute history (last ~120 min), so the trend chart has a real 1-hour window on page load. */
+export function minuteHistoryChartPoints(history: MinuteHistoryRow[]): CameraHistoryPoint[] {
+  const points: CameraHistoryPoint[] = [];
+  for (const row of history) {
+    if (!Number.isFinite(row?.timestamp) || row.timestamp <= 0) continue;
+    const point: CameraHistoryPoint = { timestamp: row.timestamp, time: new Date(row.timestamp * 1000).toLocaleTimeString("vi-VN", { hour12: false }), source: "minute" };
+    let total = 0;
+    let hasValue = false;
+    for (const direction of DIRECTIONS) {
+      const cameras = CAMERAS.filter(camera => camera.direction === direction.id && camera.aiInput);
+      const counts = cameras.map(camera => row.counts?.[camera.id]?.count)
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0);
+      if (!counts.length) continue;
+      const sum = counts.reduce((acc, value) => acc + value, 0);
+      point[direction.id] = sum;
+      point[`${direction.id}_coverage`] = `${counts.length}/${cameras.length}`;
+      total += sum;
+      hasValue = true;
+    }
+    if (!hasValue) continue;
+    point.total = total;
+    points.push(point);
+  }
+  return points.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/** Minute history before the first live sample, then the live per-image samples of this page session. */
+export function mergeTrafficTrend(minutePoints: CameraHistoryPoint[], livePoints: CameraHistoryPoint[]) {
+  const firstLive = livePoints[0]?.timestamp ?? Number.POSITIVE_INFINITY;
+  return [...minutePoints.filter(point => point.timestamp < firstLive), ...livePoints];
+}

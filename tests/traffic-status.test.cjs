@@ -316,3 +316,23 @@ test('store synchronizes edge camera totals, routes, alerts and chart without le
   assert.equal(store.getState().isBoardOffline,true);
   await Promise.resolve();
 });
+
+test('trend chart back-fills an hour from Genio minute history, summed per direction', () => {
+  const minute = (timestamp, counts) => ({ timestamp, counts: Object.fromEntries(Object.entries(counts).map(([id, count]) => [id, { count }])) });
+  const points = status.minuteHistoryChartPoints([
+    minute(2000, { cam_01: 5, cam_02: 3, cam_03: 4, cam_04: 2, cam_05: 6 }),
+    minute(1940, { cam_01: 7, cam_02: null, cam_03: null, cam_04: 1, cam_05: null }),
+    minute(1880, { cam_01: null, cam_02: null, cam_03: null, cam_04: null, cam_05: null }),
+  ]);
+  assert.deepEqual(points.map(p => p.timestamp), [1940, 2000]);
+  assert.equal(points[1].dien_bien_phu, 5);
+  assert.equal(points[1].dien_bien_phu_coverage, '2/2');
+  assert.equal(points[1].total, 20);
+  assert.equal(points[0].dien_bien_phu, 1);
+  assert.equal(points[0].dien_bien_phu_coverage, '1/2');
+  assert.equal(points[0].bach_dang, undefined);
+  const live = [{ timestamp: 1990, time: 'x', hang_xanh: 9 }, { timestamp: 2010, time: 'y', hang_xanh: 8 }];
+  const merged = status.mergeTrafficTrend(points, live);
+  assert.deepEqual(merged.map(p => p.timestamp), [1940, 1990, 2010]);
+  assert.deepEqual(status.mergeTrafficTrend(points, []).map(p => p.timestamp), [1940, 2000]);
+});
