@@ -9,13 +9,14 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/history-range.ts'
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, context);
 const { historyStartKey, historyHourKey, historyWindow, flattenHistoryBuckets, parseHistoryResponse, historyRangeSeries,
-  HISTORY_RANGE_HOURS, HISTORY_OFFSET_HOURS, HISTORY_RETENTION_HOURS } = context.exports;
+  historyDayKey, historyDayStart, historyDays, HISTORY_RANGE_HOURS, HISTORY_FULL_DAY, HISTORY_KEEP_DAYS } = context.exports;
 
 test('range options and Vietnam-time hour keys', () => {
-  assert.deepEqual([...HISTORY_RANGE_HOURS], [2, 4, 8, 12, 24]);
+  assert.deepEqual([...HISTORY_RANGE_HOURS], [2, 4, 8, 12]);
+  assert.equal(HISTORY_FULL_DAY, 24);
   const now = Date.UTC(2026, 10, 22, 8, 30); // 15:30 +07
   assert.equal(historyStartKey(now, 2), 'h2026112213');
-  assert.equal(historyStartKey(now, 24), 'h2026112115');
+  assert.equal(historyStartKey(now, 12), 'h2026112203');
 });
 
 test('flatten keeps only well-formed rows inside the window', () => {
@@ -46,47 +47,32 @@ test('series break at gaps and metrics use observed minutes only', () => {
   assert.equal(historyRangeSeries(rows, 'cam_01', 0, 30).samples, 0);
 });
 
-test('3-day retention: windows can end now, 1 day or 2 days ago, never beyond 72 h', () => {
-  assert.equal(HISTORY_RETENTION_HOURS, 72);
-  assert.deepEqual([...HISTORY_OFFSET_HOURS], [0, 24, 48]);
-  const now = Date.UTC(2026, 10, 22, 8, 30); // 22/11 15:30 +07
-  assert.equal(historyHourKey(now), 'h2026112215');
-  const today = historyWindow(now, 24, 0);
-  assert.equal(today.to, now / 1000);
-  assert.equal(today.from, now / 1000 - 24 * 3600);
-  assert.equal(today.startKey, 'h2026112115');
-  assert.equal(today.endKey, 'h2026112215');
-  const twoDaysAgo = historyWindow(now, 24, 48);
-  assert.equal(twoDaysAgo.startKey, 'h2026111915');
-  assert.equal(twoDaysAgo.endKey, 'h2026112015');
-  assert.equal(twoDaysAgo.from, now / 1000 - 72 * 3600); // oldest minute still kept
-  assert.equal(historyWindow(now, 2, 48).startKey, 'h2026112013');
-  assert.equal(historyWindow(now, 24, 72), null);   // beyond retention
-  assert.equal(historyWindow(now, 3, 0), null);     // unsupported range
-  assert.equal(historyWindow(now, 24, 12), null);   // unsupported offset
-});
-
-test('coverage counts minutes with data and forecasts and lists the gaps', () => {
-  const { historyCoverage } = context.exports;
-  const base = 1_800_000_000 - (1_800_000_000 % 60);
-  const rows = [
-    { t: base, s: 'ooooo', c: { cam_01: 5 } },
-    { t: base + 60, s: 'ioooo', c: { cam_01: 6 }, p: { h1: { cam_01: 6 } } },
-    // base+120 .. base+240 missing (3 minutes)
-    { t: base + 300, s: 'ooooo', c: { cam_01: 7 }, p: { h1: { cam_01: 8 } } },
-    { t: base + 360, s: 'moooo', c: { cam_02: 1 }, p: { h1: { cam_01: 9 } } },
-  ];
-  const coverage = historyCoverage(rows, 'cam_01', 0, 1, base, base + 360 + 120);
-  assert.equal(coverage.minutes, 7);
-  assert.equal(coverage.actual, 3);
-  assert.equal(coverage.imputed, 1);
-  assert.equal(coverage.forecast, 3);
-  assert.deepEqual(coverage.noData.map(span => [...span]), [[base + 120, base + 240], [base + 360, base + 360]]);
-  assert.deepEqual(coverage.noForecast.map(span => [...span]), [[base, base], [base + 120, base + 240]]);
-  // The newest two minutes are not published yet and are not counted as missing.
-  assert.equal(historyCoverage(rows, 'cam_01', 0, 1, base, base + 360 + 60).minutes, 6);
-  // Nothing stored at all: the whole window is one gap.
-  const empty = historyCoverage([], 'cam_01', 0, 1, base, base + 600);
-  assert.equal(empty.actual, 0);
-  assert.deepEqual(empty.noData.map(span => [...span]), [[base, base + 480]]);
+test('history is kept per calendar day: today and the 2 previous days, 00:00–23:59', () => {
+  assert.equal(HISTORY_KEEP_DAYS, 3);
+  const now = Date.UTC(2026, 10, 22, 17, 30); // 23/11 00:30 +07 — already the next day in Vietnam
+  assert.equal(historyDayKey(now), '2026-11-23');
+  assert.equal(historyDayStart('2026-11-23'), Date.UTC(2026, 10, 22, 17) / 1000);
+  assert.equal(historyDayStart('2026-02-30'), null);
+  assert.equal(historyDayStart('23/11/2026'), null);
+  const days = historyDays(now);
+  assert.deepEqual(days.map(day => day.key), ['2026-11-23', '2026-11-22', '2026-11-21']);
+  assert.deepEqual(days.map(day => day.label), ['Hôm nay · 23/11', 'Hôm qua · 22/11', '21/11']);
+  const yesterday = historyWindow(now, 2, '2026-11-22');
+  assert.equal(yesterday.from, historyDayStart('2026-11-22'));
+  assert.equal(yesterday.to, historyDayStart('2026-11-22') + 86399); // through 23:59:59
+  assert.equal(yesterday.startKey, 'h2026112200');
+  assert.equal(yesterday.endKey, 'h2026112223');
+  assert.equal(historyWindow(now, 24, '2026-11-20'), null); // 4th day back: deleted
+  assert.equal(historyWindow(now, 24, '2026-11-24'), null); // future day
+  const recent = historyWindow(now, 2);
+  assert.equal(recent.to, now / 1000);
+  assert.equal(recent.from, now / 1000 - 2 * 3600);
+  assert.equal(recent.startKey, 'h2026112222');
+  assert.equal(recent.endKey, 'h2026112300');
+  assert.equal(historyWindow(now, 24), null); // a whole day is requested by date
+  assert.equal(historyWindow(now, 3), null);
+  // At 00:00 the finished day is still offered as "Hôm qua" with its full 00:00–23:59 window.
+  const midnight = Date.UTC(2026, 10, 23, 17, 0); // 24/11 00:00 +07
+  assert.deepEqual(historyDays(midnight).map(day => day.key), ['2026-11-24', '2026-11-23', '2026-11-22']);
+  assert.equal(historyWindow(midnight, 24, '2026-11-23').to, historyDayStart('2026-11-24') - 1);
 });
