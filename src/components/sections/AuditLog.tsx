@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/formatters";
+import { everyWhileVisible } from "@/lib/visibility";
 import { StatCard, SectionCard, StatusBadge } from "@/components/shared/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,8 +79,7 @@ export function AuditLog() {
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 30_000);
-    return () => window.clearInterval(timer);
+    return everyWhileVisible(() => void refresh(), 30_000);
   }, [refresh]);
 
   const [search, setSearch] = useState("");

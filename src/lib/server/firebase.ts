@@ -12,3 +12,10 @@ export function database() {
   }, "traffic-server");
   return getDatabase(app);
 }
+
+/** Alert acknowledgements leave the server with their time only, never the actor. */
+export function publicAcknowledgements(raw: unknown) {
+  return Object.fromEntries(Object.entries((raw as Record<string, unknown>) || {}).map(([id, value]) => [id, {
+    acknowledgedAt: Number((value as Record<string, unknown>)?.acknowledgedAt) || null,
+  }]));
+}

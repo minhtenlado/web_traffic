@@ -8,6 +8,7 @@ import { edgeHistoryProgress } from "@/lib/edge-forecast";
 import { alignForecastComparisonToHistory, edgeHistoryQuality, edgeSystemHealth, MINUTE_CAMERA_IDS, readEdgeCurrentCount, readEdgeForecastComparison, readEdgeMinuteForecast, selectDisplayMinuteForecast, type EdgeMinuteHistoryPoint, type ReadyMinuteForecast } from "@/lib/edge-quality";
 import { evaluateVehicleCountForecast, VEHICLE_COUNT_LEVELS, vehicleCountLevel } from "@/lib/traffic-status";
 import { HISTORY_FULL_DAY, HISTORY_RANGE_HOURS, historyDays, historyRangeSeries, parseHistoryResponse, type HistoryRow } from "@/lib/history-range";
+import { everyWhileVisible } from "@/lib/visibility";
 import { SectionCard } from "./ui";
 
 const COLORS = ["#38bdf8", "#fb923c", "#4ade80", "#c084fc", "#f472b6"];
@@ -123,8 +124,8 @@ function ForecastComparison({ data, history, edgeAI, forecast, nowMs }: {
       }
     };
     void load();
-    const timer = setInterval(() => void load(), 60_000);
-    return () => { alive = false; clearInterval(timer); };
+    const stop = everyWhileVisible(() => void load(), 60_000);
+    return () => { alive = false; stop(); };
   }, [query]);
   const [lastReadyForecast, setLastReadyForecast] = useState<ReadyMinuteForecast | null>(null);
   if (forecast.ready && (!lastReadyForecast || forecast.issuedAt > lastReadyForecast.issuedAt)) {
