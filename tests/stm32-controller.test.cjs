@@ -97,8 +97,8 @@ test('Firebase nested put/patch events produce complete telemetry snapshots', ()
   }
   const events = [];
   const firebase = load('src/lib/firebase.ts', {
-    window: {}, EventSource: FakeSource, setInterval: () => 1, clearInterval: () => {},
-    setTimeout: () => 1,
+    window: {}, document: { hidden: false, addEventListener() {}, removeEventListener() {} },
+    EventSource: FakeSource, setInterval: () => 1, clearInterval: () => {}, setTimeout: () => 1, clearTimeout: () => {},
   });
   const cleanup = firebase.initUnifiedFirebase((path, data) => events.push({ path, data }));
   source.listeners.put({ data: JSON.stringify({ path: '/', data: { traffic: { signalState: state() } } }) });
@@ -146,4 +146,35 @@ test('cloud Firebase uses inline credentials without accessing local files', () 
   });
   assert.equal(firebase.database(), 'test-app');
   assert.equal(options.credential.project_id, 'test-project');
+});
+test('data API batches allowed paths in one response and keeps auth and the allow-list', async () => {
+  let authenticated = true; const reads = [];
+  const values = { realtime: { cam_01: { vehicle_count: 3 } }, 'traffic/signalState': state(),
+    'system/hardware': { cpu: 1 }, 'system/status': { online: true }, 'system/board_status': null,
+    'system/alertAcknowledgements': { a1: { acknowledgedAt: 5, actor: { id: 'secret', name: 'Hidden' } } } };
+  const serverFirebase = load('src/lib/server/firebase.ts', { require: (name) => name === 'node:fs' ? {} : require(name) });
+  const route = load('src/app/api/data/route.ts', {
+    URL, require: (name) => name.endsWith('/auth') ? { session: async () => authenticated ? { id: 'test', role: 'viewer' } : null }
+      : { publicAcknowledgements: serverFirebase.publicAcknowledgements, database: () => ({ ref: (url) => ({
+        get: async () => { reads.push(url); if (url === 'traffic/edgeAI') throw new Error('read failed'); return { val: () => values[url] ?? null }; },
+      }) }) },
+  });
+  const get = (query) => route.GET(new Request(`https://example.test/api/data?${query}`));
+  const batch = await get('paths=realtime,system,traffic/signalState,traffic/edgeAI');
+  assert.equal(batch.status, 200);
+  assert.equal(batch.headers.get('Cache-Control'), 'no-store');
+  const body = await batch.json();
+  assert.deepEqual(Object.keys(body), ['realtime', 'system', 'traffic/signalState']); // failed read is left out
+  assert.equal(body.realtime.cam_01.vehicle_count, 3);
+  assert.deepEqual(body.system.alertAcknowledgements, { a1: { acknowledgedAt: 5 } }); // actor never leaves the server
+  assert.equal(body['traffic/signalState'].countdown, 3);
+  assert.equal((await get('path=traffic/signalState').then((response) => response.json())).countdown, 3);
+  const readsBefore = reads.length;
+  assert.equal((await get('paths=realtime,traffic/commands')).status, 403);
+  assert.equal((await get('paths=')).status, 403);
+  assert.equal((await get('path=traffic/commands')).status, 403);
+  assert.equal(reads.length, readsBefore); // nothing is read for a rejected request
+  assert.equal((await get('paths=traffic/edgeAI')).status, 502);
+  authenticated = false;
+  assert.equal((await get('paths=realtime')).status, 401);
 });

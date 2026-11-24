@@ -169,15 +169,17 @@ test('Genio telemetry uses its sampled timestamp and expires instead of refreshi
   assert.equal(hardware.genioTelemetry({ echoTimestamp: sampledAt / 1000, sampleAgeMs: -1, temperatureC: 38 }), null);
 });
 test('SSE nested camera patches, deletes and system polling normalize full immutable snapshots', async () => {
-  let source; const intervals = []; const events = [];
+  let source; let clock = 1_000_000; const intervals = []; const events = []; const fetched = [];
   class FakeSource {
-    constructor() { this.listeners = {}; source = this; }
+    static OPEN = 1;
+    constructor() { this.listeners = {}; this.readyState = 1; source = this; }
     addEventListener(event, callback) { this.listeners[event] = callback; }
-    close() {}
+    close() { this.readyState = 2; }
   }
   const firebase = load('src/lib/firebase.ts', {
-    window: {}, EventSource: FakeSource, setInterval: f => (intervals.push(f), intervals.length), clearInterval() {}, setTimeout() {},
-    fetch: async url => ({ ok: true, json: async () => url.includes('path=system') ? { status: { online: true, last_heartbeat: 999 } } : {} }),
+    window: {}, document: { hidden: false, addEventListener() {}, removeEventListener() {} }, Date: { now: () => clock },
+    EventSource: FakeSource, setInterval: f => (intervals.push(f), intervals.length), clearInterval() {}, setTimeout() {}, clearTimeout() {},
+    fetch: async url => (fetched.push(url), { ok: true, json: async () => ({ system: { status: { online: true, last_heartbeat: 999 } } }) }),
   });
   const cleanup = firebase.initUnifiedFirebase((path, data) => events.push({ path, data }));
   const emit = (kind, path, data) => source.listeners[kind]({ data: JSON.stringify({ path, data }) });
@@ -194,7 +196,70 @@ test('SSE nested camera patches, deletes and system polling normalize full immut
   assert.equal(events.at(-1).path, '/traffic/edgeAI');
   assert.equal(events.at(-1).data, null);
   await intervals[1]();
+  assert.equal(fetched.length, 0); // no polling while the stream is open
+  source.onerror(); // stream drops; the reconnect is scheduled and the fallback takes over
+  clock += 8000;
+  await intervals[1]();
+  assert.equal(fetched.length, 1);
+  assert.match(fetched[0], /^\/api\/data\?paths=realtime,system,/);
   assert.equal(events.find(e => e.path === '/system').data.status.last_heartbeat, 999);
+  cleanup();
+});
+test('hidden tabs close the stream and send nothing until they are shown again', async () => {
+  const sources = []; const intervals = []; const fetched = []; let clock = 1_000_000; let onVisibilityChange;
+  class FakeSource {
+    static OPEN = 1;
+    constructor(url) { this.url = url; this.listeners = {}; this.readyState = 1; sources.push(this); }
+    addEventListener(event, callback) { this.listeners[event] = callback; }
+    close() { this.readyState = 2; this.closed = true; }
+  }
+  const document = { hidden: false, removeEventListener() {},
+    addEventListener: (event, callback) => { if (event === 'visibilitychange') onVisibilityChange = callback; } };
+  const firebase = load('src/lib/firebase.ts', {
+    window: {}, document, Date: { now: () => clock }, EventSource: FakeSource,
+    setInterval: f => (intervals.push(f), intervals.length), clearInterval() {}, setTimeout() {}, clearTimeout() {},
+    fetch: async url => (fetched.push(url), { ok: true, json: async () => ({}) }),
+  });
+  const cleanup = firebase.initUnifiedFirebase(() => {});
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].url, '/api/events');
+  document.hidden = true; onVisibilityChange();
+  assert.equal(sources[0].closed, true);
+  clock += 120_000;
+  for (const tick of intervals) await tick();
+  assert.equal(sources.length, 1);
+  assert.equal(fetched.length, 0);
+  document.hidden = false; onVisibilityChange();
+  assert.equal(sources.length, 2);
+  assert.equal(sources[1].closed, undefined);
+  cleanup();
+  assert.equal(sources[1].closed, true);
+});
+test('the stream reconnects 1 s after a normal server close and backs off after failures', () => {
+  const sources = []; const timeouts = []; let clock = 1_000_000;
+  class FakeSource {
+    static OPEN = 1;
+    constructor() { this.listeners = {}; sources.push(this); }
+    addEventListener(event, callback) { this.listeners[event] = callback; }
+    close() {}
+  }
+  const firebase = load('src/lib/firebase.ts', {
+    window: {}, document: { hidden: false, addEventListener() {}, removeEventListener() {} }, Date: { now: () => clock },
+    EventSource: FakeSource, setInterval: () => 1, clearInterval() {}, clearTimeout() {},
+    setTimeout: (callback, ms) => (timeouts.push({ callback, ms }), timeouts.length),
+  });
+  const cleanup = firebase.initUnifiedFirebase(() => {});
+  sources[0].onopen(); clock += 100_000; sources[0].onerror(); // server ended the stream on schedule
+  assert.equal(timeouts.at(-1).ms, 1000);
+  timeouts.at(-1).callback();
+  sources[1].onerror(); // refused before it opened, e.g. 401 or 5xx
+  assert.equal(timeouts.at(-1).ms, 3000);
+  timeouts.at(-1).callback();
+  sources[2].onerror();
+  assert.equal(timeouts.at(-1).ms, 6000);
+  timeouts.at(-1).callback();
+  sources[3].onopen(); clock += 100_000; sources[3].onerror();
+  assert.equal(timeouts.at(-1).ms, 1000);
   cleanup();
 });
 
@@ -335,4 +400,26 @@ test('trend chart back-fills an hour from Genio minute history, summed per direc
   const merged = status.mergeTrafficTrend(points, live);
   assert.deepEqual(merged.map(p => p.timestamp), [1940, 1990, 2010]);
   assert.deepEqual(status.mergeTrafficTrend(points, []).map(p => p.timestamp), [1940, 2000]);
+});
+test('a stream that keeps failing falls back to the batched request on every 8-second tick', async () => {
+  const sources = []; const intervals = []; const fetched = []; let clock = 1_000_000;
+  class FakeSource {
+    static OPEN = 1;
+    constructor() { this.listeners = {}; this.readyState = 0; sources.push(this); }
+    addEventListener(event, callback) { this.listeners[event] = callback; }
+    close() { this.readyState = 2; }
+  }
+  const firebase = load('src/lib/firebase.ts', {
+    window: {}, document: { hidden: false, addEventListener() {}, removeEventListener() {} }, Date: { now: () => clock },
+    EventSource: FakeSource, setInterval: f => (intervals.push(f), intervals.length), clearInterval() {}, clearTimeout() {},
+    setTimeout: (callback) => { callback(); return 1; }, // reconnect attempts happen right away
+    fetch: async url => (fetched.push(url), { ok: true, json: async () => ({}) }),
+  });
+  const cleanup = firebase.initUnifiedFirebase(() => {});
+  for (let tick = 1; tick <= 3; tick++) {
+    clock += 7000; sources.at(-1).onerror(); // a reconnect attempt fails just before the tick
+    clock += 1000; await intervals[1]();
+    assert.equal(fetched.length, tick);
+  }
+  cleanup();
 });
